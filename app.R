@@ -141,16 +141,22 @@ build_setting_projection <- function(visits, ll) {
   list(nodes = nodes, edges = edges)
 }
 
-build_bipartite <- function(visits, ll, inf_before = DEF_INF_BEFORE, inf_after = DEF_INF_AFTER) {
+build_bipartite <- function(visits, ll,
+                            inf_before = DEF_INF_BEFORE, inf_after  = DEF_INF_AFTER,
+                            inc_min    = DEF_INC_MIN,    inc_max    = DEF_INC_MAX) {
   if (nrow(visits) == 0)
     return(list(nodes = tibble(id = character(), label = character()),
                 edges = tibble(from = character(), to = character())))
   has_dates <- "visit_date" %in% names(visits) && any(!is.na(visits$visit_date))
   vv <- visits |> left_join(ll |> select(case_id, onset_date), by = "case_id")
-  vv$infectious <- if (has_dates)
-    !is.na(vv$onset_date) & !is.na(vv$visit_date) &
-      vv$visit_date >= vv$onset_date - inf_before &
-      vv$visit_date <= vv$onset_date + inf_after else FALSE
+  vv <- vv |> mutate(visit_cat = if (!has_dates) "other" else dplyr::case_when(
+    !is.na(onset_date) & !is.na(visit_date) &
+      visit_date >= onset_date - inf_before &
+      visit_date <= onset_date + inf_after  ~ "infectious",
+    !is.na(onset_date) & !is.na(visit_date) &
+      visit_date >= onset_date - inc_max &
+      visit_date <= onset_date - inc_min    ~ "exposure",
+    TRUE ~ "other"))
 
   setting_nodes <- vv |> distinct(setting_name, setting_type, case_id) |>
     count(setting_name, setting_type, name = "cases") |>
@@ -168,14 +174,19 @@ build_bipartite <- function(visits, ll, inf_before = DEF_INF_BEFORE, inf_after =
               color = CASE_COLOUR, shape = "dot", size = 8,
               title = paste0("<b>", case_id, "</b><br>Onset: ", onset_date,
                              "<br>Settings visited: ", ns))
+  cat_colour <- c(infectious = "#d62728", exposure = "#ff7f0e", other = "#9aa0a6")
+  cat_dashes  <- c(infectious = FALSE,    exposure = FALSE,      other = TRUE)
+  cat_label   <- c(
+    infectious = "case was infectious during this visit (possible source of transmission to others)",
+    exposure   = "timing compatible with having acquired infection at this setting",
+    other      = "outside both the infectious period and compatible exposure window")
   edges <- vv |> transmute(from = case_id, to = paste0("set::", setting_name),
-    dashes = if (has_dates) !infectious else FALSE,
-    color  = if (has_dates) ifelse(infectious, "#d62728", "#9aa0a6") else "#9aa0a6",
+    visit_cat,
+    dashes = unname(cat_dashes[visit_cat]),
+    color  = unname(cat_colour[visit_cat]),
     title  = paste0(case_id, " visited ", setting_name,
                     if (has_dates) paste0(" on ", visit_date) else "",
-                    if (has_dates) ifelse(infectious,
-                      " (case was infectious during this visit – a necessary but not sufficient condition for onward transmission)",
-                      " (outside infectious period – possible exposure to infection)") else ""))
+                    if (has_dates) paste0(" (", unname(cat_label[visit_cat]), ")") else ""))
   list(nodes = bind_rows(setting_nodes, case_nodes), edges = edges)
 }
 
@@ -290,6 +301,56 @@ setting_summary_html <- function(sel, nodes, edges) {
                 else paste0(paste(parts[-n], collapse = ", "), ", and ", parts[n])
   summary_div(paste0(sel_b, " (", stype, ") shares cases with ", n,
                      " other setting", if (n > 1) "s" else "", ": ", links_text, "."))
+}
+
+bipartite_summary_html <- function(sel, nodes, edges) {
+  summary_div <- function(msg) {
+    div(style = paste0("background:#f0f7ff; border-left:4px solid #2c7fb8; ",
+                       "padding:8px 12px; margin-top:8px; border-radius:4px; font-size:0.92em;"),
+        HTML(msg))
+  }
+  nd    <- nodes[nodes$id == sel, , drop = FALSE]
+  sel_b <- paste0("<b>", sel, "</b>")
+
+  fmt_settings <- function(ids)
+    paste(paste0("<b>", sub("^set::", "", ids), "</b>"), collapse = ", ")
+
+  if (nd$kind == "Setting") {
+    stype <- nd$group
+    ev    <- edges[edges$to == sel, , drop = FALSE]
+    if (nrow(ev) == 0)
+      return(summary_div(paste0(sel_b, " (", stype, ") has no case visits in the current view.")))
+    n_inf <- sum(ev$visit_cat == "infectious")
+    n_exp <- sum(ev$visit_cat == "exposure")
+    n_oth <- sum(ev$visit_cat == "other")
+    parts <- c(
+      if (n_inf > 0) paste0(n_inf, " infectious visit", if (n_inf > 1) "s" else "",
+                            " (case was infectious during this visit)"),
+      if (n_exp > 0) paste0(n_exp, " compatible exposure visit", if (n_exp > 1) "s" else "",
+                            " (timing consistent with acquisition at this setting)"),
+      if (n_oth > 0) paste0(n_oth, " visit", if (n_oth > 1) "s" else "",
+                            " outside the transmission window"))
+    summary_div(paste0(sel_b, " (", stype, ") is linked to ", nrow(ev),
+                       " case visit", if (nrow(ev) > 1) "s" else "", ": ",
+                       paste(parts, collapse = ", "), "."))
+  } else {
+    ev <- edges[edges$from == sel, , drop = FALSE]
+    if (nrow(ev) == 0)
+      return(summary_div(paste0(sel_b, " has no setting visits in the current view.")))
+    parts <- c(
+      if (any(ev$visit_cat == "infectious"))
+        paste0(fmt_settings(ev$to[ev$visit_cat == "infectious"]),
+               " during their infectious period (possible source of transmission there)"),
+      if (any(ev$visit_cat == "exposure"))
+        paste0(fmt_settings(ev$to[ev$visit_cat == "exposure"]),
+               " within the compatible exposure window (possible acquisition site)"),
+      if (any(ev$visit_cat == "other"))
+        paste0(fmt_settings(ev$to[ev$visit_cat == "other"]),
+               " outside the transmission window"))
+    summary_div(paste0(sel_b, " visited ", nrow(ev), " setting",
+                       if (nrow(ev) > 1) "s" else "", ": ",
+                       paste(parts, collapse = "; "), "."))
+  }
 }
 
 network_metrics <- function(nodes, edges) {
@@ -737,8 +798,9 @@ server <- function(input, output, session) {
     sel <- input$net_selected
     if (is.null(sel) || sel == "") return(NULL)
     nd <- netdata()
-    if (input$view == "contacts")   case_summary_html(sel, nd$edges)
+    if (input$view == "contacts")        case_summary_html(sel, nd$edges)
     else if (input$view == "projection") setting_summary_html(sel, nd$nodes, nd$edges)
+    else if (input$view == "bipartite")  bipartite_summary_html(sel, nd$nodes, nd$edges)
   })
 
   filtered <- reactive({
@@ -754,7 +816,7 @@ server <- function(input, output, session) {
     f <- filtered(); p <- params()
     switch(input$view,
       projection = build_setting_projection(f$visits, f$linelist),
-      bipartite  = build_bipartite(f$visits, f$linelist, p$inf_before, p$inf_after),
+      bipartite  = build_bipartite(f$visits, f$linelist, p$inf_before, p$inf_after, p$inc_min, p$inc_max),
       contacts   = {
         ct <- if (input$susp_source == "derive")
           derive_suspected_links(f$linelist, f$visits, p$inc_min, p$inc_max,
@@ -777,8 +839,17 @@ server <- function(input, output, session) {
     leg <- lapply(names(setting_colours), function(s)
       list(label = s, shape = if (v == "bipartite") "square" else "dot",
            color = unname(setting_colours[[s]])))
-    if (v == "bipartite") leg <- c(leg, list(list(label = "Case", shape = "dot", color = CASE_COLOUR)))
-    vn |> visLegend(useGroups = FALSE, addNodes = leg, position = "left", width = 0.18)
+    if (v == "bipartite") {
+      leg <- c(leg, list(list(label = "Case", shape = "dot", color = CASE_COLOUR)))
+      edge_leg <- list(
+        list(label = "Infectious visit",           color = "#d62728", dashes = FALSE),
+        list(label = "Compatible exposure",        color = "#ff7f0e", dashes = FALSE),
+        list(label = "Outside transmission window", color = "#9aa0a6", dashes = TRUE))
+      vn |> visLegend(useGroups = FALSE, addNodes = leg, addEdges = edge_leg,
+                      position = "left", width = 0.22)
+    } else {
+      vn |> visLegend(useGroups = FALSE, addNodes = leg, position = "left", width = 0.18)
+    }
   })
 
   output$curve   <- renderPlotly({ epi_curve(filtered()$linelist) })
