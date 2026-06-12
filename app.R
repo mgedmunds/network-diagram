@@ -388,6 +388,20 @@ hypotheses, alongside your wider outbreak knowledge.
 ui <- page_navbar(
   title = "Measles Outbreak Network Explorer",
   theme = bs_theme(version = 5, bootswatch = "flatly"), id = "nav",
+  header = tags$head(tags$style(HTML("
+    .vis-tooltip {
+      z-index: 99999 !important;
+      max-width: 260px !important;
+      white-space: normal !important;
+      word-wrap: break-word !important;
+      line-height: 1.5 !important;
+      padding: 6px 10px !important;
+    }
+    .network-card,
+    .network-card .card-body {
+      overflow: visible !important;
+    }
+  "))),
 
   nav_panel("Dashboard",
     layout_sidebar(
@@ -418,7 +432,7 @@ ui <- page_navbar(
                  strong("Assumptions & parameters"), " tabs at the top.")),
 
       layout_columns(col_widths = c(8, 4),
-        card(full_screen = TRUE,
+        card(full_screen = TRUE, class = "network-card",
           hdr("Network",
             paste0("Dots are cases and/or settings; lines are links. Colour = setting ",
                    "type. In the bipartite view red solid lines are visits during the ",
