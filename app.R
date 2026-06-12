@@ -404,6 +404,38 @@ ui <- page_navbar(
     .network-card .card-header select {
       margin-bottom: 0 !important;
     }
+    .network-expanded {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 9997 !important;
+      border-radius: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: visible !important;
+    }
+    .network-expanded .card-body {
+      flex: 1 !important;
+      min-height: 0 !important;
+      overflow: visible !important;
+    }
+    .network-expanded #net {
+      height: 100% !important;
+    }
+  ")),
+  tags$script(HTML("
+    function toggleNetwork() {
+      var card = document.querySelector('.network-card');
+      var btn  = document.getElementById('net-toggle-btn');
+      if (card.classList.toggle('network-expanded')) {
+        btn.textContent = 'Minimise';
+        document.body.style.overflow = 'hidden';
+      } else {
+        btn.textContent = 'Maximise';
+        document.body.style.overflow = '';
+      }
+    }
   "))),
 
   nav_panel("Dashboard",
@@ -426,7 +458,7 @@ ui <- page_navbar(
                  strong("Assumptions & parameters"), " tabs at the top.")),
 
       layout_columns(col_widths = c(8, 4),
-        card(full_screen = TRUE, class = "network-card",
+        card(class = "network-card",
           card_header(class = "d-flex justify-content-between align-items-center",
             div(class = "d-flex align-items-center gap-2",
               span("Network"),
@@ -435,9 +467,13 @@ ui <- page_navbar(
                             "Cases × settings (bipartite)"       = "bipartite",
                             "Case-to-case (transmission links)"       = "contacts"),
                 selected = "bipartite")),
-            info(paste0("Settings-to-settings links places that share a case. ",
-                        "Bipartite shows cases AND settings. Case-to-case uses the contacts ",
-                        "table or links derived from timing (see Assumptions & parameters)."))),
+            div(class = "d-flex align-items-center gap-2",
+              tags$button(id = "net-toggle-btn",
+                class = "btn btn-sm btn-outline-secondary",
+                onclick = "toggleNetwork()", "Maximise"),
+              info(paste0("Settings-to-settings links places that share a case. ",
+                          "Bipartite shows cases AND settings. Case-to-case uses the contacts ",
+                          "table or links derived from timing (see Assumptions & parameters).")))),
           visNetworkOutput("net", height = "560px")),
         card(hdr("Epidemic curve",
                  "New cases per week by onset date. A rising curve means the outbreak is still growing."),
