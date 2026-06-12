@@ -174,8 +174,8 @@ build_bipartite <- function(visits, ll, inf_before = DEF_INF_BEFORE, inf_after =
     title  = paste0(case_id, " visited ", setting_name,
                     if (has_dates) paste0(" on ", visit_date) else "",
                     if (has_dates) ifelse(infectious,
-                      " (within infectious period – possible onward transmission)",
-                      " (outside infectious period – possible exposure)") else ""))
+                      " (case was infectious during this visit – a necessary but not sufficient condition for onward transmission)",
+                      " (outside infectious period – possible exposure to infection)") else ""))
   list(nodes = bind_rows(setting_nodes, case_nodes), edges = edges)
 }
 
@@ -263,8 +263,33 @@ case_summary_html <- function(sel, edges) {
     paste0(sel_b, " has no transmission links shown in the current view.")
 
   div(style = paste0("background:#f0f7ff; border-left:4px solid #2c7fb8; ",
-                     "padding:8px 12px; margin-bottom:8px; border-radius:4px; font-size:0.92em;"),
+                     "padding:8px 12px; margin-top:8px; border-radius:4px; font-size:0.92em;"),
       HTML(msg))
+}
+
+setting_summary_html <- function(sel, nodes, edges) {
+  stype <- nodes$group[nodes$id == sel]
+  sel_b <- paste0("<b>", sel, "</b>")
+  summary_div <- function(msg) {
+    div(style = paste0("background:#f0f7ff; border-left:4px solid #2c7fb8; ",
+                       "padding:8px 12px; margin-top:8px; border-radius:4px; font-size:0.92em;"),
+        HTML(msg))
+  }
+  connected <- rbind(
+    edges[edges$from == sel, c("to", "value"), drop = FALSE],
+    setNames(edges[edges$to == sel, c("from", "value"), drop = FALSE], c("to", "value")))
+  if (nrow(connected) == 0)
+    return(summary_div(paste0(sel_b, " (", stype, ") shares no cases with other settings in the current view.")))
+  connected <- connected[order(-connected$value), ]
+  n <- nrow(connected)
+  parts <- vapply(seq_len(n), function(i)
+    paste0("<b>", connected$to[i], "</b> (", connected$value[i],
+           " shared case", if (connected$value[i] > 1) "s" else "", ")"), character(1))
+  links_text <- if (n == 1) parts
+                else if (n == 2) paste(parts[1], "and", parts[2])
+                else paste0(paste(parts[-n], collapse = ", "), ", and ", parts[n])
+  summary_div(paste0(sel_b, " (", stype, ") shares cases with ", n,
+                     " other setting", if (n > 1) "s" else "", ": ", links_text, "."))
 }
 
 network_metrics <- function(nodes, edges) {
@@ -369,8 +394,12 @@ node would fragment the network into more isolated clusters.
 
 The window of time during which a case can transmit infection to others. In this
 tool it is defined as a set number of days before and after symptom onset. Visits
-that fall within this window are highlighted in red in the bipartite view as
-possible sources of onward transmission. The default values are based on
+that fall within this window are highlighted in red in the bipartite view,
+indicating the case was infectious at the time — a necessary but not sufficient
+condition for onward transmission. Whether transmission actually occurred also
+depends on whether a susceptible person was present and went on to develop
+symptoms within the incubation period; that cross-case timing logic is applied
+only in the case-to-case derived links view. The default values are based on
 published measles parameters and can be adjusted on the **Assumptions &
 parameters** tab.
 
@@ -417,8 +446,9 @@ timing. How "suspected" is defined, and the parameters behind it, are on the
 
 Colour = setting type (legend). Size = number of cases. Hover any dot or line for
 details, drag to rearrange, click to highlight connections. In the bipartite
-view, **red solid** lines are visits during the infectious period (possible
-spread) and **grey dashed** lines are other visits (possible exposure).
+view, **red solid** lines are visits where the case was infectious (a necessary
+but not sufficient condition for onward transmission) and **grey dashed** lines
+are visits outside the infectious period (possible exposure to infection).
 
 ## Time slider, epidemic curve, metrics
 
@@ -466,11 +496,16 @@ the key epidemiological parameters. **Changes update the dashboard immediately.*
 ### When is a visit "infectious"?
 
 In the bipartite view each visit is classified using the **infectious period**:
-a visit is treated as infectious (possible onward transmission, shown red) when
-its date falls from *infectious-days-before* to *infectious-days-after* the case
-onset. Visits outside that window are treated as possible **exposure** (shown
-grey). Measles is commonly treated as infectious from about 4 days before to
-4 days after rash onset; this is the default and can be changed below.
+a visit is marked red when its date falls from *infectious-days-before* to
+*infectious-days-after* the case onset — meaning the case was infectious at the
+time of the visit. This is a **necessary but not sufficient** condition for
+onward transmission: it shows that the case could have been infectious at that
+setting, but does not confirm that a susceptible person was present or went on
+to develop symptoms within the incubation period. Visits outside that window are
+shown grey and represent possible exposure to infection (the case may have
+acquired infection there). Measles is commonly treated as infectious from about
+4 days before to 4 days after rash onset; this is the default and can be changed
+below.
 
 ### When is a case-to-case link "confirmed" vs "suspected"?
 
@@ -600,8 +635,8 @@ ui <- page_navbar(
               info(paste0("Settings-to-settings links places that share a case. ",
                           "Bipartite shows cases AND settings. Case-to-case uses the contacts ",
                           "table or links derived from timing (see Assumptions & parameters).")))),
-          uiOutput("case_summary"),
-          visNetworkOutput("net", height = "560px")),
+          visNetworkOutput("net", height = "560px"),
+          uiOutput("case_summary")),
         card(hdr("Epidemic curve",
                  "New cases per week by onset date. A rising curve means the outbreak is still growing."),
              plotlyOutput("curve", height = "300px")),
@@ -699,10 +734,11 @@ server <- function(input, output, session) {
   })
 
   output$case_summary <- renderUI({
-    req(input$view == "contacts")
     sel <- input$net_selected
     if (is.null(sel) || sel == "") return(NULL)
-    case_summary_html(sel, netdata()$edges)
+    nd <- netdata()
+    if (input$view == "contacts")   case_summary_html(sel, nd$edges)
+    else if (input$view == "projection") setting_summary_html(sel, nd$nodes, nd$edges)
   })
 
   filtered <- reactive({
