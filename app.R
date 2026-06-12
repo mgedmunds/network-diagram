@@ -401,6 +401,9 @@ ui <- page_navbar(
     .network-card .card-body {
       overflow: visible !important;
     }
+    .network-card .card-header select {
+      margin-bottom: 0 !important;
+    }
   "))),
 
   nav_panel("Dashboard",
@@ -409,15 +412,6 @@ ui <- page_navbar(
         fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
         helpText("Needs sheets 'linelist' and 'visits' (and optional 'contacts'). ",
                  "Leave empty to explore demo data."),
-        radioButtons("view",
-          label = tagList("Network view",
-            info(paste0("Settings-to-settings links places that share a case. ",
-                        "Bipartite shows cases AND settings. Case-to-case uses the contacts ",
-                        "table or links derived from timing (see Assumptions & parameters)."))),
-          choices = c("Settings ↔ settings (shared cases)" = "projection",
-                      "Cases × settings (bipartite)"       = "bipartite",
-                      "Case-to-case (transmission links)"       = "contacts"),
-          selected = "bipartite"),
         sliderInput("asof", label = NULL, min = Sys.Date() - 60, max = Sys.Date(),
                     value = Sys.Date(), timeFormat = "%d %b %Y",
                     animate = animationOptions(interval = 900)),
@@ -433,11 +427,17 @@ ui <- page_navbar(
 
       layout_columns(col_widths = c(8, 4),
         card(full_screen = TRUE, class = "network-card",
-          hdr("Network",
-            paste0("Dots are cases and/or settings; lines are links. Colour = setting ",
-                   "type. In the bipartite view red solid lines are visits during the ",
-                   "infectious period (possible spread) and grey dashed lines are other ",
-                   "visits (possible exposure). Hover, drag and click to explore.")),
+          card_header(class = "d-flex justify-content-between align-items-center",
+            div(class = "d-flex align-items-center gap-2",
+              span("Network"),
+              selectInput("view", NULL, width = "290px",
+                choices = c("Settings ↔ settings (shared cases)" = "projection",
+                            "Cases × settings (bipartite)"       = "bipartite",
+                            "Case-to-case (transmission links)"       = "contacts"),
+                selected = "bipartite")),
+            info(paste0("Settings-to-settings links places that share a case. ",
+                        "Bipartite shows cases AND settings. Case-to-case uses the contacts ",
+                        "table or links derived from timing (see Assumptions & parameters)."))),
           visNetworkOutput("net", height = "560px")),
         card(hdr("Epidemic curve",
                  "New cases per week by onset date. A rising curve means the outbreak is still growing."),
