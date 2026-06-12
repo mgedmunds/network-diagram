@@ -720,6 +720,18 @@ ui <- page_navbar(
              DTOutput("ll")))
     )),
 
+  nav_panel("Source data",
+    div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
+      card(hdr("Line list",
+               "One row per case. This is the primary case record table — onset date drives the time slider, epidemic curve and infectious-period logic."),
+           DTOutput("src_linelist")),
+      card(hdr("Visits",
+               "One row per case-setting visit. Cases that attended multiple settings appear on multiple rows. This table drives all three network views."),
+           DTOutput("src_visits")),
+      card(hdr("Contacts",
+               "One row per recorded transmission link. Optional — if not supplied, the contacts sheet is empty and case-to-case links can be derived from timing instead."),
+           DTOutput("src_contacts")))),
+
   nav_panel("Definitions",
     div(style = "max-width:860px; margin:0 auto; padding:8px 4px;",
         card(card_body(markdown(definitions_md))))),
@@ -872,6 +884,18 @@ server <- function(input, output, session) {
                    function(n) if (n %in% names(metric_tips_lookup)) metric_tips_lookup[[n]] else "", character(1))
     datatable(mt, rownames = FALSE,
               options = list(pageLength = 8, dom = "tp", headerCallback = header_tooltips(unname(tips))))
+  })
+
+  src_dt <- function(df) datatable(df, rownames = FALSE,
+    options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
+
+  output$src_linelist <- renderDT({ src_dt(raw()$linelist) })
+  output$src_visits   <- renderDT({ src_dt(raw()$visits) })
+  output$src_contacts <- renderDT({
+    ct <- raw()$contacts
+    if (nrow(ct) == 0)
+      src_dt(tibble::tibble(message = "No contacts sheet supplied — using demo data or file has no contacts tab."))
+    else src_dt(ct)
   })
 
   output$ll <- renderDT({
