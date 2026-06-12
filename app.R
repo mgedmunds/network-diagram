@@ -315,14 +315,18 @@ bipartite_summary_html <- function(sel, nodes, edges) {
   fmt_settings <- function(ids)
     paste(paste0("<b>", sub("^set::", "", ids), "</b>"), collapse = ", ")
 
+  cat_from_colour <- function(col) dplyr::case_when(
+    col == "#d62728" ~ "infectious", col == "#ff7f0e" ~ "exposure", TRUE ~ "other")
+
   if (nd$kind == "Setting") {
     stype <- nd$group
     ev    <- edges[edges$to == sel, , drop = FALSE]
     if (nrow(ev) == 0)
       return(summary_div(paste0(sel_b, " (", stype, ") has no case visits in the current view.")))
-    n_inf <- sum(ev$visit_cat == "infectious")
-    n_exp <- sum(ev$visit_cat == "exposure")
-    n_oth <- sum(ev$visit_cat == "other")
+    vc    <- if ("visit_cat" %in% names(ev)) ev$visit_cat else cat_from_colour(ev$color)
+    n_inf <- sum(vc == "infectious")
+    n_exp <- sum(vc == "exposure")
+    n_oth <- sum(vc == "other")
     parts <- c(
       if (n_inf > 0) paste0(n_inf, " infectious visit", if (n_inf > 1) "s" else "",
                             " (case was infectious during this visit)"),
@@ -337,15 +341,16 @@ bipartite_summary_html <- function(sel, nodes, edges) {
     ev <- edges[edges$from == sel, , drop = FALSE]
     if (nrow(ev) == 0)
       return(summary_div(paste0(sel_b, " has no setting visits in the current view.")))
+    vc <- if ("visit_cat" %in% names(ev)) ev$visit_cat else cat_from_colour(ev$color)
     parts <- c(
-      if (any(ev$visit_cat == "infectious"))
-        paste0(fmt_settings(ev$to[ev$visit_cat == "infectious"]),
+      if (any(vc == "infectious"))
+        paste0(fmt_settings(ev$to[vc == "infectious"]),
                " during their infectious period (possible source of transmission there)"),
-      if (any(ev$visit_cat == "exposure"))
-        paste0(fmt_settings(ev$to[ev$visit_cat == "exposure"]),
+      if (any(vc == "exposure"))
+        paste0(fmt_settings(ev$to[vc == "exposure"]),
                " within the compatible exposure window (possible acquisition site)"),
-      if (any(ev$visit_cat == "other"))
-        paste0(fmt_settings(ev$to[ev$visit_cat == "other"]),
+      if (any(vc == "other"))
+        paste0(fmt_settings(ev$to[vc == "other"]),
                " outside the transmission window"))
     summary_div(paste0(sel_b, " visited ", nrow(ev), " setting",
                        if (nrow(ev) > 1) "s" else "", ": ",
@@ -828,7 +833,9 @@ server <- function(input, output, session) {
 
   output$net <- renderVisNetwork({
     nd <- netdata(); v <- input$view
-    vn <- visNetwork(nd$nodes, nd$edges) |>
+    vis_edges <- if ("visit_cat" %in% names(nd$edges))
+      nd$edges |> select(-visit_cat) else nd$edges
+    vn <- visNetwork(nd$nodes, vis_edges) |>
       visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE),
                  nodesIdSelection = TRUE) |>
       visPhysics(stabilization = TRUE,
