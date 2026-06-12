@@ -80,7 +80,7 @@ make_demo_data <- function() {
     ~setting_name,              ~setting_type,
     "Riverside GP Surgery",     "Healthcare",
     "Central Hospital ED",      "Healthcare")
-  n <- 60
+  n <- 15
   ll <- tibble::tibble(
     case_id            = sprintf("C%03d", seq_len(n)),
     onset_date         = as.Date("2026-04-01") + sample(0:56, n, replace = TRUE),
@@ -174,19 +174,24 @@ build_bipartite <- function(visits, ll,
               color = CASE_COLOUR, shape = "dot", size = 8,
               title = paste0("<b>", case_id, "</b><br>Onset: ", onset_date,
                              "<br>Settings visited: ", ns))
-  cat_colour <- c(infectious = "#d62728", exposure = "#ff7f0e", other = "#9aa0a6")
-  cat_dashes  <- c(infectious = FALSE,    exposure = FALSE,      other = TRUE)
-  cat_label   <- c(
-    infectious = "case was infectious during this visit (possible source of transmission to others)",
-    exposure   = "timing compatible with having acquired infection at this setting",
-    other      = "outside both the infectious period and compatible exposure window")
-  edges <- vv |> transmute(from = case_id, to = paste0("set::", setting_name),
-    visit_cat,
-    dashes = unname(cat_dashes[visit_cat]),
-    color  = unname(cat_colour[visit_cat]),
-    title  = paste0(case_id, " visited ", setting_name,
-                    if (has_dates) paste0(" on ", visit_date) else "",
-                    if (has_dates) paste0(" (", unname(cat_label[visit_cat]), ")") else ""))
+  edges <- vv |> transmute(
+    from      = case_id,
+    to        = paste0("set::", setting_name),
+    visit_cat = visit_cat,
+    dashes    = visit_cat == "other",
+    color     = dplyr::case_when(
+                  visit_cat == "infectious" ~ "#d62728",
+                  visit_cat == "exposure"   ~ "#ff7f0e",
+                  TRUE                      ~ "#9aa0a6"),
+    title     = paste0(case_id, " visited ", setting_name,
+                  if (has_dates) paste0(" on ", visit_date) else "",
+                  if (has_dates) dplyr::case_when(
+                    visit_cat == "infectious" ~
+                      " (case was infectious during this visit – possible source of transmission to others)",
+                    visit_cat == "exposure" ~
+                      " (timing compatible with having acquired infection at this setting)",
+                    TRUE ~
+                      " (outside both the infectious period and compatible exposure window)") else ""))
   list(nodes = bind_rows(setting_nodes, case_nodes), edges = edges)
 }
 
@@ -701,6 +706,7 @@ ui <- page_navbar(
               info(paste0("Settings-to-settings links places that share a case. ",
                           "Bipartite shows cases AND settings. Case-to-case uses the contacts ",
                           "table or links derived from timing (see Assumptions & parameters).")))),
+          uiOutput("bipartite_key"),
           visNetworkOutput("net", height = "560px"),
           uiOutput("case_summary")),
         card(hdr("Epidemic curve",
@@ -799,6 +805,14 @@ server <- function(input, output, session) {
                      lb, ub, p$inf_before, p$inf_after)))
   })
 
+  output$bipartite_key <- renderUI({
+    req(input$view == "bipartite")
+    div(style = "display:flex; gap:16px; font-size:0.82em; padding:4px 2px 6px 2px; flex-wrap:wrap;",
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#d62728; margin-right:4px; vertical-align:middle;"), "Infectious visit"),
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#ff7f0e; margin-right:4px; vertical-align:middle;"), "Compatible exposure"),
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9aa0a6; border-top:2px dashed #9aa0a6; margin-right:4px; vertical-align:middle;"), "Outside transmission window"))
+  })
+
   output$case_summary <- renderUI({
     sel <- input$net_selected
     if (is.null(sel) || sel == "") return(NULL)
@@ -846,17 +860,8 @@ server <- function(input, output, session) {
     leg <- lapply(names(setting_colours), function(s)
       list(label = s, shape = if (v == "bipartite") "square" else "dot",
            color = unname(setting_colours[[s]])))
-    if (v == "bipartite") {
-      leg <- c(leg, list(list(label = "Case", shape = "dot", color = CASE_COLOUR)))
-      edge_leg <- list(
-        list(label = "Infectious visit",           color = "#d62728", dashes = FALSE),
-        list(label = "Compatible exposure",        color = "#ff7f0e", dashes = FALSE),
-        list(label = "Outside transmission window", color = "#9aa0a6", dashes = TRUE))
-      vn |> visLegend(useGroups = FALSE, addNodes = leg, addEdges = edge_leg,
-                      position = "left", width = 0.22)
-    } else {
-      vn |> visLegend(useGroups = FALSE, addNodes = leg, position = "left", width = 0.18)
-    }
+    if (v == "bipartite") leg <- c(leg, list(list(label = "Case", shape = "dot", color = CASE_COLOUR)))
+    vn |> visLegend(useGroups = FALSE, addNodes = leg, position = "left", width = 0.18)
   })
 
   output$curve   <- renderPlotly({ epi_curve(filtered()$linelist) })
