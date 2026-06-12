@@ -220,6 +220,53 @@ build_contacts_network <- function(ll, contacts, visits) {
   list(nodes = nodes, edges = edges)
 }
 
+case_summary_html <- function(sel, edges) {
+  num_word <- function(n) {
+    words <- c("one","two","three","four","five","six","seven","eight","nine","ten")
+    if (n >= 1 && n <= 10) words[n] else as.character(n)
+  }
+  fmt_ids <- function(ids) paste(paste0("<b>", ids, "</b>"), collapse = ", ")
+
+  sources    <- edges[edges$to   == sel, , drop = FALSE]
+  downstream <- edges[edges$from == sel, , drop = FALSE]
+
+  src_text <- NULL
+  if (nrow(sources) > 0) {
+    conf <- sources$from[!sources$dashes]
+    susp <- sources$from[ sources$dashes]
+    parts <- c()
+    if (length(conf)) parts <- c(parts, paste0(num_word(length(conf)),
+      " confirmed source", if (length(conf) > 1) "s" else "", " (", fmt_ids(conf), ")"))
+    if (length(susp)) parts <- c(parts, paste0(num_word(length(susp)),
+      " suspected source", if (length(susp) > 1) "s" else "", " (", fmt_ids(susp), ")"))
+    src_text <- paste(parts, collapse = " and ")
+  }
+
+  dn_text <- NULL
+  if (nrow(downstream) > 0) {
+    conf <- downstream$to[!downstream$dashes]
+    susp <- downstream$to[ downstream$dashes]
+    parts <- c()
+    if (length(conf)) parts <- c(parts, paste0("a confirmed source for ", fmt_ids(conf)))
+    if (length(susp)) parts <- c(parts, paste0("a suspected source for ", fmt_ids(susp)))
+    dn_text <- paste(parts, collapse = " and ")
+  }
+
+  sel_b <- paste0("<b>", sel, "</b>")
+  msg <- if (!is.null(src_text) && !is.null(dn_text))
+    paste0(sel_b, " has ", src_text, " and is ", dn_text, ".")
+  else if (!is.null(src_text))
+    paste0(sel_b, " has ", src_text, ".")
+  else if (!is.null(dn_text))
+    paste0(sel_b, " is ", dn_text, ".")
+  else
+    paste0(sel_b, " has no transmission links shown in the current view.")
+
+  div(style = paste0("background:#f0f7ff; border-left:4px solid #2c7fb8; ",
+                     "padding:8px 12px; margin-bottom:8px; border-radius:4px; font-size:0.92em;"),
+      HTML(msg))
+}
+
 network_metrics <- function(nodes, edges) {
   if (nrow(nodes) == 0)
     return(data.frame(Node = character(), Degree = integer(), Betweenness = numeric()))
@@ -262,6 +309,85 @@ ll_tips_lookup <- c(
   age_group          = "Age band of the case.",
   vaccination_status = "Recorded measles vaccination status of the case.",
   settings_visited   = "Number of distinct settings this case is recorded as having visited.")
+
+# ---- Definitions content ----------------------------------------------------
+definitions_md <- '
+## Definitions
+
+Terms used in this tool and what they mean in the context of outbreak investigation.
+
+---
+
+### Confirmed source
+
+A case that has been identified through investigation as the verified origin of
+transmission to another case. A confirmed link is one where an epidemiological
+connection has been established — for example a named household contact, a
+documented exposure event, or otherwise verified contact — and is recorded as
+such in the contacts data. Shown as a **solid line** in the case-to-case view.
+
+### Suspected source
+
+A case with a plausible but unverified link to a later case. A suspected link
+may be recorded as "Suspected" in the contacts data, or derived automatically
+by this tool when two cases attended the same setting and the gap between their
+onset dates falls within the range expected given the incubation and infectious
+periods. Shown as a **dashed line** in the case-to-case view. See the
+**Assumptions & parameters** tab for how the derived rule is defined and how to
+adjust the parameters.
+
+---
+
+### Setting
+
+A place where one or more cases were present during the outbreak — for example a
+school, healthcare facility, community group, or household. Settings are the
+nodes in the settings-to-settings and bipartite views.
+
+### Transmission link
+
+A directional connection from an earlier case (the source) to a later case (the
+recipient), indicating a possible or confirmed route of infection. Arrows point
+from source to recipient in the case-to-case view.
+
+### Degree
+
+The number of direct links a node has. In the case-to-case view this is the
+total number of transmission links (in or out). In the bipartite view it is the
+number of settings a case visited, or the number of cases linked to a setting.
+A high-degree node is a hub — either a case linked to many others, or a setting
+attended by many cases.
+
+### Betweenness
+
+How often a node lies on the shortest connecting path between other nodes in the
+network. A high betweenness value flags a "bridge" — a case or setting that
+connects otherwise separate parts of the outbreak. Removing a high-betweenness
+node would fragment the network into more isolated clusters.
+
+### Infectious period
+
+The window of time during which a case can transmit infection to others. In this
+tool it is defined as a set number of days before and after symptom onset. Visits
+that fall within this window are highlighted in red in the bipartite view as
+possible sources of onward transmission. The default values are based on
+published measles parameters and can be adjusted on the **Assumptions &
+parameters** tab.
+
+### Incubation period
+
+The time between a susceptible person being exposed to infection and developing
+symptoms. Used by the tool to define the plausible onset-gap range for deriving
+suspected case-to-case links. The default values are based on published measles
+parameters and can be adjusted on the **Assumptions & parameters** tab.
+
+---
+
+*All links are epidemiological connections recorded or inferred during
+investigation, not laboratory-proven transmission. Confirmed and suspected
+classifications reflect the strength of epidemiological evidence at the time of
+recording, not a clinical or virological standard.*
+'
 
 # ---- How-to-use content -----------------------------------------------------
 how_to_use_md <- '
@@ -454,7 +580,7 @@ ui <- page_navbar(
             info("Tick or untick to focus on particular kinds of setting.")),
           choices = names(setting_colours), selected = names(setting_colours)),
         hr(),
-        helpText("See ", strong("How to use"), " and ",
+        helpText("See ", strong("Definitions"), ", ", strong("How to use"), " and ",
                  strong("Assumptions & parameters"), " tabs at the top.")),
 
       layout_columns(col_widths = c(8, 4),
@@ -474,6 +600,7 @@ ui <- page_navbar(
               info(paste0("Settings-to-settings links places that share a case. ",
                           "Bipartite shows cases AND settings. Case-to-case uses the contacts ",
                           "table or links derived from timing (see Assumptions & parameters).")))),
+          uiOutput("case_summary"),
           visNetworkOutput("net", height = "560px")),
         card(hdr("Epidemic curve",
                  "New cases per week by onset date. A rising curve means the outbreak is still growing."),
@@ -485,6 +612,10 @@ ui <- page_navbar(
                  "Case records currently shown, with how many settings each visited. Hover headings for definitions."),
              DTOutput("ll")))
     )),
+
+  nav_panel("Definitions",
+    div(style = "max-width:860px; margin:0 auto; padding:8px 4px;",
+        card(card_body(markdown(definitions_md))))),
 
   nav_panel("How to use",
     div(style = "max-width:860px; margin:0 auto; padding:8px 4px;",
@@ -565,6 +696,13 @@ server <- function(input, output, session) {
                             "<b>%g</b> and <b>%g days</b> after the earlier one. The bipartite view marks a visit ",
                             "as infectious when it falls from <b>%g days before</b> to <b>%g days after</b> onset."),
                      lb, ub, p$inf_before, p$inf_after)))
+  })
+
+  output$case_summary <- renderUI({
+    req(input$view == "contacts")
+    sel <- input$net_selected
+    if (is.null(sel) || sel == "") return(NULL)
+    case_summary_html(sel, netdata()$edges)
   })
 
   filtered <- reactive({
