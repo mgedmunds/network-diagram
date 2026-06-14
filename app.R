@@ -208,17 +208,18 @@ build_bipartite <- function(visits, ll,
                   visit_cat == "exposure"   ~ "#1f77b4",
                   visit_cat == "both"       ~ "#9467bd",
                   TRUE                      ~ "#9aa0a6"),
-    title     = paste0(case_id, " visited ", setting_name,
-                  if (has_dates) paste0(" on ", visit_date) else "",
+    title     = paste0(
+                  "<b>", case_id, "</b> visited <b>", setting_name, "</b>",
+                  if (has_dates) paste0("<br>Date: ", visit_date) else "",
                   if (has_dates) dplyr::case_when(
                     visit_cat == "both"       ~
-                      " — present during both windows (falls within both infectious period and exposure window)",
+                      "<br>Present — during both windows<br><i>Falls within both the infectious period and exposure window</i>",
                     visit_cat == "infectious" ~
-                      " — present during infectious period (case may have transmitted infection here)",
+                      "<br>Present — during infectious period<br><i>Case may have transmitted infection here</i>",
                     visit_cat == "exposure"   ~
-                      " — present during exposure window (case may have acquired infection here)",
+                      "<br>Present — during exposure window<br><i>Case may have acquired infection here</i>",
                     TRUE ~
-                      " — present outside both windows (not considered relevant to transmission)") else ""))
+                      "<br>Present — outside both windows<br><i>Not considered relevant to transmission</i>") else ""))
   list(nodes = bind_rows(setting_nodes, case_nodes), edges = edges)
 }
 
@@ -525,11 +526,15 @@ ui <- page_navbar(
   header = tags$head(tags$style(HTML("
     .vis-tooltip {
       z-index: 99999 !important;
-      max-width: 260px !important;
+      max-width: 300px !important;
       white-space: normal !important;
       word-wrap: break-word !important;
-      line-height: 1.5 !important;
-      padding: 6px 10px !important;
+      line-height: 1.6 !important;
+      padding: 8px 12px !important;
+      font-size: 0.88em !important;
+    }
+    .vis-network {
+      overflow: visible !important;
     }
     .network-card,
     .network-card .card-body {
