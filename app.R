@@ -851,7 +851,7 @@ server <- function(input, output, session) {
 
   output$bipartite_key <- renderUI({
     req(input$view == "bipartite")
-    div(style = "display:flex; gap:16px; font-size:0.82em; padding:4px 2px 6px 2px; flex-wrap:wrap;",
+    div(style = "display:flex; flex-direction:column; gap:4px; font-size:0.82em; padding:4px 2px 6px 2px;",
       tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#d62728; margin-right:4px; vertical-align:middle;"), "Present — during infectious period (→ setting)"),
       tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#1f77b4; margin-right:4px; vertical-align:middle;"), "Present — during exposure window (→ case)"),
       tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9467bd; margin-right:4px; vertical-align:middle;"), "Present — during both windows (↔)"),
