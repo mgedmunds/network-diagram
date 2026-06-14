@@ -90,18 +90,35 @@ make_demo_data <- function() {
 
   prim <- sample(seq_len(nrow(community)), n, replace = TRUE, prob = comm_w)
   visits <- purrr::map_dfr(seq_len(n), function(i) {
+    onset <- ll$onset_date[i]
+
+    # Primary community setting: visit during infectious period (0-3 days before onset)
     rows <- tibble::tibble(case_id      = ll$case_id[i],
                            setting_name = community$setting_name[prim[i]],
                            setting_type = community$setting_type[prim[i]],
-                           visit_date   = ll$onset_date[i] - sample(0:3, 1))
-    if (runif(1) < 0.55) { h <- healthcare[sample(nrow(healthcare), 1), ]
+                           visit_date   = onset - sample(0:3, 1))
+
+    # Healthcare visit: during infectious period (1-3 days after onset)
+    if (runif(1) < 0.70) {
+      h <- healthcare[sample(nrow(healthcare), 1), ]
       rows <- bind_rows(rows, tibble::tibble(case_id = ll$case_id[i],
                           setting_name = h$setting_name, setting_type = h$setting_type,
-                          visit_date   = ll$onset_date[i] + sample(1:3, 1))) }
-    if (runif(1) < 0.30) { s2 <- community[sample(nrow(community), 1), ]
+                          visit_date   = onset + sample(1:3, 1))) }
+
+    # Exposure window visit: different setting, 8-20 days before onset
+    if (runif(1) < 0.65) {
+      exp_opts <- seq_len(nrow(community))[-prim[i]]
+      s_exp <- community[sample(exp_opts, 1), ]
       rows <- bind_rows(rows, tibble::tibble(case_id = ll$case_id[i],
-                          setting_name = s2$setting_name, setting_type = s2$setting_type,
-                          visit_date   = ll$onset_date[i] - sample(2:6, 1))) }
+                          setting_name = s_exp$setting_name, setting_type = s_exp$setting_type,
+                          visit_date   = onset - sample(8:20, 1))) }
+
+    # Historical visit outside both windows: 22-30 days before onset
+    if (runif(1) < 0.35) {
+      s_hist <- community[sample(seq_len(nrow(community)), 1), ]
+      rows <- bind_rows(rows, tibble::tibble(case_id = ll$case_id[i],
+                          setting_name = s_hist$setting_name, setting_type = s_hist$setting_type,
+                          visit_date   = onset - sample(22:30, 1))) }
     rows
   }) |> arrange(case_id, visit_date) |> distinct(case_id, setting_name, .keep_all = TRUE)
 
