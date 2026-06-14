@@ -181,10 +181,15 @@ build_bipartite <- function(visits, ll,
     to        = paste0("set::", setting_name),
     visit_cat = visit_cat,
     dashes    = visit_cat == "other",
+    arrows    = dplyr::case_when(
+                  visit_cat == "infectious" ~ "to",
+                  visit_cat == "exposure"   ~ "from",
+                  visit_cat == "both"       ~ "to;from",
+                  TRUE                      ~ ""),
     color     = dplyr::case_when(
-                  visit_cat == "both"       ~ "#9467bd",
                   visit_cat == "infectious" ~ "#d62728",
-                  visit_cat == "exposure"   ~ "#ff7f0e",
+                  visit_cat == "exposure"   ~ "#1f77b4",
+                  visit_cat == "both"       ~ "#9467bd",
                   TRUE                      ~ "#9aa0a6"),
     title     = paste0(case_id, " visited ", setting_name,
                   if (has_dates) paste0(" on ", visit_date) else "",
@@ -326,7 +331,7 @@ bipartite_summary_html <- function(sel, nodes, edges) {
     paste(paste0("<b>", sub("^set::", "", ids), "</b>"), collapse = ", ")
 
   cat_from_colour <- function(col) dplyr::case_when(
-    col == "#d62728" ~ "infectious", col == "#ff7f0e" ~ "exposure",
+    col == "#d62728" ~ "infectious", col == "#1f77b4" ~ "exposure",
     col == "#9467bd" ~ "both", TRUE ~ "other")
 
   if (nd$kind == "Setting") {
@@ -525,10 +530,11 @@ timing. How "suspected" is defined, and the parameters behind it, are on the
 
 Colour = setting type (legend). Size = number of cases. Hover any dot or line for
 details, drag to rearrange, click to highlight connections. In the bipartite
-view, line colour shows when the case was present: **red** = during their
-infectious period (may have transmitted infection there), **orange** = during
-their exposure window (may have acquired infection there), **purple** = during
-both windows, **grey dashed** = outside both windows (not transmission-relevant).
+view, line colour and arrows show the direction of potential transmission:
+**red arrow → setting** = present during infectious period (may have spread
+infection there); **blue arrow → case** = present during exposure window (may
+have acquired infection there); **purple ↔** = present during both windows;
+**grey dashed** = outside both windows (not transmission-relevant).
 
 ## Time slider, epidemic curve, metrics
 
@@ -829,9 +835,9 @@ server <- function(input, output, session) {
   output$bipartite_key <- renderUI({
     req(input$view == "bipartite")
     div(style = "display:flex; gap:16px; font-size:0.82em; padding:4px 2px 6px 2px; flex-wrap:wrap;",
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#d62728; margin-right:4px; vertical-align:middle;"), "Present — during infectious period"),
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#ff7f0e; margin-right:4px; vertical-align:middle;"), "Present — during exposure window"),
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9467bd; margin-right:4px; vertical-align:middle;"), "Present — during both windows"),
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#d62728; margin-right:4px; vertical-align:middle;"), "Present — during infectious period (→ setting)"),
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#1f77b4; margin-right:4px; vertical-align:middle;"), "Present — during exposure window (→ case)"),
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9467bd; margin-right:4px; vertical-align:middle;"), "Present — during both windows (↔)"),
       tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9aa0a6; border-top:2px dashed #9aa0a6; margin-right:4px; vertical-align:middle;"), "Present — outside both windows"))
   })
 
