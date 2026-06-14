@@ -163,11 +163,19 @@ Derived rule for suspected case-to-case links: onset gap must be between
 ## Git workflow
 
 - Branch `main` is the stable baseline
-- Feature work goes on named branches (e.g. `control-panel`, `data-entry-forms`)
+- Feature work goes on named branches (e.g. `data-entry-forms`, `phase-2-views`)
 - Commit after each logical unit of work with a clear message
 - Push branches to GitHub; open a PR to merge into `main` when a phase is complete
-- `dev_progress.json` and `action_tracker.json` may be worth adding to `.gitignore`
-  once a decision is made — they are machine-written and will create noisy diffs
+
+## Project management
+
+- **GitHub Issues** — task tracking, bugs, decisions to make. One issue per task.
+- **Obsidian** — installed on Windows, vault points at `C:\Users\mgedmunds\projects\network-diagram`
+- **`docs/` folder** — working notes and architecture decisions, lives in the repo so Claude can read it
+  - `docs/data-model.md` — Phase 1 working notes, open questions, field decisions
+  - `docs/network-types.md` — Phase 2 working notes, view decisions
+  - `docs/decisions/` — ADRs for significant decisions (use TEMPLATE.md)
+- Windows Obsidian and WSL Claude Code stay in sync via `git pull` / `git push`
 
 ---
 
