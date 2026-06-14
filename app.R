@@ -425,9 +425,10 @@ have acquired infection there); **purple ↔** = present during both windows;
 
 ## Time slider, epidemic curve, metrics
 
-Slide the date back or press play to watch the outbreak grow. The bar chart shows
-new cases per week. **Degree** = number of direct links; **Betweenness** = how
-often a node bridges otherwise separate clusters.
+Drag either end of the onset date slider to narrow or widen the window, or press
+play to advance the end date and watch the outbreak grow. The bar chart shows new
+cases per week. **Degree** = number of direct links; **Betweenness** = how often
+a node bridges otherwise separate clusters.
 
 ## Ways to use it
 
@@ -582,11 +583,12 @@ ui <- page_navbar(
         fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
         helpText("Needs sheets 'linelist' and 'visits' (and optional 'contacts'). ",
                  "Leave empty to explore demo data."),
+        tags$label(class = "form-label mb-0",
+          "Filter by onset date",
+          info("Filters to cases whose symptom onset falls within this date range. Visit dates are filtered to the same window.")),
         sliderInput("asof", label = NULL, min = Sys.Date() - 60, max = Sys.Date(),
-                    value = Sys.Date(), timeFormat = "%d %b %Y",
+                    value = c(Sys.Date() - 60, Sys.Date()), timeFormat = "%d %b %Y",
                     animate = animationOptions(interval = 900)),
-        div(style = "margin-top:-10px;", tags$label("Show data up to..."),
-            info("Filters to cases with onset by this date and their visits up to it.")),
         checkboxGroupInput("types",
           label = tagList("Include setting types",
             info("Tick or untick to focus on particular kinds of setting.")),
@@ -694,7 +696,7 @@ server <- function(input, output, session) {
 
   observeEvent(raw(), {
     d <- raw(); rng <- range(c(d$linelist$onset_date, d$visits$visit_date), na.rm = TRUE)
-    updateSliderInput(session, "asof", min = rng[1], max = rng[2], value = rng[2])
+    updateSliderInput(session, "asof", min = rng[1], max = rng[2], value = c(rng[1], rng[2]))
   })
 
   params <- reactive({
@@ -734,9 +736,9 @@ server <- function(input, output, session) {
 
   filtered <- reactive({
     d  <- raw()
-    ll <- d$linelist |> filter(onset_date <= input$asof)
+    ll <- d$linelist |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
     vs <- d$visits   |> filter(setting_type %in% input$types, case_id %in% ll$case_id,
-                                is.na(visit_date) | visit_date <= input$asof)
+                                is.na(visit_date) | (visit_date >= input$asof[1] & visit_date <= input$asof[2]))
     ct <- d$contacts |> filter(from %in% ll$case_id, to %in% ll$case_id)
     list(linelist = ll, visits = vs, contacts = ct)
   })
