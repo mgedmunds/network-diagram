@@ -149,14 +149,16 @@ build_bipartite <- function(visits, ll,
                 edges = tibble(from = character(), to = character())))
   has_dates <- "visit_date" %in% names(visits) && any(!is.na(visits$visit_date))
   vv <- visits |> left_join(ll |> select(case_id, onset_date), by = "case_id")
-  vv <- vv |> mutate(visit_cat = if (!has_dates) "other" else dplyr::case_when(
-    !is.na(onset_date) & !is.na(visit_date) &
-      visit_date >= onset_date - inf_before &
-      visit_date <= onset_date + inf_after  ~ "infectious",
-    !is.na(onset_date) & !is.na(visit_date) &
-      visit_date >= onset_date - inc_max &
-      visit_date <= onset_date - inc_min    ~ "exposure",
-    TRUE ~ "other"))
+  vv <- vv |> mutate(
+    in_infectious = !is.na(onset_date) & !is.na(visit_date) &
+      visit_date >= onset_date - inf_before & visit_date <= onset_date + inf_after,
+    in_exposure   = !is.na(onset_date) & !is.na(visit_date) &
+      visit_date >= onset_date - inc_max    & visit_date <= onset_date - inc_min,
+    visit_cat = if (!has_dates) "other" else dplyr::case_when(
+      in_infectious & in_exposure ~ "both",
+      in_infectious               ~ "infectious",
+      in_exposure                 ~ "exposure",
+      TRUE                        ~ "other"))
 
   setting_nodes <- vv |> distinct(setting_name, setting_type, case_id) |>
     count(setting_name, setting_type, name = "cases") |>
@@ -180,18 +182,21 @@ build_bipartite <- function(visits, ll,
     visit_cat = visit_cat,
     dashes    = visit_cat == "other",
     color     = dplyr::case_when(
+                  visit_cat == "both"       ~ "#9467bd",
                   visit_cat == "infectious" ~ "#d62728",
                   visit_cat == "exposure"   ~ "#ff7f0e",
                   TRUE                      ~ "#9aa0a6"),
     title     = paste0(case_id, " visited ", setting_name,
                   if (has_dates) paste0(" on ", visit_date) else "",
                   if (has_dates) dplyr::case_when(
+                    visit_cat == "both"       ~
+                      " — present during both windows (falls within both infectious period and exposure window)",
                     visit_cat == "infectious" ~
-                      " — visit during infectious period (case may have transmitted infection here)",
-                    visit_cat == "exposure" ~
-                      " — visit during exposure window (case may have acquired infection here)",
+                      " — present during infectious period (case may have transmitted infection here)",
+                    visit_cat == "exposure"   ~
+                      " — present during exposure window (case may have acquired infection here)",
                     TRUE ~
-                      " — outside both transmission windows (not considered relevant to transmission)") else ""))
+                      " — present outside both windows (not considered relevant to transmission)") else ""))
   list(nodes = bind_rows(setting_nodes, case_nodes), edges = edges)
 }
 
@@ -321,7 +326,8 @@ bipartite_summary_html <- function(sel, nodes, edges) {
     paste(paste0("<b>", sub("^set::", "", ids), "</b>"), collapse = ", ")
 
   cat_from_colour <- function(col) dplyr::case_when(
-    col == "#d62728" ~ "infectious", col == "#ff7f0e" ~ "exposure", TRUE ~ "other")
+    col == "#d62728" ~ "infectious", col == "#ff7f0e" ~ "exposure",
+    col == "#9467bd" ~ "both", TRUE ~ "other")
 
   if (nd$kind == "Setting") {
     stype <- nd$group
@@ -331,14 +337,13 @@ bipartite_summary_html <- function(sel, nodes, edges) {
     vc    <- if ("visit_cat" %in% names(ev)) ev$visit_cat else cat_from_colour(ev$color)
     n_inf <- sum(vc == "infectious")
     n_exp <- sum(vc == "exposure")
+    n_bth <- sum(vc == "both")
     n_oth <- sum(vc == "other")
     parts <- c(
-      if (n_inf > 0) paste0(n_inf, " visit", if (n_inf > 1) "s" else "",
-                            " during the infectious period (case may have transmitted infection here)"),
-      if (n_exp > 0) paste0(n_exp, " visit", if (n_exp > 1) "s" else "",
-                            " during the exposure window (case may have acquired infection here)"),
-      if (n_oth > 0) paste0(n_oth, " visit", if (n_oth > 1) "s" else "",
-                            " outside both transmission windows"))
+      if (n_inf > 0) paste0(n_inf, " present during infectious period (may have transmitted infection here)"),
+      if (n_exp > 0) paste0(n_exp, " present during exposure window (may have acquired infection here)"),
+      if (n_bth > 0) paste0(n_bth, " present during both windows"),
+      if (n_oth > 0) paste0(n_oth, " present outside both windows"))
     summary_div(paste0(sel_b, " (", stype, ") is linked to ", nrow(ev),
                        " case visit", if (nrow(ev) > 1) "s" else "", ": ",
                        paste(parts, collapse = ", "), "."))
@@ -350,13 +355,16 @@ bipartite_summary_html <- function(sel, nodes, edges) {
     parts <- c(
       if (any(vc == "infectious"))
         paste0(fmt_settings(ev$to[vc == "infectious"]),
-               " during their infectious period (may have transmitted infection there)"),
+               " — present during infectious period (may have transmitted infection there)"),
       if (any(vc == "exposure"))
         paste0(fmt_settings(ev$to[vc == "exposure"]),
-               " during their exposure window (may have acquired infection there)"),
+               " — present during exposure window (may have acquired infection there)"),
+      if (any(vc == "both"))
+        paste0(fmt_settings(ev$to[vc == "both"]),
+               " — present during both windows"),
       if (any(vc == "other"))
         paste0(fmt_settings(ev$to[vc == "other"]),
-               " — outside both transmission windows"))
+               " — present outside both windows"))
     summary_div(paste0(sel_b, " visited ", nrow(ev), " setting",
                        if (nrow(ev) > 1) "s" else "", ": ",
                        paste(parts, collapse = "; "), "."))
@@ -517,10 +525,10 @@ timing. How "suspected" is defined, and the parameters behind it, are on the
 
 Colour = setting type (legend). Size = number of cases. Hover any dot or line for
 details, drag to rearrange, click to highlight connections. In the bipartite
-view, **red solid** lines are visits during the infectious period (case may have
-transmitted infection there), **orange solid** lines are visits during the
-exposure window (case may have acquired infection there), and **grey dashed**
-lines are outside both transmission windows.
+view, line colour shows when the case was present: **red** = during their
+infectious period (may have transmitted infection there), **orange** = during
+their exposure window (may have acquired infection there), **purple** = during
+both windows, **grey dashed** = outside both windows (not transmission-relevant).
 
 ## Time slider, epidemic curve, metrics
 
@@ -821,9 +829,10 @@ server <- function(input, output, session) {
   output$bipartite_key <- renderUI({
     req(input$view == "bipartite")
     div(style = "display:flex; gap:16px; font-size:0.82em; padding:4px 2px 6px 2px; flex-wrap:wrap;",
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#d62728; margin-right:4px; vertical-align:middle;"), "Visit during infectious period"),
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#ff7f0e; margin-right:4px; vertical-align:middle;"), "Visit during exposure window"),
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9aa0a6; border-top:2px dashed #9aa0a6; margin-right:4px; vertical-align:middle;"), "Outside transmission windows"))
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#d62728; margin-right:4px; vertical-align:middle;"), "Present — during infectious period"),
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#ff7f0e; margin-right:4px; vertical-align:middle;"), "Present — during exposure window"),
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9467bd; margin-right:4px; vertical-align:middle;"), "Present — during both windows"),
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9aa0a6; border-top:2px dashed #9aa0a6; margin-right:4px; vertical-align:middle;"), "Present — outside both windows"))
   })
 
   output$case_summary <- renderUI({

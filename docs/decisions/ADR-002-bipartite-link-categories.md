@@ -1,24 +1,30 @@
-# ADR-002: Bipartite network diagram link categories
+# ADR-002: Bipartite network diagram visit categories
 
 **Status:** Accepted
 **Date:** 2026-06-14
 
 ## Decision
 
-The three visit categories in the bipartite network diagram will be labelled:
-- **Visit during infectious period** — case was infectious at the time of the visit (possible source of transmission to others)
-- **Visit during exposure window** — timing is compatible with the case having acquired infection at this setting
-- **Outside both transmission windows** — visit falls outside both the infectious period and the exposure window; not considered epidemiologically relevant to transmission
+Four visit categories for the bipartite network diagram:
+
+- **Present — during infectious period** — case visited this setting while infectious; may have transmitted infection to others there
+- **Present — during exposure window** — case visited this setting during their exposure window; may have acquired infection there
+- **Present — during both windows** — visit falls within both the infectious period and the exposure window (possible when parameters overlap)
+- **Present — outside both windows** — visit is not considered relevant to either acquiring or transmitting infection
 
 ## Alternatives considered
 
-- "Infectious visit" / "Compatible exposure" / "Outside transmission window" — original labels; concise but inconsistent in style and unclear to non-epidemiologists
-- "Infectious" / "Exposure" / "Other" — too terse for a non-technical audience
+- "Visit(s) during infectious period" etc. — the `(s)` construct is awkward to read
+- "Infectious visit" / "Compatible exposure" / "Outside transmission window" — original labels; inconsistent style, unclear to non-epidemiologists
+- "Visits include infectious period" — accurate but verbose
+- "Present — during both" / "Present — during neither" — asymmetric; "neither" is correct but reads coldly
 
 ## Reasons
 
-Consistent use of "visit" as the noun across all three categories. Plain-language descriptions that a non-epidemiologist can understand without needing to read the definitions page. Plural "windows" correctly reflects that there are two distinct windows (infectious period and exposure window).
+"Present" describes the case-setting relationship without implying a single visit. The dash separator gives consistent visual rhythm across all four labels. "Outside both windows" is more intuitive than "neither". Four categories rather than three correctly handles the edge case where parameter changes cause the infectious period and exposure window to overlap.
 
 ## Consequences
 
-Labels are longer — legend and tooltip text needs to accommodate this. "Outside both transmission windows" should be shortened to "Outside transmission windows" in space-constrained contexts (e.g. legend).
+- Requires a fourth colour/style in the bipartite legend
+- The `build_bipartite()` function must classify visits into four categories, not three
+- Parameters where `inc_min < inf_before` will produce "both windows" visits — this should be flagged to the user
