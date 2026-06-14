@@ -1,5 +1,4 @@
-# ADR-001: Use visNetwork for network rendering
-
+ADR-001-visnetwork-for-rendering
 **Status:** Accepted
 **Date:** 2026-06-14
 
