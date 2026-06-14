@@ -263,136 +263,6 @@ build_contacts_network <- function(ll, contacts, visits) {
   list(nodes = nodes, edges = edges)
 }
 
-case_summary_html <- function(sel, edges) {
-  num_word <- function(n) {
-    words <- c("one","two","three","four","five","six","seven","eight","nine","ten")
-    if (n >= 1 && n <= 10) words[n] else as.character(n)
-  }
-  fmt_ids <- function(ids) paste(paste0("<b>", ids, "</b>"), collapse = ", ")
-
-  sources    <- edges[edges$to   == sel, , drop = FALSE]
-  downstream <- edges[edges$from == sel, , drop = FALSE]
-
-  src_text <- NULL
-  if (nrow(sources) > 0) {
-    conf <- sources$from[!sources$dashes]
-    susp <- sources$from[ sources$dashes]
-    parts <- c()
-    if (length(conf)) parts <- c(parts, paste0(num_word(length(conf)),
-      " confirmed source", if (length(conf) > 1) "s" else "", " (", fmt_ids(conf), ")"))
-    if (length(susp)) parts <- c(parts, paste0(num_word(length(susp)),
-      " suspected source", if (length(susp) > 1) "s" else "", " (", fmt_ids(susp), ")"))
-    src_text <- paste(parts, collapse = " and ")
-  }
-
-  dn_text <- NULL
-  if (nrow(downstream) > 0) {
-    conf <- downstream$to[!downstream$dashes]
-    susp <- downstream$to[ downstream$dashes]
-    parts <- c()
-    if (length(conf)) parts <- c(parts, paste0("a confirmed source for ", fmt_ids(conf)))
-    if (length(susp)) parts <- c(parts, paste0("a suspected source for ", fmt_ids(susp)))
-    dn_text <- paste(parts, collapse = " and ")
-  }
-
-  sel_b <- paste0("<b>", sel, "</b>")
-  msg <- if (!is.null(src_text) && !is.null(dn_text))
-    paste0(sel_b, " has ", src_text, " and is ", dn_text, ".")
-  else if (!is.null(src_text))
-    paste0(sel_b, " has ", src_text, ".")
-  else if (!is.null(dn_text))
-    paste0(sel_b, " is ", dn_text, ".")
-  else
-    paste0(sel_b, " has no transmission links shown in the current view.")
-
-  div(style = paste0("background:#f0f7ff; border-left:4px solid #2c7fb8; ",
-                     "padding:8px 12px; margin-top:8px; border-radius:4px; font-size:0.92em;"),
-      HTML(msg))
-}
-
-setting_summary_html <- function(sel, nodes, edges) {
-  stype <- nodes$group[nodes$id == sel]
-  sel_b <- paste0("<b>", sel, "</b>")
-  summary_div <- function(msg) {
-    div(style = paste0("background:#f0f7ff; border-left:4px solid #2c7fb8; ",
-                       "padding:8px 12px; margin-top:8px; border-radius:4px; font-size:0.92em;"),
-        HTML(msg))
-  }
-  connected <- rbind(
-    edges[edges$from == sel, c("to", "value"), drop = FALSE],
-    setNames(edges[edges$to == sel, c("from", "value"), drop = FALSE], c("to", "value")))
-  if (nrow(connected) == 0)
-    return(summary_div(paste0(sel_b, " (", stype, ") shares no cases with other settings in the current view.")))
-  connected <- connected[order(-connected$value), ]
-  n <- nrow(connected)
-  parts <- vapply(seq_len(n), function(i)
-    paste0("<b>", connected$to[i], "</b> (", connected$value[i],
-           " shared case", if (connected$value[i] > 1) "s" else "", ")"), character(1))
-  links_text <- if (n == 1) parts
-                else if (n == 2) paste(parts[1], "and", parts[2])
-                else paste0(paste(parts[-n], collapse = ", "), ", and ", parts[n])
-  summary_div(paste0(sel_b, " (", stype, ") shares cases with ", n,
-                     " other setting", if (n > 1) "s" else "", ": ", links_text, "."))
-}
-
-bipartite_summary_html <- function(sel, nodes, edges) {
-  summary_div <- function(msg) {
-    div(style = paste0("background:#f0f7ff; border-left:4px solid #2c7fb8; ",
-                       "padding:8px 12px; margin-top:8px; border-radius:4px; font-size:0.92em;"),
-        HTML(msg))
-  }
-  nd    <- nodes[nodes$id == sel, , drop = FALSE]
-  sel_b <- paste0("<b>", sel, "</b>")
-
-  fmt_settings <- function(ids)
-    paste(paste0("<b>", sub("^set::", "", ids), "</b>"), collapse = ", ")
-
-  cat_from_colour <- function(col) dplyr::case_when(
-    col == "#d62728" ~ "infectious", col == "#1f77b4" ~ "exposure",
-    col == "#9467bd" ~ "both", TRUE ~ "other")
-
-  if (nd$kind == "Setting") {
-    stype <- nd$group
-    ev    <- edges[edges$to == sel, , drop = FALSE]
-    if (nrow(ev) == 0)
-      return(summary_div(paste0(sel_b, " (", stype, ") has no case visits in the current view.")))
-    vc    <- if ("visit_cat" %in% names(ev)) ev$visit_cat else cat_from_colour(ev$color)
-    n_inf <- sum(vc == "infectious")
-    n_exp <- sum(vc == "exposure")
-    n_bth <- sum(vc == "both")
-    n_oth <- sum(vc == "other")
-    parts <- c(
-      if (n_inf > 0) paste0(n_inf, " present during infectious period (may have transmitted infection here)"),
-      if (n_exp > 0) paste0(n_exp, " present during exposure window (may have acquired infection here)"),
-      if (n_bth > 0) paste0(n_bth, " present during both windows"),
-      if (n_oth > 0) paste0(n_oth, " present outside both windows"))
-    summary_div(paste0(sel_b, " (", stype, ") is linked to ", nrow(ev),
-                       " case visit", if (nrow(ev) > 1) "s" else "", ": ",
-                       paste(parts, collapse = ", "), "."))
-  } else {
-    ev <- edges[edges$from == sel, , drop = FALSE]
-    if (nrow(ev) == 0)
-      return(summary_div(paste0(sel_b, " has no setting visits in the current view.")))
-    vc <- if ("visit_cat" %in% names(ev)) ev$visit_cat else cat_from_colour(ev$color)
-    parts <- c(
-      if (any(vc == "infectious"))
-        paste0(fmt_settings(ev$to[vc == "infectious"]),
-               " — present during infectious period (may have transmitted infection there)"),
-      if (any(vc == "exposure"))
-        paste0(fmt_settings(ev$to[vc == "exposure"]),
-               " — present during exposure window (may have acquired infection there)"),
-      if (any(vc == "both"))
-        paste0(fmt_settings(ev$to[vc == "both"]),
-               " — present during both windows"),
-      if (any(vc == "other"))
-        paste0(fmt_settings(ev$to[vc == "other"]),
-               " — present outside both windows"))
-    summary_div(paste0(sel_b, " visited ", nrow(ev), " setting",
-                       if (nrow(ev) > 1) "s" else "", ": ",
-                       paste(parts, collapse = "; "), "."))
-  }
-}
-
 network_metrics <- function(nodes, edges) {
   if (nrow(nodes) == 0)
     return(data.frame(Node = character(), Degree = integer(), Betweenness = numeric()))
@@ -739,8 +609,7 @@ ui <- page_navbar(
                           "Bipartite shows cases AND settings. Case-to-case uses the contacts ",
                           "table or links derived from timing (see Assumptions & parameters).")))),
           uiOutput("bipartite_key"),
-          visNetworkOutput("net", height = "560px"),
-          uiOutput("case_summary")),
+          visNetworkOutput("net", height = "560px")),
         card(hdr("Epidemic curve",
                  "New cases per week by onset date. A rising curve means the outbreak is still growing."),
              plotlyOutput("curve", height = "300px")),
@@ -856,15 +725,6 @@ server <- function(input, output, session) {
       tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#1f77b4; margin-right:4px; vertical-align:middle;"), "Present — during exposure window (→ case)"),
       tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9467bd; margin-right:4px; vertical-align:middle;"), "Present — during both windows (↔)"),
       tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9aa0a6; border-top:2px dashed #9aa0a6; margin-right:4px; vertical-align:middle;"), "Present — outside both windows"))
-  })
-
-  output$case_summary <- renderUI({
-    sel <- input$net_selected
-    if (is.null(sel) || sel == "") return(NULL)
-    nd <- netdata()
-    if (input$view == "contacts")        case_summary_html(sel, nd$edges)
-    else if (input$view == "projection") setting_summary_html(sel, nd$nodes, nd$edges)
-    else if (input$view == "bipartite")  bipartite_summary_html(sel, nd$nodes, nd$edges)
   })
 
   filtered <- reactive({
