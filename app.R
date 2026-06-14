@@ -157,6 +157,10 @@ dev_task_status <- function(prog, id) {
   if (!is.null(prog[[id]]) && !is.null(prog[[id]]$status)) prog[[id]]$status else "Not started"
 }
 
+dev_task_notes <- function(prog, id) {
+  if (!is.null(prog[[id]]) && !is.null(prog[[id]]$notes)) prog[[id]]$notes else ""
+}
+
 load_dev_progress <- function() {
   if (!file.exists(PROGRESS_FILE)) return(list())
   tryCatch(jsonlite::read_json(PROGRESS_FILE, simplifyVector = FALSE), error = function(e) list())
@@ -164,6 +168,20 @@ load_dev_progress <- function() {
 
 save_dev_progress <- function(progress) {
   tryCatch(jsonlite::write_json(progress, PROGRESS_FILE, pretty = TRUE, auto_unbox = TRUE),
+           error = function(e) NULL)
+}
+
+# ---- Action tracker ---------------------------------------------------------
+ACTION_FILE           <- "action_tracker.json"
+action_status_choices <- c("Open", "In progress", "Done", "On hold")
+
+load_actions <- function() {
+  if (!file.exists(ACTION_FILE)) return(list())
+  tryCatch(jsonlite::read_json(ACTION_FILE, simplifyVector = FALSE), error = function(e) list())
+}
+
+save_actions <- function(actions) {
+  tryCatch(jsonlite::write_json(actions, ACTION_FILE, pretty = TRUE, auto_unbox = TRUE),
            error = function(e) NULL)
 }
 
@@ -866,6 +884,24 @@ ui <- page_navbar(
           actionButton("reset_params", "Reset to defaults",
                        class = "btn-outline-secondary btn-sm"))))),
 
+  nav_panel("Action Tracker",
+    div(style = "max-width:900px; margin:0 auto; padding:8px 4px;",
+      card(
+        card_header(tags$b("Action Tracker")),
+        card_body(
+          p(style = "color:#666; font-size:0.9em; margin-bottom:12px;",
+            "Log actions, decisions and follow-ups. All fields are fully editable at any time."),
+          div(style = "display:flex; gap:8px; align-items:flex-end;",
+              div(style = "flex:1;",
+                  textInput("new_action_title", label = NULL,
+                            placeholder = "Describe the action or decision...", width = "100%")),
+              actionButton("add_action", "Add action", class = "btn-primary"))
+        )
+      ),
+      uiOutput("action_list_ui")
+    )
+  ),
+
   nav_panel("Dev Panel",
     div(style = "max-width:1000px; margin:0 auto; padding:8px 4px;",
       card(
@@ -1069,13 +1105,19 @@ server <- function(input, output, session) {
     lapply(DEV_TASKS, function(ph) {
       task_rows <- lapply(ph$tasks, function(tk) {
         sid  <- paste0("dev_s_", gsub("\\.", "_", tk$id))
+        nid  <- paste0("dev_n_", gsub("\\.", "_", tk$id))
         curr <- dev_task_status(prog, tk$id)
-        div(style = "display:flex; align-items:center; padding:5px 0; border-bottom:1px solid #f3f3f3; gap:8px;",
-            tags$span(style = "min-width:32px; font-size:0.75em; font-weight:bold; color:#888; font-family:monospace;",
-                      tk$id),
-            div(style = "flex:1; font-size:0.88em;", tk$label),
-            div(style = "min-width:150px;",
-                selectInput(sid, NULL, choices = task_status_choices, selected = curr, width = "100%")))
+        cnotes <- dev_task_notes(prog, tk$id)
+        div(style = "padding:6px 0; border-bottom:1px solid #f3f3f3;",
+          div(style = "display:flex; align-items:center; gap:8px;",
+              tags$span(style = "min-width:32px; font-size:0.75em; font-weight:bold; color:#888; font-family:monospace;",
+                        tk$id),
+              div(style = "flex:1; font-size:0.88em;", tk$label),
+              div(style = "min-width:150px;",
+                  selectInput(sid, NULL, choices = task_status_choices, selected = curr, width = "100%"))),
+          div(style = "padding:2px 0 0 40px;",
+              textAreaInput(nid, NULL, value = cnotes, rows = 2, width = "100%",
+                            placeholder = "Notes...")))
       })
       card(style = "margin-bottom:10px;",
         card_header(
@@ -1093,6 +1135,7 @@ server <- function(input, output, session) {
       local({
         tk_id <- tk$id
         sid   <- paste0("dev_s_", gsub("\\.", "_", tk_id))
+        nid   <- paste0("dev_n_", gsub("\\.", "_", tk_id))
         observeEvent(input[[sid]], {
           curr <- isolate(dev_prog$data)
           if (is.null(curr[[tk_id]])) curr[[tk_id]] <- list()
@@ -1100,9 +1143,86 @@ server <- function(input, output, session) {
           dev_prog$data <- curr
           save_dev_progress(curr)
         }, ignoreInit = TRUE)
+        observeEvent(input[[nid]], {
+          curr <- isolate(dev_prog$data)
+          if (is.null(curr[[tk_id]])) curr[[tk_id]] <- list()
+          curr[[tk_id]]$notes <- input[[nid]]
+          dev_prog$data <- curr
+          save_dev_progress(curr)
+        }, ignoreInit = TRUE)
       })
     }
   }
+
+  # ---- Action tracker -------------------------------------------------------
+  actions_rv <- reactiveValues(items = load_actions(), trigger = 0L)
+
+  output$action_list_ui <- renderUI({
+    actions_rv$trigger
+    items <- isolate(actions_rv$items)
+    if (length(items) == 0)
+      return(p(style = "color:#888; padding:12px 4px;", "No actions yet. Add one above."))
+    lapply(items, function(act) {
+      tid <- paste0("act_t_", act$id)
+      sid <- paste0("act_s_", act$id)
+      nid <- paste0("act_n_", act$id)
+      card(style = "margin-bottom:10px;",
+        card_header(style = "padding:6px 12px;",
+          div(style = "display:flex; align-items:center; gap:8px;",
+              div(style = "flex:1;",
+                  textInput(tid, NULL, value = act$title, width = "100%",
+                            placeholder = "Action title")),
+              div(style = "min-width:150px;",
+                  selectInput(sid, NULL, choices = action_status_choices,
+                              selected = act$status, width = "100%")),
+              tags$button("Delete", class = "btn btn-sm btn-outline-danger",
+                onclick = sprintf("Shiny.setInputValue('delete_action_id','%s',{priority:'event'});",
+                                  act$id)))),
+        card_body(style = "padding:8px 16px;",
+          textAreaInput(nid, NULL, value = act$notes, rows = 3, width = "100%",
+                        placeholder = "Add notes, updates or context here...")))
+    })
+  })
+
+  observeEvent(input$add_action, {
+    title <- trimws(input$new_action_title)
+    if (nchar(title) == 0) return()
+    new_act <- list(id = paste0("a", as.integer(Sys.time())),
+                    title = title, status = "Open", notes = "")
+    curr <- isolate(actions_rv$items)
+    curr <- c(curr, list(new_act))
+    actions_rv$items   <- curr
+    actions_rv$trigger <- isolate(actions_rv$trigger) + 1L
+    save_actions(curr)
+    updateTextInput(session, "new_action_title", value = "")
+  })
+
+  observeEvent(input$delete_action_id, {
+    curr <- isolate(actions_rv$items)
+    curr <- curr[!sapply(curr, function(a) a$id == input$delete_action_id)]
+    actions_rv$items   <- curr
+    actions_rv$trigger <- isolate(actions_rv$trigger) + 1L
+    save_actions(curr)
+  })
+
+  observe({
+    items <- isolate(actions_rv$items)
+    if (length(items) == 0) return()
+    changed  <- FALSE
+    new_items <- lapply(items, function(act) {
+      t <- input[[paste0("act_t_", act$id)]]
+      s <- input[[paste0("act_s_", act$id)]]
+      n <- input[[paste0("act_n_", act$id)]]
+      if (!is.null(t) && t != act$title)  { act$title  <- t; changed <<- TRUE }
+      if (!is.null(s) && s != act$status) { act$status <- s; changed <<- TRUE }
+      if (!is.null(n) && n != act$notes)  { act$notes  <- n; changed <<- TRUE }
+      act
+    })
+    if (changed) {
+      actions_rv$items <- new_items
+      save_actions(new_items)
+    }
+  })
 }
 
 shinyApp(ui, server)
