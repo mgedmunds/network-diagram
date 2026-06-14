@@ -297,8 +297,8 @@ header_tooltips <- function(tips) {
 }
 metric_tips_lookup <- c(
   Node        = "The individual case or the setting this row describes.",
-  Kind        = "Whether this node is a Case or a Setting (bipartite view only).",
-  Degree      = "Number of direct links. For a setting: how many case-visits it has. For a case: how many settings it visited (bipartite) or contacts it has.",
+  Kind        = "Whether this node is a Case or a Setting (Who visited where view only).",
+  Degree      = "Number of direct links. For a setting: how many case-visits it has. For a case: how many settings it visited (Who visited where) or contacts it has.",
   Betweenness = "How often this node lies on the connecting path between others. A high value flags a 'bridge' joining otherwise separate parts of the outbreak.")
 ll_tips_lookup <- c(
   case_id            = "Unique identifier for each case.",
@@ -321,7 +321,7 @@ A case that has been identified through investigation as the verified origin of
 transmission to another case. A confirmed link is one where an epidemiological
 connection has been established — for example a named household contact, a
 documented exposure event, or otherwise verified contact — and is recorded as
-such in the contacts data. Shown as a **solid line** in the case-to-case view.
+such in the contacts data. Shown as a **solid line** in the Who infected whom view.
 
 ### Suspected source
 
@@ -329,7 +329,7 @@ A case with a plausible but unverified link to a later case. A suspected link
 may be recorded as "Suspected" in the contacts data, or derived automatically
 by this tool when two cases attended the same setting and the gap between their
 onset dates falls within the range expected given the incubation and infectious
-periods. Shown as a **dashed line** in the case-to-case view. See the
+periods. Shown as a **dashed line** in the Who infected whom view. See the
 **Assumptions & parameters** tab for how the derived rule is defined and how to
 adjust the parameters.
 
@@ -339,18 +339,18 @@ adjust the parameters.
 
 A place where one or more cases were present during the outbreak — for example a
 school, healthcare facility, community group, or household. Settings are the
-nodes in the settings-to-settings and bipartite views.
+nodes in the Settings network and Who visited where views.
 
 ### Transmission link
 
 A directional connection from an earlier case (the source) to a later case (the
 recipient), indicating a possible or confirmed route of infection. Arrows point
-from source to recipient in the case-to-case view.
+from source to recipient in the Who infected whom view.
 
 ### Degree
 
-The number of direct links a node has. In the case-to-case view this is the
-total number of transmission links (in or out). In the bipartite view it is the
+The number of direct links a node has. In the Who infected whom view this is the
+total number of transmission links (in or out). In the Who visited where view it is the
 number of settings a case visited, or the number of cases linked to a setting.
 A high-degree node is a hub — either a case linked to many others, or a setting
 attended by many cases.
@@ -366,12 +366,12 @@ node would fragment the network into more isolated clusters.
 
 The window of time during which a case can transmit infection to others. In this
 tool it is defined as a set number of days before and after symptom onset. Visits
-that fall within this window are highlighted in red in the bipartite view,
+that fall within this window are highlighted in red in the Who visited where view,
 indicating the case was infectious at the time — a necessary but not sufficient
 condition for onward transmission. Whether transmission actually occurred also
 depends on whether a susceptible person was present and went on to develop
 symptoms within the incubation period; that cross-case timing logic is applied
-only in the case-to-case derived links view. The default values are based on
+only in the Who infected whom view. The default values are based on
 published measles parameters and can be adjusted on the **Assumptions &
 parameters** tab.
 
@@ -401,24 +401,23 @@ settings**; each visit is one row in the **visits** table.
 
 ## The three views (sidebar control)
 
-**Settings to settings (shared cases)** - each dot is a place; two places are
-joined when a case visited both (thicker line = more shared cases). Best for
-seeing how settings are connected.
+**Settings network** - each dot is a place; two places are joined when a case
+visited both (thicker line = more shared cases). Best for seeing how settings
+are connected.
 
-**Cases by settings (bipartite)** - shows cases (dark dots) and settings
-(coloured squares); each line is a visit. A multi-setting case appears joined to
-several squares.
+**Who visited where** - shows cases (dark dots) and settings (coloured squares);
+each line is a visit. A multi-setting case appears joined to several squares.
 
-**Case to case (transmission links)** - suspected who-infected-whom links between
-cases, either taken from the contacts sheet or derived from shared settings and
-timing. How "suspected" is defined, and the parameters behind it, are on the
+**Who infected whom** - suspected transmission links between cases, either taken
+from the contacts sheet or derived from shared settings and timing. How
+"suspected" is defined, and the parameters behind it, are on the
 **Assumptions & parameters** tab.
 
 ## Reading the network
 
 Colour = setting type (legend). Size = number of cases. Hover any dot or line for
-details, drag to rearrange, click to highlight connections. In the bipartite
-view, line colour and arrows show the direction of potential transmission:
+details, drag to rearrange, click to highlight connections. In the Who visited
+where view, line colour and arrows show the direction of potential transmission:
 **red arrow → setting** = present during infectious period (may have spread
 infection there); **blue arrow → case** = present during exposure window (may
 have acquired infection there); **purple ↔** = present during both windows;
@@ -433,9 +432,9 @@ often a node bridges otherwise separate clusters.
 ## Ways to use it
 
 Find hub settings (large, high-degree), bridge settings (high betweenness),
-and - in the bipartite view - settings where infection was likely spread (red)
-versus caught (grey). Combine with the epidemic curve to judge the trajectory and
-prioritise vaccination, isolation or communication.
+and - in the Who visited where view - settings where infection was likely spread
+(red) versus caught (blue). Combine with the epidemic curve to judge the
+trajectory and prioritise vaccination, isolation or communication.
 
 ## Loading your own data
 
@@ -461,15 +460,15 @@ the key epidemiological parameters. **Changes update the dashboard immediately.*
 - **Setting node** - a place where cases were present (school, healthcare centre,
   community group, household).
 - **Case node** - an individual confirmed or probable case.
-- **Shared-case link (Settings to settings view)** - drawn whenever at least one
+- **Shared-case link (Settings network view)** - drawn whenever at least one
   case attended both settings. This is based purely on **co-attendance**; it
   makes no timing assumption. The line weight is the number of shared cases.
-- **Visit link (bipartite view)** - one line per recorded visit of a case to a
+- **Visit link (Who visited where view)** - one line per recorded visit of a case to a
   setting.
 
 ### When is a visit "infectious"?
 
-In the bipartite view each visit is classified using the **infectious period**:
+In the Who visited where view each visit is classified using the **infectious period**:
 a visit is marked red when its date falls from *infectious-days-before* to
 *infectious-days-after* the case onset — meaning the case was infectious at the
 time of the visit. This is a **necessary but not sufficient** condition for
@@ -481,7 +480,7 @@ acquired infection there). Measles is commonly treated as infectious from about
 4 days before to 4 days after rash onset; this is the default and can be changed
 below.
 
-### When is a case-to-case link "confirmed" vs "suspected"?
+### When is a transmission link "confirmed" vs "suspected"?
 
 - **Confirmed** - a link established during investigation (for example a named
   household or close contact, or an otherwise verified epidemiological link), as
@@ -602,17 +601,18 @@ ui <- page_navbar(
             div(class = "d-flex align-items-center gap-2",
               span("Network"),
               selectInput("view", NULL, width = "290px",
-                choices = c("Settings ↔ settings (shared cases)" = "projection",
-                            "Cases × settings (bipartite)"       = "bipartite",
-                            "Case-to-case (transmission links)"       = "contacts"),
+                choices = c("Settings network"  = "projection",
+                            "Who visited where" = "bipartite",
+                            "Who infected whom" = "contacts"),
                 selected = "bipartite")),
             div(class = "d-flex align-items-center gap-2",
               tags$button(id = "net-toggle-btn",
                 class = "btn btn-sm btn-outline-secondary",
                 onclick = "toggleNetwork()", "Maximise"),
-              info(paste0("Settings-to-settings links places that share a case. ",
-                          "Bipartite shows cases AND settings. Case-to-case uses the contacts ",
-                          "table or links derived from timing (see Assumptions & parameters).")))),
+              info(paste0("Settings network links places that share a case. ",
+                          "Who visited where shows cases and settings together. ",
+                          "Who infected whom uses the contacts table or links derived from timing ",
+                          "(see Assumptions & parameters).")))),
           uiOutput("bipartite_key"),
           visNetworkOutput("net", height = "560px")),
         card(hdr("Epidemic curve",
