@@ -187,11 +187,11 @@ build_bipartite <- function(visits, ll,
                   if (has_dates) paste0(" on ", visit_date) else "",
                   if (has_dates) dplyr::case_when(
                     visit_cat == "infectious" ~
-                      " (case was infectious during this visit – possible source of transmission to others)",
+                      " — visit during infectious period (case may have transmitted infection here)",
                     visit_cat == "exposure" ~
-                      " (timing compatible with having acquired infection at this setting)",
+                      " — visit during exposure window (case may have acquired infection here)",
                     TRUE ~
-                      " (outside both the infectious period and compatible exposure window)") else ""))
+                      " — outside both transmission windows (not considered relevant to transmission)") else ""))
   list(nodes = bind_rows(setting_nodes, case_nodes), edges = edges)
 }
 
@@ -333,12 +333,12 @@ bipartite_summary_html <- function(sel, nodes, edges) {
     n_exp <- sum(vc == "exposure")
     n_oth <- sum(vc == "other")
     parts <- c(
-      if (n_inf > 0) paste0(n_inf, " infectious visit", if (n_inf > 1) "s" else "",
-                            " (case was infectious during this visit)"),
-      if (n_exp > 0) paste0(n_exp, " compatible exposure visit", if (n_exp > 1) "s" else "",
-                            " (timing consistent with acquisition at this setting)"),
+      if (n_inf > 0) paste0(n_inf, " visit", if (n_inf > 1) "s" else "",
+                            " during the infectious period (case may have transmitted infection here)"),
+      if (n_exp > 0) paste0(n_exp, " visit", if (n_exp > 1) "s" else "",
+                            " during the exposure window (case may have acquired infection here)"),
       if (n_oth > 0) paste0(n_oth, " visit", if (n_oth > 1) "s" else "",
-                            " outside the transmission window"))
+                            " outside both transmission windows"))
     summary_div(paste0(sel_b, " (", stype, ") is linked to ", nrow(ev),
                        " case visit", if (nrow(ev) > 1) "s" else "", ": ",
                        paste(parts, collapse = ", "), "."))
@@ -350,13 +350,13 @@ bipartite_summary_html <- function(sel, nodes, edges) {
     parts <- c(
       if (any(vc == "infectious"))
         paste0(fmt_settings(ev$to[vc == "infectious"]),
-               " during their infectious period (possible source of transmission there)"),
+               " during their infectious period (may have transmitted infection there)"),
       if (any(vc == "exposure"))
         paste0(fmt_settings(ev$to[vc == "exposure"]),
-               " within the compatible exposure window (possible acquisition site)"),
+               " during their exposure window (may have acquired infection there)"),
       if (any(vc == "other"))
         paste0(fmt_settings(ev$to[vc == "other"]),
-               " outside the transmission window"))
+               " — outside both transmission windows"))
     summary_div(paste0(sel_b, " visited ", nrow(ev), " setting",
                        if (nrow(ev) > 1) "s" else "", ": ",
                        paste(parts, collapse = "; "), "."))
@@ -517,9 +517,10 @@ timing. How "suspected" is defined, and the parameters behind it, are on the
 
 Colour = setting type (legend). Size = number of cases. Hover any dot or line for
 details, drag to rearrange, click to highlight connections. In the bipartite
-view, **red solid** lines are visits where the case was infectious (a necessary
-but not sufficient condition for onward transmission) and **grey dashed** lines
-are visits outside the infectious period (possible exposure to infection).
+view, **red solid** lines are visits during the infectious period (case may have
+transmitted infection there), **orange solid** lines are visits during the
+exposure window (case may have acquired infection there), and **grey dashed**
+lines are outside both transmission windows.
 
 ## Time slider, epidemic curve, metrics
 
@@ -820,9 +821,9 @@ server <- function(input, output, session) {
   output$bipartite_key <- renderUI({
     req(input$view == "bipartite")
     div(style = "display:flex; gap:16px; font-size:0.82em; padding:4px 2px 6px 2px; flex-wrap:wrap;",
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#d62728; margin-right:4px; vertical-align:middle;"), "Infectious visit"),
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#ff7f0e; margin-right:4px; vertical-align:middle;"), "Compatible exposure"),
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9aa0a6; border-top:2px dashed #9aa0a6; margin-right:4px; vertical-align:middle;"), "Outside transmission window"))
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#d62728; margin-right:4px; vertical-align:middle;"), "Visit during infectious period"),
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#ff7f0e; margin-right:4px; vertical-align:middle;"), "Visit during exposure window"),
+      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9aa0a6; border-top:2px dashed #9aa0a6; margin-right:4px; vertical-align:middle;"), "Outside transmission windows"))
   })
 
   output$case_summary <- renderUI({
