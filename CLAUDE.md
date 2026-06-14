@@ -85,9 +85,9 @@ Three views selectable from a dropdown in the network card header:
 
 | View | ID | Description |
 |---|---|---|
-| Settings ↔ settings | `"projection"` | Bipartite projection onto settings; edge weight = shared cases |
-| Cases × settings | `"bipartite"` | True bipartite; edges coloured by infectious/exposure/other |
-| Case-to-case | `"contacts"` | Transmission links from contacts sheet or derived from timing |
+| Settings network | `"projection"` | Places linked by shared cases; edge weight = shared cases |
+| Who visited where | `"bipartite"` | Cases × settings; edges coloured by visit timing category (see ADR-002) |
+| Who infected whom | `"contacts"` | Transmission links from contacts sheet or derived from timing |
 
 **Which views to keep is an open decision (Phase 2).** Do not add new views or
 remove existing ones without being asked.
@@ -105,7 +105,7 @@ All editable live in the "Assumptions & parameters" tab:
 | `inf_before` | 4 days | Infectious period: days before onset |
 | `inf_after` | 4 days | Infectious period: days after onset |
 
-Derived rule for suspected case-to-case links: onset gap must be between
+Derived rule for suspected transmission links (Who infected whom view): onset gap must be between
 `(inc_min - inf_before)` and `(inc_max + inf_after)` days.
 
 ---

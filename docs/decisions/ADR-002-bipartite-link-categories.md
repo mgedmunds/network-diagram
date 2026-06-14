@@ -1,11 +1,11 @@
-# ADR-002: Bipartite network diagram visit categories
+# ADR-002: Who visited where — visit timing categories
 
 **Status:** Accepted
 **Date:** 2026-06-14
 
 ## Decision
 
-Four visit categories for the bipartite network diagram:
+Four visit timing categories for the Who visited where view:
 
 - **Present — during infectious period** — case visited this setting while infectious; may have transmitted infection to others there
 - **Present — during exposure window** — case visited this setting during their exposure window; may have acquired infection there
@@ -25,6 +25,6 @@ Four visit categories for the bipartite network diagram:
 
 ## Consequences
 
-- Requires a fourth colour/style in the bipartite legend
+- Requires a fourth colour/style in the Who visited where legend
 - The `build_bipartite()` function must classify visits into four categories, not three
 - Parameters where `inc_min < inf_before` will produce "both windows" visits — this should be flagged to the user
