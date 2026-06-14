@@ -64,6 +64,109 @@ hdr <- function(title, msg) {
               span(title), info(msg))
 }
 
+# ---- Dev progress tracker ---------------------------------------------------
+PROGRESS_FILE <- "dev_progress.json"
+
+DEV_TASKS <- list(
+  list(
+    phase = "1", name = "Data Model & Schema",
+    desc  = "Define exactly what data the tool needs, document field types and validation rules.",
+    tasks = list(
+      list(id = "1.1", label = "Define all required linelist fields and data types"),
+      list(id = "1.2", label = "Define all required visits fields and data types"),
+      list(id = "1.3", label = "Define optional contacts fields and data types"),
+      list(id = "1.4", label = "Agree on field-level validation rules (required vs optional, date formats)"),
+      list(id = "1.5", label = "Update demo data to reflect the final agreed schema"),
+      list(id = "1.6", label = "Add a data dictionary / schema reference page to the app")
+    )
+  ),
+  list(
+    phase = "2", name = "Network Diagram Types",
+    desc  = "Decide which views to keep, understand how each works epidemiologically, and document their purpose.",
+    tasks = list(
+      list(id = "2.1", label = "Review and decide: keep settings-to-settings (projection) view?"),
+      list(id = "2.2", label = "Review and decide: keep/refine bipartite (cases x settings) view?"),
+      list(id = "2.3", label = "Review and decide: keep/refine case-to-case (transmission links) view?"),
+      list(id = "2.4", label = "Investigate additional view types (temporal, spatial, ego network)"),
+      list(id = "2.5", label = "Document the epidemiological purpose and interpretation of each final view"),
+      list(id = "2.6", label = "Verify network metrics (degree, betweenness) are appropriate for each view")
+    )
+  ),
+  list(
+    phase = "3", name = "Data Collection Interface",
+    desc  = "Allow users to enter and edit data directly in the tool, not just upload Excel files.",
+    tasks = list(
+      list(id = "3.1", label = "Design and implement manual linelist entry form"),
+      list(id = "3.2", label = "Design and implement manual visits entry form"),
+      list(id = "3.3", label = "Design and implement manual contacts entry form"),
+      list(id = "3.4", label = "Add ability to edit or delete existing rows in each table"),
+      list(id = "3.5", label = "Add download / export functionality (Excel or CSV)"),
+      list(id = "3.6", label = "Improve Excel import: clearer error messages and column mapping guidance")
+    )
+  ),
+  list(
+    phase = "4", name = "Definitions, Tooltips & Help Content",
+    desc  = "Ensure every part of the tool is explained clearly and consistently for a non-technical audience.",
+    tasks = list(
+      list(id = "4.1", label = "Audit all existing tooltips for accuracy and plain-language clarity"),
+      list(id = "4.2", label = "Add missing tooltips to all UI controls and input fields"),
+      list(id = "4.3", label = "Finalise the Definitions page - ensure all key terms are covered"),
+      list(id = "4.4", label = "Ensure consistent terminology across tooltips, definitions and assumptions tabs"),
+      list(id = "4.5", label = "Add worked examples or a short case study to the How to Use page")
+    )
+  ),
+  list(
+    phase = "5", name = "Epidemiological Parameters & Assumptions",
+    desc  = "Ensure parameters are scientifically grounded, well-documented and trustworthy.",
+    tasks = list(
+      list(id = "5.1", label = "Verify default measles incubation and infectious period values against literature"),
+      list(id = "5.2", label = "Add source citations to the Assumptions & Parameters tab"),
+      list(id = "5.3", label = "Decide: support fixed disease profiles, full custom parameters, or both?"),
+      list(id = "5.4", label = "Add input validation (e.g. inc_min must be less than inc_max)")
+    )
+  ),
+  list(
+    phase = "6", name = "UI & UX Polish",
+    desc  = "Tighten up the look, feel and usability of the tool across all tabs.",
+    tasks = list(
+      list(id = "6.1", label = "Review visual hierarchy and layout consistency across all tabs"),
+      list(id = "6.2", label = "Test time slider, animation and date filtering edge cases"),
+      list(id = "6.3", label = "Check layout on smaller screens and lower resolutions"),
+      list(id = "6.4", label = "Accessibility: colour contrast, font sizes, keyboard navigation"),
+      list(id = "6.5", label = "Performance test with a realistically large dataset (50+ cases)")
+    )
+  ),
+  list(
+    phase = "7", name = "Pre-Release",
+    desc  = "Final checks before the tool is shared or deployed for real use.",
+    tasks = list(
+      list(id = "7.1", label = "Code cleanup: remove dead code, consistent naming, clear comments"),
+      list(id = "7.2", label = "Final review of all user-facing text for accuracy and tone"),
+      list(id = "7.3", label = "Write or update the README for end users"),
+      list(id = "7.4", label = "Remove the Dev Control Panel tab from the app"),
+      list(id = "7.5", label = "Full end-to-end test session with representative outbreak data")
+    )
+  )
+)
+
+ALL_TASK_IDS <- unlist(lapply(DEV_TASKS, function(ph) lapply(ph$tasks, `[[`, "id")))
+
+task_status_choices <- c("Not started", "In progress", "Done", "Blocked")
+
+dev_task_status <- function(prog, id) {
+  if (!is.null(prog[[id]]) && !is.null(prog[[id]]$status)) prog[[id]]$status else "Not started"
+}
+
+load_dev_progress <- function() {
+  if (!file.exists(PROGRESS_FILE)) return(list())
+  tryCatch(jsonlite::read_json(PROGRESS_FILE, simplifyVector = FALSE), error = function(e) list())
+}
+
+save_dev_progress <- function(progress) {
+  tryCatch(jsonlite::write_json(progress, PROGRESS_FILE, pretty = TRUE, auto_unbox = TRUE),
+           error = function(e) NULL)
+}
+
 # ---- Demo data --------------------------------------------------------------
 make_demo_data <- function() {
   set.seed(42)
@@ -763,6 +866,19 @@ ui <- page_navbar(
           actionButton("reset_params", "Reset to defaults",
                        class = "btn-outline-secondary btn-sm"))))),
 
+  nav_panel("Dev Panel",
+    div(style = "max-width:1000px; margin:0 auto; padding:8px 4px;",
+      card(
+        card_header(tags$b("Development Control Panel")),
+        card_body(
+          p(style = "color:#666; font-size:0.9em; margin-bottom:12px;",
+            "Track progress through the development workflow. Remove this tab by completing task 7.4."),
+          uiOutput("dev_summary_ui")
+        )
+      ),
+      uiOutput("dev_phases_ui")
+    )
+  ),
   nav_spacer(),
   nav_item(tags$span(style = "color:#888; font-size:0.85em;", "Measles outbreak visualiser"))
 )
@@ -909,6 +1025,84 @@ server <- function(input, output, session) {
               options = list(pageLength = 6, scrollX = TRUE, dom = "tp",
                              headerCallback = header_tooltips(unname(tips))))
   })
+
+  # ---- Dev panel ------------------------------------------------------------
+  dev_prog <- reactiveValues(data = load_dev_progress())
+
+  output$dev_summary_ui <- renderUI({
+    prog  <- dev_prog$data
+    total <- length(ALL_TASK_IDS)
+    done  <- sum(sapply(ALL_TASK_IDS, function(id) dev_task_status(prog, id) == "Done"))
+    inp   <- sum(sapply(ALL_TASK_IDS, function(id) dev_task_status(prog, id) == "In progress"))
+    blk   <- sum(sapply(ALL_TASK_IDS, function(id) dev_task_status(prog, id) == "Blocked"))
+    pct   <- if (total > 0) round(100 * done / total) else 0
+
+    phase_rows <- lapply(DEV_TASKS, function(ph) {
+      ids  <- sapply(ph$tasks, `[[`, "id")
+      pd   <- sum(sapply(ids, function(id) dev_task_status(prog, id) == "Done"))
+      ppct <- if (length(ids) > 0) round(100 * pd / length(ids)) else 0
+      bar_col <- if (ppct == 100) "#2ca02c" else if (ppct > 0) "#1f77b4" else "#cccccc"
+      div(style = "display:flex; align-items:center; gap:10px; margin-bottom:5px; font-size:0.85em;",
+          tags$span(style = "min-width:60px; color:#555;",  paste0("Phase ", ph$phase)),
+          tags$span(style = "min-width:210px;",             ph$name),
+          div(style = "flex:1; background:#eee; border-radius:4px; height:10px; overflow:hidden;",
+              div(style = sprintf("width:%d%%; height:10px; background:%s; border-radius:4px;",
+                                  ppct, bar_col))),
+          tags$span(style = "min-width:50px; text-align:right; color:#666;",
+                    sprintf("%d / %d", pd, length(ids))))
+    })
+
+    tagList(
+      div(style = "margin-bottom:8px;",
+          strong(sprintf("Overall: %d / %d tasks complete", done, total)),
+          tags$span(style = "color:#888; margin-left:10px; font-size:0.9em;",
+                    sprintf("%d in progress  |  %d blocked", inp, blk))),
+      div(class = "progress mb-3", style = "height:20px;",
+          div(class = "progress-bar bg-success", role = "progressbar",
+              style = sprintf("width:%d%%", pct), sprintf("%d%%", pct))),
+      div(style = "margin-top:14px;", do.call(tagList, phase_rows))
+    )
+  })
+
+  output$dev_phases_ui <- renderUI({
+    prog <- isolate(dev_prog$data)
+    lapply(DEV_TASKS, function(ph) {
+      task_rows <- lapply(ph$tasks, function(tk) {
+        sid  <- paste0("dev_s_", gsub("\\.", "_", tk$id))
+        curr <- dev_task_status(prog, tk$id)
+        div(style = "display:flex; align-items:center; padding:5px 0; border-bottom:1px solid #f3f3f3; gap:8px;",
+            tags$span(style = "min-width:32px; font-size:0.75em; font-weight:bold; color:#888; font-family:monospace;",
+                      tk$id),
+            div(style = "flex:1; font-size:0.88em;", tk$label),
+            div(style = "min-width:150px;",
+                selectInput(sid, NULL, choices = task_status_choices, selected = curr, width = "100%")))
+      })
+      card(style = "margin-bottom:10px;",
+        card_header(
+          div(style = "display:flex; justify-content:space-between; align-items:center;",
+              div(tags$span(class = "badge bg-secondary me-2", paste0("Phase ", ph$phase)),
+                  tags$b(ph$name)),
+              tags$small(style = "color:#888; max-width:500px; text-align:right;", ph$desc))),
+        card_body(style = "padding:8px 16px;",
+          do.call(tagList, task_rows)))
+    })
+  })
+
+  for (ph in DEV_TASKS) {
+    for (tk in ph$tasks) {
+      local({
+        tk_id <- tk$id
+        sid   <- paste0("dev_s_", gsub("\\.", "_", tk_id))
+        observeEvent(input[[sid]], {
+          curr <- isolate(dev_prog$data)
+          if (is.null(curr[[tk_id]])) curr[[tk_id]] <- list()
+          curr[[tk_id]]$status <- input[[sid]]
+          dev_prog$data <- curr
+          save_dev_progress(curr)
+        }, ignoreInit = TRUE)
+      })
+    }
+  }
 }
 
 shinyApp(ui, server)
