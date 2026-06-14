@@ -252,15 +252,42 @@ build_contacts_network <- function(ll, contacts, visits) {
     visits |> arrange(visit_date) |> group_by(case_id) |> slice(1) |> ungroup() |>
       select(case_id, setting_type)
   else tibble(case_id = character(), setting_type = character())
-  nodes <- ll |> left_join(primary, by = "case_id") |>
-    mutate(setting_type = ifelse(is.na(setting_type), "Other", setting_type)) |>
+
+  n_settings  <- visits |> distinct(case_id, setting_name) |> count(case_id, name = "n_settings")
+  case_settings <- visits |> distinct(case_id, setting_name, setting_type)
+  onset <- setNames(ll$onset_date, ll$case_id)
+
+  nodes <- ll |>
+    left_join(primary,     by = "case_id") |>
+    left_join(n_settings,  by = "case_id") |>
+    mutate(setting_type = ifelse(is.na(setting_type), "Other", setting_type),
+           n_settings   = coalesce(n_settings, 0L)) |>
     transmute(id = case_id, label = case_id, group = setting_type,
               color = unname(setting_colours[setting_type]),
               title = paste0("<b>", case_id, "</b><br>Onset: ", onset_date,
-                             "<br>Earliest setting type: ", setting_type))
+                             "<br>Settings visited: ", n_settings))
+
   edges <- contacts |> filter(from %in% nodes$id, to %in% nodes$id) |>
-    transmute(from, to, dashes = link_type == "Suspected",
-              title = paste0(link_type, " link"))
+    mutate(
+      gap = purrr::map2_int(from, to, function(f, t) {
+        d1 <- onset[[f]]; d2 <- onset[[t]]
+        if (is.na(d1) || is.na(d2)) NA_integer_ else as.integer(abs(as.Date(d2) - as.Date(d1)))
+      }),
+      common_text = purrr::map2_chr(from, to, function(f, t) {
+        shared <- intersect(
+          case_settings$setting_name[case_settings$case_id == f],
+          case_settings$setting_name[case_settings$case_id == t])
+        if (length(shared) == 0) return("None recorded")
+        rows <- case_settings[case_settings$case_id == f & case_settings$setting_name %in% shared, ]
+        paste(paste0(rows$setting_name, " (", rows$setting_type, ")"), collapse = "<br>")
+      }),
+      title = paste0(
+        link_type, " link",
+        ifelse(!is.na(gap), paste0("<br>Onset gap: ", gap, ifelse(gap == 1, " day", " days")), ""),
+        "<br>Common settings: ", common_text)
+    ) |>
+    transmute(from, to, dashes = link_type == "Suspected", title)
+
   list(nodes = nodes, edges = edges)
 }
 
