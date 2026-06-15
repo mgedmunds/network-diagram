@@ -53,8 +53,8 @@ Phase 1 working document. Tracks decisions about what data the tool needs.
 
 _Record decisions here as they are made, then move to a formal ADR if significant._
 
-**`age_group` — fixed bands (Option B)**
-Six bands aligned with vaccination schedule, school settings, and UKHSA reporting practice: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+ years`. Pre-school and school age are combined into single bands at this granularity; use Option C (splitting 5–11 / 12–17) if a school-based outbreak warrants finer age detail.
+**`age_group` — fixed bands 
+Six bands aligned with vaccination schedule, school settings, and UKHSA reporting practice: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+ years`. 
 
 ---
 
