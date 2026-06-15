@@ -842,8 +842,7 @@ server <- function(input, output, session) {
     d   <- raw()
     cs  <- d$cases |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
     cst <- d$case_settings |> filter(setting_type %in% input$types, case_id %in% cs$case_id)
-    vd  <- d$visit_dates |> filter(case_id %in% cs$case_id, setting_name %in% cst$setting_name,
-                                    visit_date >= input$asof[1] & visit_date <= input$asof[2])
+    vd  <- d$visit_dates |> filter(case_id %in% cs$case_id, setting_name %in% cst$setting_name)
     ct  <- d$contacts |> filter(from %in% cs$case_id, to %in% cs$case_id)
     list(cases = cs, settings = d$settings, case_settings = cst, visit_dates = vd, contacts = ct)
   })
