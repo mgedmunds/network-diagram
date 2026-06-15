@@ -42,6 +42,12 @@ Phase 1 working document. Tracks decisions about what data the tool needs.
 - [ ] Should `visit_date` be required or remain optional?
 - [ ] Is `vaccination_status` measles-specific or should it be generic?
 - [ ] Do we need a `case_status` field (confirmed / probable / suspected case)?
+- [ ] will categories provided by practitioner be used to describe exposure types (e.g. visit during infectious period), or should this be derived based on the data entered (e.g. using onset date and dates of visit. Will it be reasonable to expect practitioners to be able to categorise accurately for all case-setting interactions? Do we need an "unknown" options? May be best to use the practitioner assigned value and then use the data as a validation check for misclassification?
+- [ ] How will dates attending settings be calculated? Are we able to automate so that each case only has to assess relevant dates for each setting (i.e. those where they could have been infected or were infectious. If using a data capture function of the tool itself, can it be used concurrently?
+- [ ] When importing data from a line list, very few fields are needed. Specify which and naming conventions
+- [ ] Come up with data flow diagram
+- [ ] Create a data dictionary
+- [ ] Create relational Data model showing relational information
 
 ## Decisions made
 
