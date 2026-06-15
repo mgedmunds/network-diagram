@@ -110,7 +110,8 @@ digraph erd {
   SETTINGS [label=<
     <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
       <TR><TD COLSPAN="3" BGCOLOR="#31a354" ALIGN="CENTER"><FONT COLOR="white"><B> settings </B></FONT></TD></TR>
-      <TR><TD ALIGN="LEFT"><U>setting_name</U></TD><TD ALIGN="LEFT">character</TD><TD>PK</TD></TR>
+      <TR><TD ALIGN="LEFT"><U>setting_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK</TD></TR>
+      <TR><TD ALIGN="LEFT">setting_name</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
       <TR><TD ALIGN="LEFT">setting_type</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
     </TABLE>>]
 
@@ -118,8 +119,7 @@ digraph erd {
     <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
       <TR><TD COLSPAN="3" BGCOLOR="#e6550d" ALIGN="CENTER"><FONT COLOR="white"><B> case_settings </B></FONT></TD></TR>
       <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
-      <TR><TD ALIGN="LEFT"><U>setting_name</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
-      <TR><TD ALIGN="LEFT">setting_type</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
+      <TR><TD ALIGN="LEFT"><U>setting_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK + FK</TD></TR>
       <TR><TD ALIGN="LEFT">has_other_visits</TD><TD ALIGN="LEFT">logical</TD><TD> </TD></TR>
     </TABLE>>]
 
@@ -127,7 +127,7 @@ digraph erd {
     <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
       <TR><TD COLSPAN="3" BGCOLOR="#756bb1" ALIGN="CENTER"><FONT COLOR="white"><B> visit_dates </B></FONT></TD></TR>
       <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
-      <TR><TD ALIGN="LEFT"><U>setting_name</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
+      <TR><TD ALIGN="LEFT"><U>setting_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK + FK</TD></TR>
       <TR><TD ALIGN="LEFT"><U>visit_date</U></TD><TD ALIGN="LEFT">date</TD><TD>PK</TD></TR>
       <TR><TD ALIGN="LEFT"><I>epi_category</I></TD><TD ALIGN="LEFT"><I>character</I></TD><TD><I>derived</I></TD></TR>
     </TABLE>>]
@@ -163,20 +163,20 @@ DICT_TABLES <- list(
   ),
   settings = tibble::tribble(
     ~Field,          ~Type,       ~Key,  ~Required, ~Description,
-    "setting_name",  "character", "PK",  "Yes",     "Unique setting name. Natural primary key. Derived internally from case_settings on upload — not a separate xlsx sheet.",
+    "setting_id",    "integer",   "PK",  "Yes",     "Surrogate primary key. Unique integer assigned to each setting. Used as the join key in case_settings and visit_dates.",
+    "setting_name",  "character", "—",   "Yes",     "Human-readable name for the setting. Free text; should be unique within the dataset.",
     "setting_type",  "character", "—",   "Yes",     "User-defined categorical label (e.g. School, Household). Not pre-coded — values come from the data. Drives node colour and the setting-type filter."
   ),
   case_settings = tibble::tribble(
     ~Field,              ~Type,       ~Key,       ~Required, ~Description,
     "case_id",           "character", "PK + FK",  "Yes",     "Composite primary key. FK to cases.case_id.",
-    "setting_name",      "character", "PK + FK",  "Yes",     "Composite primary key. FK to settings.setting_name.",
-    "setting_type",      "character", "—",        "Yes",     "Denormalised from settings for query convenience. Must be consistent with the settings table.",
+    "setting_id",        "integer",   "PK + FK",  "Yes",     "Composite primary key. FK to settings.setting_id.",
     "has_other_visits",  "logical",   "—",        "No",      "TRUE if the case visited this setting on dates outside all epi windows (e.g. routine household residence). Specific dates for those visits are not recorded in visit_dates."
   ),
   visit_dates = tibble::tribble(
     ~Field,           ~Type,       ~Key,        ~Required, ~Description,
     "case_id",        "character", "PK + FK",   "Yes",     "Composite primary key. FK to case_settings.case_id.",
-    "setting_name",   "character", "PK + FK",   "Yes",     "Composite primary key. FK to case_settings.setting_name.",
+    "setting_id",     "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to case_settings.setting_id.",
     "visit_date",     "date",      "PK",        "Yes",     "Date of an epi-relevant visit. One row per calendar day per case-setting pair.",
     "epi_category",   "character", "(derived)", "—",       "<i>Not stored. Computed at runtime</i> from visit_date vs onset_date using current parameters.<br><b>Exposure window:</b> onset &minus; inc_max &le; date &le; onset &minus; inc_min<br><b>Infectious period:</b> onset &minus; inf_before &le; date &le; onset + inf_after<br><b>Both:</b> dates span both windows across the case&ndash;setting pair (e.g. household resident)<br><b>Neither:</b> date outside all windows. Recalculates automatically when parameters change."
   ),
@@ -192,15 +192,15 @@ DICT_TABLES <- list(
 make_demo_data <- function() {
   set.seed(42)
   all_settings <- tibble::tribble(
-    ~setting_name,              ~setting_type,
-    "Oakfield Primary",         "School",
-    "St Mary's Secondary",      "School",
-    "Hillside Nursery",         "Community",
-    "Faith Community Centre",   "Community",
-    "Maple Street Household",   "Household",
-    "Birch Close Household",    "Household",
-    "Riverside GP Surgery",     "Healthcare",
-    "Central Hospital ED",      "Healthcare")
+    ~setting_id, ~setting_name,              ~setting_type,
+    1L,          "Oakfield Primary",         "School",
+    2L,          "St Mary's Secondary",      "School",
+    3L,          "Hillside Nursery",         "Community",
+    4L,          "Faith Community Centre",   "Community",
+    5L,          "Maple Street Household",   "Household",
+    6L,          "Birch Close Household",    "Household",
+    7L,          "Riverside GP Surgery",     "Healthcare",
+    8L,          "Central Hospital ED",      "Healthcare")
   community  <- all_settings |> filter(setting_type != "Healthcare")
   healthcare <- all_settings |> filter(setting_type == "Healthcare")
   comm_w     <- c(.24, .20, .16, .14, .13, .13)
@@ -230,43 +230,44 @@ make_demo_data <- function() {
                     c(pick_dates(exp_win, sample(2:4, 1)),
                       pick_dates(inf_win, sample(2:4, 1)))
                   else pick_dates(inf_win, sample(1:3, 1, prob = c(.4, .4, .2)))
-    rows <- tibble::tibble(case_id      = cases$case_id[i],
-                           setting_name = community$setting_name[prim[i]],
-                           visit_date   = prim_dates)
+    rows <- tibble::tibble(case_id    = cases$case_id[i],
+                           setting_id = community$setting_id[prim[i]],
+                           visit_date = prim_dates)
 
     if (runif(1) < 0.70) {
       h <- healthcare[sample(nrow(healthcare), 1), ]
-      rows <- bind_rows(rows, tibble::tibble(case_id      = cases$case_id[i],
-                          setting_name = h$setting_name,
-                          visit_date   = onset + sample(1:3, 1))) }
+      rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
+                          setting_id = h$setting_id,
+                          visit_date = onset + sample(1:3, 1))) }
 
     if (runif(1) < 0.65) {
       s_exp      <- community[sample(seq_len(nrow(community))[-prim[i]], 1), ]
       exp_dates  <- if (s_exp$setting_type == "Household") onset - sample(DEF_INC_MIN:DEF_INC_MAX, 1)
                     else pick_dates(exp_win, sample(1:2, 1))
-      rows <- bind_rows(rows, tibble::tibble(case_id      = cases$case_id[i],
-                          setting_name = s_exp$setting_name,
-                          visit_date   = exp_dates)) }
+      rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
+                          setting_id = s_exp$setting_id,
+                          visit_date = exp_dates)) }
 
     if (runif(1) < 0.35) {
       s_hist <- community[sample(seq_len(nrow(community)), 1), ]
-      rows <- bind_rows(rows, tibble::tibble(case_id      = cases$case_id[i],
-                          setting_name = s_hist$setting_name,
-                          visit_date   = onset - sample(22:30, 1))) }
+      rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
+                          setting_id = s_hist$setting_id,
+                          visit_date = onset - sample(22:30, 1))) }
     rows
   }) |> arrange(case_id, visit_date)
 
-  visit_dates   <- visit_rows |> distinct(case_id, setting_name, visit_date)
+  visit_dates   <- visit_rows |> distinct(case_id, setting_id, visit_date)
   case_settings <- visit_rows |>
-    distinct(case_id, setting_name) |>
-    left_join(all_settings, by = "setting_name") |>
-    mutate(has_other_visits = setting_type == "Household")
-  settings <- all_settings |> semi_join(case_settings, by = "setting_name")
+    distinct(case_id, setting_id) |>
+    left_join(all_settings |> select(setting_id, setting_type), by = "setting_id") |>
+    mutate(has_other_visits = setting_type == "Household") |>
+    select(case_id, setting_id, has_other_visits)
+  settings <- all_settings |> semi_join(case_settings, by = "setting_id")
 
-  prim_name <- community$setting_name[prim]
+  prim_id <- community$setting_id[prim]
   contacts <- purrr::map_dfr(seq_len(n)[-1], function(i) {
     cand <- cases[seq_len(i - 1), ]
-    w    <- ifelse(prim_name[seq_len(i - 1)] == prim_name[i], 5, 1)
+    w    <- ifelse(prim_id[seq_len(i - 1)] == prim_id[i], 5, 1)
     j    <- sample(seq_len(nrow(cand)), 1, prob = w)
     tibble::tibble(from = cand$case_id[j], to = cases$case_id[i],
                    link_type = sample(c("Confirmed","Suspected"), 1, prob = c(.7,.3)))
@@ -276,7 +277,9 @@ make_demo_data <- function() {
 }
 
 flat_visits <- function(d) {
-  d$case_settings |> left_join(d$visit_dates, by = c("case_id", "setting_name"))
+  d$case_settings |>
+    left_join(d$settings, by = "setting_id") |>
+    left_join(d$visit_dates, by = c("case_id", "setting_id"))
 }
 
 # ---- View builders ----------------------------------------------------------
@@ -907,6 +910,7 @@ server <- function(input, output, session) {
     if (is.null(input$file)) return(make_demo_data())
     sheets <- readxl::excel_sheets(input$file$datapath)
     cs  <- readxl::read_excel(input$file$datapath, sheet = "cases")
+    st  <- readxl::read_excel(input$file$datapath, sheet = "settings")
     cst <- readxl::read_excel(input$file$datapath, sheet = "case_settings")
     vd  <- readxl::read_excel(input$file$datapath, sheet = "visit_dates")
     cs$onset_date <- as.Date(cs$onset_date)
@@ -916,12 +920,13 @@ server <- function(input, output, session) {
     validate(
       need(all(c("case_id", "onset_date") %in% names(cs)),
            "cases sheet must contain case_id and onset_date."),
-      need(all(c("case_id", "setting_name", "setting_type") %in% names(cst)),
-           "case_settings sheet must contain case_id, setting_name and setting_type."),
-      need(all(c("case_id", "setting_name", "visit_date") %in% names(vd)),
-           "visit_dates sheet must contain case_id, setting_name and visit_date."))
-    settings <- cst |> distinct(setting_name, setting_type)
-    list(cases = cs, settings = settings, case_settings = cst, visit_dates = vd, contacts = ct)
+      need(all(c("setting_id", "setting_name", "setting_type") %in% names(st)),
+           "settings sheet must contain setting_id, setting_name and setting_type."),
+      need(all(c("case_id", "setting_id") %in% names(cst)),
+           "case_settings sheet must contain case_id and setting_id."),
+      need(all(c("case_id", "setting_id", "visit_date") %in% names(vd)),
+           "visit_dates sheet must contain case_id, setting_id and visit_date."))
+    list(cases = cs, settings = st, case_settings = cst, visit_dates = vd, contacts = ct)
   })
 
   observeEvent(raw(), {
@@ -970,10 +975,12 @@ server <- function(input, output, session) {
   filtered <- reactive({
     d   <- raw()
     cs  <- d$cases |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
-    cst <- d$case_settings |> filter(setting_type %in% input$types, case_id %in% cs$case_id)
-    vd  <- d$visit_dates |> filter(case_id %in% cs$case_id, setting_name %in% cst$setting_name)
+    st  <- d$settings |> filter(setting_type %in% input$types)
+    cst <- d$case_settings |> filter(case_id %in% cs$case_id, setting_id %in% st$setting_id)
+    st  <- st |> filter(setting_id %in% cst$setting_id)
+    vd  <- d$visit_dates |> filter(case_id %in% cs$case_id, setting_id %in% cst$setting_id)
     ct  <- d$contacts |> filter(from %in% cs$case_id, to %in% cs$case_id)
-    list(cases = cs, settings = d$settings, case_settings = cst, visit_dates = vd, contacts = ct)
+    list(cases = cs, settings = st, case_settings = cst, visit_dates = vd, contacts = ct)
   })
 
   netdata <- reactive({

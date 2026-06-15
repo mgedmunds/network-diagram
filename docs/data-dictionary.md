@@ -20,11 +20,12 @@ One row per confirmed or probable case.
 
 ## settings
 
-One row per unique setting. Derived internally from `case_settings` on upload — not provided as a separate sheet in the xlsx.
+One row per unique setting. Provided as a dedicated `settings` sheet in the xlsx upload.
 
 | Field | Type | Key | Indexed | Required | Description |
 |---|---|---|---|---|---|
-| `setting_name` | character | PK | Yes | Yes | Unique setting name. Natural primary key. A surrogate `setting_id` may be added in future if name collisions occur between genuinely distinct venues. |
+| `setting_id` | integer | PK | Yes | Yes | Surrogate primary key. Unique integer assigned to each setting. Used as the join key in `case_settings` and `visit_dates`. |
+| `setting_name` | character | — | No | Yes | Human-readable name for the setting. Free text; should be unique within the dataset. |
 | `setting_type` | character | — | Yes | Yes | User-defined categorical label describing the type of setting (e.g. `School`, `Household`, `Healthcare`). Not pre-coded — values are determined by the data entered. Drives node colour in the network and the setting-type filter. |
 
 ---
@@ -36,9 +37,10 @@ One row per case × setting combination. Bridging table between `cases` and `set
 | Field | Type | Key | Indexed | Required | Description |
 |---|---|---|---|---|---|
 | `case_id` | character | PK + FK | Yes | Yes | Composite primary key. FK → `cases.case_id`. |
-| `setting_name` | character | PK + FK | Yes | Yes | Composite primary key. FK → `settings.setting_name`. |
-| `setting_type` | character | — | Yes | Yes | Denormalised copy of `settings.setting_type` for query convenience. Must be consistent with the settings table. |
+| `setting_id` | integer | PK + FK | Yes | Yes | Composite primary key. FK → `settings.setting_id`. |
 | `has_other_visits` | logical | — | No | No | `TRUE` if the case visited this setting on dates that fall outside all epi windows. Specific dates for those visits are not recorded in `visit_dates`. Typically `TRUE` for household residents who are continuously present. |
+
+> `setting_name` and `setting_type` are not stored here — they are joined from the `settings` table at runtime when needed.
 
 ---
 
@@ -49,7 +51,7 @@ One row per epidemiologically relevant visit date for a given case × setting pa
 | Field | Type | Key | Indexed | Required | Description |
 |---|---|---|---|---|---|
 | `case_id` | character | PK + FK | Yes | Yes | Composite primary key. FK → `case_settings.case_id`. |
-| `setting_name` | character | PK + FK | Yes | Yes | Composite primary key. FK → `case_settings.setting_name`. |
+| `setting_id` | integer | PK + FK | Yes | Yes | Composite primary key. FK → `case_settings.setting_id`. |
 | `visit_date` | date | PK | Yes | Yes | Date of a visit that falls within or near the epi windows. One row per calendar day — a case visits a setting at most once per calendar day. Format: YYYY-MM-DD. |
 
 ### Derived field: `epi_category`
@@ -94,9 +96,9 @@ One row per recorded transmission link. Optional sheet — if absent, suspected 
 
 - `case_id` must be unique in `cases`
 - `onset_date` must be a valid date
-- `setting_name` must be unique in `settings`
+- `setting_id` must be unique in `settings`
 - All `case_id` values in `case_settings` must exist in `cases`
-- All `setting_name` values in `case_settings` must exist in `settings`
-- All (`case_id`, `setting_name`) pairs in `visit_dates` must exist in `case_settings`
+- All `setting_id` values in `case_settings` must exist in `settings`
+- All (`case_id`, `setting_id`) pairs in `visit_dates` must exist in `case_settings`
 - `from` and `to` in `contacts` must both exist in `cases`
 - `inc_min` < `inc_max` (enforced in the app parameters panel)

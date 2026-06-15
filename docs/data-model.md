@@ -25,10 +25,11 @@ Four tables. Each has a clearly defined grain and primary key.
 
 | Field | Key | Type | Required | Notes |
 |---|---|---|---|---|
-| `setting_name` | PK | character | yes | Unique name; natural primary key |
+| `setting_id` | PK | integer | yes | Surrogate primary key; join key in case_settings and visit_dates |
+| `setting_name` | | character | yes | Human-readable name; should be unique within the dataset |
 | `setting_type` | | character | yes | User-defined categorical — see Decisions |
 
-> Derived internally from `case_settings` on upload; not a separate sheet in the xlsx. A surrogate `setting_id` can be added later if two distinct settings share the same name.
+> Provided as a dedicated `settings` sheet in the xlsx upload.
 
 ---
 
@@ -39,11 +40,10 @@ Bridging table between cases and settings.
 | Field | Key | Type | Required | Notes |
 |---|---|---|---|---|
 | `case_id` | PK + FK | character | yes | FK → cases.case_id |
-| `setting_name` | PK + FK | character | yes | FK → settings.setting_name |
-| `setting_type` | | character | yes | User-defined categorical; consistent with settings table |
+| `setting_id` | PK + FK | integer | yes | FK → settings.setting_id |
 | `has_other_visits` | | logical | no | TRUE = case visited this setting on additional dates outside the epi window; no specific dates captured for those |
 
-> Composite primary key: (`case_id`, `setting_name`). A case-setting pair appears exactly once regardless of how many individual dates are recorded.
+> Composite primary key: (`case_id`, `setting_id`). `setting_name` and `setting_type` are not stored here — they are joined from `settings` at runtime.
 
 ---
 
@@ -54,10 +54,10 @@ Child table hanging off case_settings. Records only dates that fall within or ne
 | Field | Key | Type | Required | Notes |
 |---|---|---|---|---|
 | `case_id` | PK + FK | character | yes | FK → case_settings.case_id |
-| `setting_name` | PK + FK | character | yes | FK → case_settings.setting_name |
+| `setting_id` | PK + FK | integer | yes | FK → case_settings.setting_id |
 | `visit_date` | PK | date | yes | Date of the epi-relevant visit |
 
-> Composite primary key: (`case_id`, `setting_name`, `visit_date`) — one case visits a setting at most once per calendar day.
+> Composite primary key: (`case_id`, `setting_id`, `visit_date`) — one case visits a setting at most once per calendar day.
 
 > `epi_category` is **derived by the app at runtime**, not stored. For each visit_date the app compares it against `onset_date` using the current incubation and infectious period parameters and assigns one of: `Exposure window`, `Infectious period`, `Both`, `Neither`. This drives edge colours in the Who Visited Where view. If the user changes the parameters, categories update automatically with no data migration needed.
 
@@ -88,24 +88,24 @@ erDiagram
     }
 
     SETTINGS {
-        string setting_name PK
+        int setting_id PK
+        string setting_name
         string setting_type
     }
 
     CASE_SETTINGS {
         string case_id PK
         string case_id FK
-        string setting_name PK
-        string setting_name FK
-        string setting_type
+        int setting_id PK
+        int setting_id FK
         boolean has_other_visits
     }
 
     VISIT_DATES {
         string case_id PK
         string case_id FK
-        string setting_name PK
-        string setting_name FK
+        int setting_id PK
+        int setting_id FK
         date visit_date PK
     }
 
@@ -141,7 +141,7 @@ For each row in `visit_dates`, the app derives a category by comparing `visit_da
 |---|---|---|
 | **Exposure window** | `onset_date − inc_max` ≤ `visit_date` ≤ `onset_date − inc_min` | Case may have been infected at this setting on this date |
 | **Infectious period** | `onset_date − inf_before` ≤ `visit_date` ≤ `onset_date + inf_after` | Case may have infected others at this setting on this date |
-| **Both** | Date falls in both windows | Could have been infected and could have infected others |
+| **Both** | Case has at least one date in the exposure window AND at least one date in the infectious period at this setting | Setting is relevant in both directions — case may have been infected there and may have infected others there |
 | **Neither** | Date outside all windows | Visit is recorded but not considered epi-relevant |
 
 Where a case × setting pair has multiple visit dates, the app picks the highest-priority category (Both > Infectious > Exposure > Neither) for the network edge, and lists all individual dates in the hover tooltip.
@@ -152,16 +152,15 @@ Parameters (`inc_min`, `inc_max`, `inf_before`, `inf_after`) are set in the Assu
 
 ## xlsx upload format
 
-Four sheets expected:
+Five sheets expected:
 
 | Sheet | Grain | Required fields |
 |---|---|---|
 | `cases` | one row per case | `case_id`, `onset_date` |
-| `case_settings` | one row per case × setting | `case_id`, `setting_name`, `setting_type` |
-| `visit_dates` | one row per epi-relevant date | `case_id`, `setting_name`, `visit_date` |
+| `settings` | one row per setting | `setting_id`, `setting_name`, `setting_type` |
+| `case_settings` | one row per case × setting | `case_id`, `setting_id` |
+| `visit_dates` | one row per epi-relevant date | `case_id`, `setting_id`, `visit_date` |
 | `contacts` | one row per link (optional) | `from`, `to`, `link_type` |
-
-The `settings` table is derived internally from `case_settings` — no separate sheet needed.
 
 ---
 
