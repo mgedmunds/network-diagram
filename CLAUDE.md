@@ -49,33 +49,45 @@ navigation overhead during rapid prototyping.
 
 ## Data model
 
-Three input sheets (from `.xlsx` upload or demo data):
+Five sheets (from `.xlsx` upload or demo data). Full field-level definitions are in `docs/data-dictionary.md`; ERD is in `docs/erd.svg`.
 
-### linelist — one row per case
+### cases — one row per case
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `case_id` | character | yes | unique identifier |
+| `case_id` | character | yes | unique identifier; PK |
 | `onset_date` | date | yes | drives time slider, epi curve, infectious-period logic |
-| `age_group` | character | no | e.g. "0-4", "5-11", "12-17", "18+" |
-| `vaccination_status` | character | no | e.g. "Unvaccinated", "1 dose", "2 doses", "Unknown" |
+| `age_group` | character | no | fixed bands: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+` |
+| `vaccination_status` | character | no | `Unvaccinated`, `1 dose`, `2 doses`, `Unknown` |
 
-### visits — one row per case-setting visit
+### settings — one row per setting
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `case_id` | character | yes | foreign key to linelist |
-| `setting_name` | character | yes | free text place name |
-| `setting_type` | character | yes | one of: School, Healthcare, Community, Household, Other |
-| `visit_date` | date | no | if absent, visit timing classification is skipped |
+| `setting_id` | integer | yes | surrogate PK; join key throughout |
+| `setting_name` | character | yes | human-readable name |
+| `setting_type` | character | yes | user-defined categorical (not pre-coded) |
 
-### contacts — one row per recorded transmission link (optional sheet)
+### case_settings — one row per case × setting combination
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `from` | character | yes | source case_id |
-| `to` | character | yes | recipient case_id |
-| `link_type` | character | yes | "Confirmed" or "Suspected" |
+| `case_id` | character | yes | PK + FK → cases |
+| `setting_id` | integer | yes | PK + FK → settings |
+| `has_other_visits` | logical | no | TRUE = continuous presence outside epi windows (e.g. household) |
 
-> **Note:** The data model is still being finalised in Phase 1. Do not add new
-> fields or change column names without confirming first.
+### visit_dates — one row per epi-relevant visit date
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `case_id` | character | yes | PK + FK → case_settings |
+| `setting_id` | integer | yes | PK + FK → case_settings |
+| `visit_date` | date | yes | one row per calendar day |
+
+`epi_category` is derived at runtime (never stored): `Exposure window`, `Infectious period`, `Both`, `Neither`.
+
+### contacts — one row per recorded transmission link (optional)
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `from` | character | yes | source case_id; FK → cases |
+| `to` | character | yes | recipient case_id; FK → cases |
+| `link_type` | character | yes | `Confirmed` or `Suspected` |
 
 ---
 
@@ -124,6 +136,7 @@ Derived rule for suspected transmission links (Who infected whom view): onset ga
 | `readxl` | Excel file import |
 | `lubridate` | Date handling |
 | `jsonlite` | Dev panel / action tracker JSON persistence |
+| `DiagrammeR` | ERD schema diagram in Reference tab |
 
 ---
 
@@ -134,8 +147,7 @@ Derived rule for suspected transmission links (Who infected whom view): onset ga
   layout unless bslib has no equivalent.
 - **Tooltips:** use the `info()` helper (defined near the top of app.R) for all ⓘ
   icon tooltips. Use `hdr()` for card headers that need a tooltip.
-- **Setting colours:** always use the `setting_colours` named vector. Do not
-  hardcode hex colours for setting types anywhere else.
+- **Setting colours:** use `colour_map(types)` to assign colours from `SETTING_PALETTE`. Do not hardcode hex colours for setting types anywhere else. Setting types are dynamic (user-defined), so colours must be assigned at runtime.
 - **Reactive pattern:** keep data loading in `raw()`, filtering in `filtered()`,
   network building in `netdata()`. Do not add new top-level reactives for data
   that fits this chain.
@@ -155,7 +167,7 @@ Derived rule for suspected transmission links (Who infected whom view): onset ga
 - Do not refactor working code as part of a bug fix or feature addition
 - Do not add explanatory comments describing *what* code does — only *why* if the
   reason is non-obvious
-- Do not change the `setting_colours` palette
+- Do not change the `SETTING_PALETTE` colours or their order
 - Do not alter the dev panel task list (DEV_TASKS) without being asked
 
 ---
@@ -173,9 +185,12 @@ Derived rule for suspected transmission links (Who infected whom view): onset ga
 - **Obsidian** — installed on Windows, vault points at `C:\Users\mgedmunds\projects\network-diagram`
 - **`docs/` folder** — working notes and architecture decisions, lives in the repo so Claude can read it
   - `docs/data-model.md` — Phase 1 working notes, open questions, field decisions
+  - `docs/data-dictionary.md` — full field-level reference for all tables
+  - `docs/erd.svg` — schema diagram, auto-generated when the app starts
   - `docs/network-types.md` — Phase 2 working notes, view decisions
   - `docs/decisions/` — ADRs for significant decisions (use TEMPLATE.md)
 - Windows Obsidian and WSL Claude Code stay in sync via `git pull` / `git push`
+- Windows repo is at `C:\Users\claude-dev\projects\network-diagram`; RStudio pull sometimes needs `git fetch origin && git merge origin/main` in the Terminal tab if the remote cache is stale
 
 ---
 

@@ -246,7 +246,7 @@ Minimum fields required from the external linelist:
 ## Open questions
 
 **Schema**
-- [ ] **`setting_id`** — add a surrogate key to settings if name collisions occur (two venues with the same name). Low priority until it happens in practice.
+- [x] **`setting_id`** — implemented as integer surrogate PK on settings; used as FK in case_settings and visit_dates. setting_name and setting_type removed from case_settings.
 - [ ] **`case_status`** — add `Confirmed`, `Probable`, `Suspected` to cases? Would affect which cases appear in the network and how transmission links are displayed.
 - [ ] **`vaccination_status`** — keep measles-specific values or make generic for reuse across outbreaks?
 - [ ] **"Neither" dates in visit_dates** — should dates outside all epi windows be recorded? Currently the table implies all rows are epi-relevant. If "Neither" dates are needed, consider adding an `epi_relevant` flag.
@@ -261,7 +261,7 @@ Minimum fields required from the external linelist:
 
 **Documentation**
 - [ ] Data flow diagram — external linelist → collection tool → Shiny app → network views
-- [ ] Data dictionary — plain-language definition for every field
+- [x] Data dictionary — created as `docs/data-dictionary.md`; also rendered as interactive tables in the Reference tab of the app.
 
 ---
 
@@ -280,7 +280,10 @@ Schema split into: `cases`, `settings`, `case_settings` (bridging), `visit_dates
 Visit timing category (Exposure window, Infectious period, Both, Neither) is computed at runtime from `visit_date`, `onset_date`, and the current parameter values. Never persisted, so changing parameters requires no data migration.
 
 **Multiple visit dates — edge aggregation in the bipartite view**
-Where a case × setting pair has multiple visit dates, the network shows one edge per pair (not one per date) to keep the diagram readable. The edge takes the highest-priority category across all dates (Both > Infectious > Exposure > Neither). All individual dates are listed in the hover tooltip.
+Where a case × setting pair has multiple visit dates, the network shows one edge per pair (not one per date) to keep the diagram readable. The edge is classified as `Both` if the case has any date in the exposure window AND any date in the infectious period at that setting — even if no single date falls in both simultaneously (e.g. a household resident present across weeks). Otherwise the edge takes the highest-priority single-date category: Infectious > Exposure > Neither. All individual dates are listed in the hover tooltip.
+
+**`setting_id` — surrogate primary key for settings**
+Settings are identified by an integer surrogate key (`setting_id`) rather than `setting_name`. This prevents join failures if two distinct venues share a name. `setting_name` and `setting_type` live only in the `settings` table and are joined at runtime; they are not duplicated in `case_settings` or `visit_dates`.
 
 ---
 
@@ -288,10 +291,10 @@ Where a case × setting pair has multiple visit dates, the network shows one edg
 
 - `case_id` must be unique in cases
 - `onset_date` must be a valid date
-- `setting_name` must be unique in settings
+- `setting_id` must be unique in settings
 - All `case_id` values in case_settings must exist in cases
-- All `setting_name` values in case_settings must exist in settings
-- All (`case_id`, `setting_name`) pairs in visit_dates must exist in case_settings
+- All `setting_id` values in case_settings must exist in settings
+- All (`case_id`, `setting_id`) pairs in visit_dates must exist in case_settings
 - `from` and `to` in contacts must both exist in cases
 - `inc_min` < `inc_max` (enforced in app parameters)
 
