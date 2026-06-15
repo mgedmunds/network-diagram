@@ -99,38 +99,41 @@ make_demo_data <- function() {
 
   prim <- sample(seq_len(nrow(community)), n, replace = TRUE, prob = comm_w)
 
+  # Helper: pick n_dates distinct dates from a window vector
+  pick_dates <- function(window, n_dates) sort(sample(window, min(n_dates, length(window))))
+
   visit_rows <- purrr::map_dfr(seq_len(n), function(i) {
-    onset <- cases$onset_date[i]
-    # Household residents are present every day across the full epi window
-    hh_dates <- seq(onset - DEF_INC_MAX, onset + DEF_INF_AFTER, by = 1)
+    onset     <- cases$onset_date[i]
+    inf_win   <- seq(onset - DEF_INF_BEFORE, onset + DEF_INF_AFTER)
+    exp_win   <- seq(onset - DEF_INC_MAX,    onset - DEF_INC_MIN)
 
     prim_stype <- community$setting_type[prim[i]]
-    rows <- tibble::tibble(
-      case_id      = cases$case_id[i],
-      setting_name = community$setting_name[prim[i]],
-      visit_date   = if (prim_stype == "Household") hh_dates else onset - sample(0:3, 1))
+    # Primary setting: 1-3 visits in the infectious window; households get one date only
+    prim_dates <- if (prim_stype == "Household") onset - sample(0:DEF_INF_BEFORE, 1)
+                  else pick_dates(inf_win, sample(1:3, 1, prob = c(.4, .4, .2)))
+    rows <- tibble::tibble(case_id      = cases$case_id[i],
+                           setting_name = community$setting_name[prim[i]],
+                           visit_date   = prim_dates)
 
     if (runif(1) < 0.70) {
       h <- healthcare[sample(nrow(healthcare), 1), ]
-      rows <- bind_rows(rows, tibble::tibble(case_id = cases$case_id[i],
+      rows <- bind_rows(rows, tibble::tibble(case_id      = cases$case_id[i],
                           setting_name = h$setting_name,
                           visit_date   = onset + sample(1:3, 1))) }
 
     if (runif(1) < 0.65) {
-      s_exp <- community[sample(seq_len(nrow(community))[-prim[i]], 1), ]
-      rows <- bind_rows(rows, tibble::tibble(
-        case_id      = cases$case_id[i],
-        setting_name = s_exp$setting_name,
-        visit_date   = if (s_exp$setting_type == "Household") hh_dates
-                       else onset - sample(8:20, 1))) }
+      s_exp      <- community[sample(seq_len(nrow(community))[-prim[i]], 1), ]
+      exp_dates  <- if (s_exp$setting_type == "Household") onset - sample(DEF_INC_MIN:DEF_INC_MAX, 1)
+                    else pick_dates(exp_win, sample(1:2, 1))
+      rows <- bind_rows(rows, tibble::tibble(case_id      = cases$case_id[i],
+                          setting_name = s_exp$setting_name,
+                          visit_date   = exp_dates)) }
 
     if (runif(1) < 0.35) {
       s_hist <- community[sample(seq_len(nrow(community)), 1), ]
-      rows <- bind_rows(rows, tibble::tibble(
-        case_id      = cases$case_id[i],
-        setting_name = s_hist$setting_name,
-        visit_date   = if (s_hist$setting_type == "Household") hh_dates
-                       else onset - sample(22:30, 1))) }
+      rows <- bind_rows(rows, tibble::tibble(case_id      = cases$case_id[i],
+                          setting_name = s_hist$setting_name,
+                          visit_date   = onset - sample(22:30, 1))) }
     rows
   }) |> arrange(case_id, visit_date)
 
@@ -138,7 +141,7 @@ make_demo_data <- function() {
   case_settings <- visit_rows |>
     distinct(case_id, setting_name) |>
     left_join(all_settings, by = "setting_name") |>
-    mutate(has_other_visits = FALSE)
+    mutate(has_other_visits = setting_type == "Household")
   settings <- all_settings |> semi_join(case_settings, by = "setting_name")
 
   prim_name <- community$setting_name[prim]
