@@ -41,6 +41,7 @@ library(DT)
 library(purrr)
 library(tibble)
 library(jsonlite)
+library(DiagrammeR)   # ERD diagram in Reference tab (new dependency)
 
 # ---- Configuration ----------------------------------------------------------
 # 10 perceptually distinct colours (D3 category10). Assigned in order to whatever
@@ -84,6 +85,108 @@ leg_arrow <- function(color, direction = "none", dashed = FALSE) {
     '<svg width="44" height="14" style="vertical-align:middle;margin-right:6px;overflow:visible;"><line x1="%d" y1="7" x2="%d" y2="7" stroke="%s" stroke-width="2.5"%s/>%s%s</svg>',
     x1, x2, color, dash, left, right))
 }
+
+# ---- Schema diagram & data dictionary --------------------------------------
+ERD_GRAPHVIZ <- '
+digraph erd {
+  graph [rankdir=TB fontname="Helvetica" fontsize=11 bgcolor="white"
+         pad="0.5" nodesep="1.0" ranksep="0.8"]
+  node  [fontname="Helvetica" fontsize=10 shape=plaintext]
+  edge  [fontname="Helvetica" fontsize=9 color="#555555"
+         arrowhead=crow arrowtail=tee dir=both]
+
+  { rank=same; CASES; SETTINGS }
+  { rank=same; VISIT_DATES; CONTACTS }
+
+  CASES [label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+      <TR><TD COLSPAN="3" BGCOLOR="#2c7fb8" ALIGN="CENTER"><FONT COLOR="white"><B> cases </B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK</TD></TR>
+      <TR><TD ALIGN="LEFT">onset_date</TD><TD ALIGN="LEFT">date</TD><TD>required</TD></TR>
+      <TR><TD ALIGN="LEFT">age_group</TD><TD ALIGN="LEFT">character</TD><TD> </TD></TR>
+      <TR><TD ALIGN="LEFT">vaccination_status</TD><TD ALIGN="LEFT">character</TD><TD> </TD></TR>
+    </TABLE>>]
+
+  SETTINGS [label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+      <TR><TD COLSPAN="3" BGCOLOR="#31a354" ALIGN="CENTER"><FONT COLOR="white"><B> settings </B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><U>setting_name</U></TD><TD ALIGN="LEFT">character</TD><TD>PK</TD></TR>
+      <TR><TD ALIGN="LEFT">setting_type</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
+    </TABLE>>]
+
+  CASE_SETTINGS [label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+      <TR><TD COLSPAN="3" BGCOLOR="#e6550d" ALIGN="CENTER"><FONT COLOR="white"><B> case_settings </B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
+      <TR><TD ALIGN="LEFT"><U>setting_name</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
+      <TR><TD ALIGN="LEFT">setting_type</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
+      <TR><TD ALIGN="LEFT">has_other_visits</TD><TD ALIGN="LEFT">logical</TD><TD> </TD></TR>
+    </TABLE>>]
+
+  VISIT_DATES [label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+      <TR><TD COLSPAN="3" BGCOLOR="#756bb1" ALIGN="CENTER"><FONT COLOR="white"><B> visit_dates </B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
+      <TR><TD ALIGN="LEFT"><U>setting_name</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
+      <TR><TD ALIGN="LEFT"><U>visit_date</U></TD><TD ALIGN="LEFT">date</TD><TD>PK</TD></TR>
+      <TR><TD ALIGN="LEFT"><I>epi_category</I></TD><TD ALIGN="LEFT"><I>character</I></TD><TD><I>derived</I></TD></TR>
+    </TABLE>>]
+
+  CONTACTS [label=<
+    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+      <TR><TD COLSPAN="3" BGCOLOR="#de2d26" ALIGN="CENTER"><FONT COLOR="white"><B> contacts </B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT">from</TD><TD ALIGN="LEFT">character</TD><TD>FK</TD></TR>
+      <TR><TD ALIGN="LEFT">to</TD><TD ALIGN="LEFT">character</TD><TD>FK</TD></TR>
+      <TR><TD ALIGN="LEFT">link_type</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
+    </TABLE>>]
+
+  CASES         -> CASE_SETTINGS [label=" 1:N "]
+  SETTINGS      -> CASE_SETTINGS [label=" 1:N "]
+  CASE_SETTINGS -> VISIT_DATES   [label=" 1:N "]
+  CASES         -> CONTACTS      [label=" 1:N\n(from + to) " style=dashed]
+}
+'
+
+# Auto-export ERD to docs/ whenever the app file is sourced (soft dep on DiagrammeRsvg)
+tryCatch({
+  if (requireNamespace("DiagrammeRsvg", quietly = TRUE))
+    writeLines(DiagrammeRsvg::export_svg(grViz(ERD_GRAPHVIZ)), "docs/erd.svg")
+}, error = function(e) NULL)
+
+DICT_TABLES <- list(
+  cases = tibble::tribble(
+    ~Field,                ~Type,       ~Key,  ~Required, ~Description,
+    "case_id",             "character", "PK",  "Yes",     "Unique case identifier. Join key across all tables. Must be unique within the dataset.",
+    "onset_date",          "date",      "—",   "Yes",     "Symptom onset date. Drives the time slider, epidemic curve, and all epi-period derivations (exposure window, infectious period).",
+    "age_group",           "character", "—",   "No",      "Age band. Fixed values: &lt;1 year, 1–4 years, 5–17 years, 18–29 years, 30–49 years, 50+ years. Aligned with UKHSA reporting and vaccination schedule milestones.",
+    "vaccination_status",  "character", "—",   "No",      "Measles vaccination history at time of illness. Values: Unvaccinated, 1 dose, 2 doses, Unknown."
+  ),
+  settings = tibble::tribble(
+    ~Field,          ~Type,       ~Key,  ~Required, ~Description,
+    "setting_name",  "character", "PK",  "Yes",     "Unique setting name. Natural primary key. Derived internally from case_settings on upload — not a separate xlsx sheet.",
+    "setting_type",  "character", "—",   "Yes",     "User-defined categorical label (e.g. School, Household). Not pre-coded — values come from the data. Drives node colour and the setting-type filter."
+  ),
+  case_settings = tibble::tribble(
+    ~Field,              ~Type,       ~Key,       ~Required, ~Description,
+    "case_id",           "character", "PK + FK",  "Yes",     "Composite primary key. FK to cases.case_id.",
+    "setting_name",      "character", "PK + FK",  "Yes",     "Composite primary key. FK to settings.setting_name.",
+    "setting_type",      "character", "—",        "Yes",     "Denormalised from settings for query convenience. Must be consistent with the settings table.",
+    "has_other_visits",  "logical",   "—",        "No",      "TRUE if the case visited this setting on dates outside all epi windows (e.g. routine household residence). Specific dates for those visits are not recorded in visit_dates."
+  ),
+  visit_dates = tibble::tribble(
+    ~Field,           ~Type,       ~Key,        ~Required, ~Description,
+    "case_id",        "character", "PK + FK",   "Yes",     "Composite primary key. FK to case_settings.case_id.",
+    "setting_name",   "character", "PK + FK",   "Yes",     "Composite primary key. FK to case_settings.setting_name.",
+    "visit_date",     "date",      "PK",        "Yes",     "Date of an epi-relevant visit. One row per calendar day per case-setting pair.",
+    "epi_category",   "character", "(derived)", "—",       "<i>Not stored. Computed at runtime</i> from visit_date vs onset_date using current parameters.<br><b>Exposure window:</b> onset &minus; inc_max &le; date &le; onset &minus; inc_min<br><b>Infectious period:</b> onset &minus; inf_before &le; date &le; onset + inf_after<br><b>Both:</b> dates span both windows across the case&ndash;setting pair (e.g. household resident)<br><b>Neither:</b> date outside all windows. Recalculates automatically when parameters change."
+  ),
+  contacts = tibble::tribble(
+    ~Field,       ~Type,       ~Key,  ~Required, ~Description,
+    "from",       "character", "FK",  "Yes",     "Source case. FK to cases.case_id.",
+    "to",         "character", "FK",  "Yes",     "Recipient case. FK to cases.case_id.",
+    "link_type",  "character", "—",   "Yes",     "Strength of evidence: <b>Confirmed</b> (epidemiologically established) or <b>Suspected</b> (plausible based on timing and shared setting)."
+  )
+)
 
 # ---- Demo data --------------------------------------------------------------
 make_demo_data <- function() {
@@ -767,6 +870,32 @@ ui <- page_navbar(
           actionButton("reset_params", "Reset to defaults",
                        class = "btn-outline-secondary btn-sm"))))),
 
+  # ---- Reference tab (dev only — remove before release) ----------------------
+  nav_panel("Reference",
+    div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
+      card(
+        hdr("Schema diagram",
+            "Entity-relationship diagram. Underlined fields are primary keys. Italic epi_category is derived at runtime and not stored."),
+        card_body(
+          grVizOutput("erd_plot", height = "500px"),
+          div(style = "margin-top:8px;",
+              downloadButton("download_erd", "Download SVG", class = "btn-outline-secondary btn-sm")))
+      ),
+      card(
+        hdr("Data dictionary", "Field-level definitions. epi_category in visit_dates is computed live from parameters and is never stored."),
+        card_body(
+          navset_tab(
+            nav_panel("cases",         DTOutput("dict_cases")),
+            nav_panel("settings",      DTOutput("dict_settings")),
+            nav_panel("case_settings", DTOutput("dict_case_settings")),
+            nav_panel("visit_dates",   DTOutput("dict_visit_dates")),
+            nav_panel("contacts",      DTOutput("dict_contacts"))
+          )
+        )
+      )
+    )
+  ),
+
   nav_spacer(),
   nav_item(tags$span(style = "color:#888; font-size:0.85em;", "Measles outbreak visualiser"))
 )
@@ -917,6 +1046,29 @@ server <- function(input, output, session) {
               options = list(pageLength = 6, scrollX = TRUE, dom = "tp",
                              headerCallback = header_tooltips(unname(tips))))
   })
+
+  # ---- Reference tab outputs --------------------------------------------------
+  output$erd_plot <- renderGrViz({ grViz(ERD_GRAPHVIZ) })
+
+  output$download_erd <- downloadHandler(
+    filename = "network-diagram-schema.svg",
+    content  = function(file) {
+      if (!requireNamespace("DiagrammeRsvg", quietly = TRUE))
+        stop("Install the DiagrammeRsvg package to enable SVG download.")
+      writeLines(DiagrammeRsvg::export_svg(grViz(ERD_GRAPHVIZ)), file)
+    }
+  )
+
+  dict_dt <- function(tbl)
+    datatable(tbl, rownames = FALSE, escape = FALSE,
+              options = list(dom = "t", pageLength = 20, ordering = FALSE,
+                             columnDefs = list(list(width = "45%", targets = 4))))
+
+  output$dict_cases         <- renderDT({ dict_dt(DICT_TABLES$cases) })
+  output$dict_settings      <- renderDT({ dict_dt(DICT_TABLES$settings) })
+  output$dict_case_settings <- renderDT({ dict_dt(DICT_TABLES$case_settings) })
+  output$dict_visit_dates   <- renderDT({ dict_dt(DICT_TABLES$visit_dates) })
+  output$dict_contacts      <- renderDT({ dict_dt(DICT_TABLES$contacts) })
 
 }
 
