@@ -23,17 +23,7 @@ Phase 2 working document. Tracks research and decisions about which network view
 
 ---
 
-## Data management TEST
 
-Need to consider
-
-- whether categories provided by practitioner will be used to describe exposure types (e.g. visit during infectious period), whether this should be derived based on the data entered (e.g. using onset date and dates of visit. Will it be reasonable to expect practitioners to be able to categorise accurately for all case-setting interactions? Do we need an "unknown" options? May be best to use the practitioner assigned value and then use the data as a validation check for misclassification?
-- How will dates attending settings be calculated? Are we able to automate so that each case only has to assess relevant dates for each setting (i.e. those where they could have been infected or were infectious.
-- if using a data capture function of the tool itself, can it be used concurrently?
-- When importing data from a line list, very few fields are needed. Specify which and naming conventions
-- Come up with data flow diagram
-- Data dictionary
-- Data model showing relational information
 
 
 ## Candidate additional views
