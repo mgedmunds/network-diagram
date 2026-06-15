@@ -12,7 +12,7 @@ Phase 1 working document. Tracks decisions about what data the tool needs.
 |---|---|---|---|
 | `case_id` | character | yes | unique identifier |
 | `onset_date` | date | yes | drives time slider, epi curve, infectious-period logic |
-| `age_group` | character | no | e.g. "0-4", "5-11", "12-17", "18+" |
+| `age_group` | character | no | Fixed bands: "<1 year", "1–4 years", "5–17 years", "18–29 years", "30–49 years", "50+ years" |
 | `vaccination_status` | character | no | "Unvaccinated", "1 dose", "2 doses", "Unknown" |
 
 ### visits (one row per case-setting visit)
@@ -36,7 +36,7 @@ Phase 1 working document. Tracks decisions about what data the tool needs.
 
 ## Open questions
 
-- [ ] Should `age_group` use fixed bands or free text?
+- [x] Should `age_group` use fixed bands or free text?
 - [ ] Should `setting_type` be a fixed controlled list or free text?
 - [ ] Do we need a `setting_id` separate from `setting_name` (e.g. if two settings share a name)?
 - [ ] Should `visit_date` be required or remain optional?
@@ -52,6 +52,9 @@ Phase 1 working document. Tracks decisions about what data the tool needs.
 ## Decisions made
 
 _Record decisions here as they are made, then move to a formal ADR if significant._
+
+**`age_group` — fixed bands (Option B)**
+Six bands aligned with vaccination schedule, school settings, and UKHSA reporting practice: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+ years`. Pre-school and school age are combined into single bands at this granularity; use Option C (splitting 5–11 / 12–17) if a school-based outbreak warrants finer age detail.
 
 ---
 
