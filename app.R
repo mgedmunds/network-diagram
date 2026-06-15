@@ -121,8 +121,11 @@ make_demo_data <- function() {
     exp_win   <- seq(onset - DEF_INC_MAX,    onset - DEF_INC_MIN)
 
     prim_stype <- community$setting_type[prim[i]]
-    # Primary setting: 1-3 visits in the infectious window; households get one date only
-    prim_dates <- if (prim_stype == "Household") onset - sample(0:DEF_INF_BEFORE, 1)
+    # Households: case is resident, so record dates spanning both the exposure and infectious windows.
+    # Other settings: 1–3 visits during the infectious period only.
+    prim_dates <- if (prim_stype == "Household")
+                    c(pick_dates(exp_win, sample(2:4, 1)),
+                      pick_dates(inf_win, sample(2:4, 1)))
                   else pick_dates(inf_win, sample(1:3, 1, prob = c(.4, .4, .2)))
     rows <- tibble::tibble(case_id      = cases$case_id[i],
                            setting_name = community$setting_name[prim[i]],
@@ -240,7 +243,13 @@ build_bipartite <- function(visits, ll, colours,
   edges_agg <- vv |>
     group_by(case_id, setting_name, setting_type) |>
     summarise(
-      visit_cat = names(which.max(cat_rank[unique(visit_cat)])),
+      visit_cat = {
+        cats <- unique(visit_cat)
+        # "both" if dates span the exposure window AND the infectious period, even if no single
+        # date falls in both simultaneously (e.g. a household resident present across both windows)
+        if (any(cats %in% c("exposure", "both")) && any(cats %in% c("infectious", "both"))) "both"
+        else names(which.max(cat_rank[cats]))
+      },
       date_label = {
         ds <- sort(unique(visit_date[!is.na(visit_date)]))
         if (!has_dates || length(ds) == 0) ""
