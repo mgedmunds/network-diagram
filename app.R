@@ -43,11 +43,18 @@ library(tibble)
 library(jsonlite)
 
 # ---- Configuration ----------------------------------------------------------
-setting_colours <- c(
-  School = "#1f77b4", Healthcare = "#d62728", Community = "#2ca02c",
-  Household = "#9467bd", Other = "#7f7f7f"
+# 10 perceptually distinct colours (D3 category10). Assigned in order to whatever
+# setting types appear in the loaded data — no types are pre-coded.
+SETTING_PALETTE <- c(
+  "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+  "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
 )
 CASE_COLOUR <- "#444444"
+
+colour_map <- function(types) {
+  types <- unique(types[!is.na(types)])
+  setNames(SETTING_PALETTE[(seq_along(types) - 1L) %% length(SETTING_PALETTE) + 1L], types)
+}
 
 # Default epidemiological parameters (measles, approximate). All editable in-app.
 DEF_INC_MIN   <- 7   # incubation, exposure -> onset, minimum (days)
@@ -94,24 +101,36 @@ make_demo_data <- function() {
 
   visit_rows <- purrr::map_dfr(seq_len(n), function(i) {
     onset <- cases$onset_date[i]
-    rows <- tibble::tibble(case_id = cases$case_id[i],
-                           setting_name = community$setting_name[prim[i]],
-                           visit_date   = onset - sample(0:3, 1))
+    # Household residents are present every day across the full epi window
+    hh_dates <- seq(onset - DEF_INC_MAX, onset + DEF_INF_AFTER, by = 1)
+
+    prim_stype <- community$setting_type[prim[i]]
+    rows <- tibble::tibble(
+      case_id      = cases$case_id[i],
+      setting_name = community$setting_name[prim[i]],
+      visit_date   = if (prim_stype == "Household") hh_dates else onset - sample(0:3, 1))
+
     if (runif(1) < 0.70) {
       h <- healthcare[sample(nrow(healthcare), 1), ]
       rows <- bind_rows(rows, tibble::tibble(case_id = cases$case_id[i],
                           setting_name = h$setting_name,
                           visit_date   = onset + sample(1:3, 1))) }
+
     if (runif(1) < 0.65) {
       s_exp <- community[sample(seq_len(nrow(community))[-prim[i]], 1), ]
-      rows <- bind_rows(rows, tibble::tibble(case_id = cases$case_id[i],
-                          setting_name = s_exp$setting_name,
-                          visit_date   = onset - sample(8:20, 1))) }
+      rows <- bind_rows(rows, tibble::tibble(
+        case_id      = cases$case_id[i],
+        setting_name = s_exp$setting_name,
+        visit_date   = if (s_exp$setting_type == "Household") hh_dates
+                       else onset - sample(8:20, 1))) }
+
     if (runif(1) < 0.35) {
       s_hist <- community[sample(seq_len(nrow(community)), 1), ]
-      rows <- bind_rows(rows, tibble::tibble(case_id = cases$case_id[i],
-                          setting_name = s_hist$setting_name,
-                          visit_date   = onset - sample(22:30, 1))) }
+      rows <- bind_rows(rows, tibble::tibble(
+        case_id      = cases$case_id[i],
+        setting_name = s_hist$setting_name,
+        visit_date   = if (s_hist$setting_type == "Household") hh_dates
+                       else onset - sample(22:30, 1))) }
     rows
   }) |> arrange(case_id, visit_date)
 
@@ -139,14 +158,14 @@ flat_visits <- function(d) {
 }
 
 # ---- View builders ----------------------------------------------------------
-build_setting_projection <- function(visits, ll) {
+build_setting_projection <- function(visits, ll, colours) {
   if (nrow(visits) == 0)
     return(list(nodes = tibble(id = character(), label = character()),
                 edges = tibble(from = character(), to = character())))
   nodes <- visits |> distinct(case_id, setting_name, setting_type) |>
     count(setting_name, setting_type, name = "cases") |>
     transmute(id = setting_name, label = setting_name, group = setting_type,
-              value = cases, color = unname(setting_colours[setting_type]), shape = "dot",
+              value = cases, color = unname(colours[setting_type]), shape = "dot",
               title = paste0("<b>", setting_name, "</b><br>", setting_type,
                              "<br>Cases linked here: ", cases))
   per_case <- visits |> distinct(case_id, setting_name) |> group_by(case_id) |>
@@ -163,7 +182,7 @@ build_setting_projection <- function(visits, ll) {
   list(nodes = nodes, edges = edges)
 }
 
-build_bipartite <- function(visits, ll,
+build_bipartite <- function(visits, ll, colours,
                             inf_before = DEF_INF_BEFORE, inf_after  = DEF_INF_AFTER,
                             inc_min    = DEF_INC_MIN,    inc_max    = DEF_INC_MAX) {
   if (nrow(visits) == 0)
@@ -186,7 +205,7 @@ build_bipartite <- function(visits, ll,
     count(setting_name, setting_type, name = "cases") |>
     transmute(id = paste0("set::", setting_name), label = setting_name,
               group = setting_type, kind = "Setting",
-              color = unname(setting_colours[setting_type]), shape = "square",
+              color = unname(colours[setting_type]), shape = "square",
               size  = 14 + 4 * sqrt(cases),
               title = paste0("<b>", setting_name, "</b><br>", setting_type,
                              "<br>Distinct cases: ", cases))
@@ -269,7 +288,7 @@ derive_suspected_links <- function(ll, visits, inc_min, inc_max, inf_before, inf
     distinct(from, to) |> mutate(link_type = "Suspected")
 }
 
-build_contacts_network <- function(ll, contacts, visits) {
+build_contacts_network <- function(ll, contacts, visits, colours) {
   primary <- if (nrow(visits))
     visits |> arrange(visit_date) |> group_by(case_id) |> slice(1) |> ungroup() |>
       select(case_id, setting_type)
@@ -285,7 +304,7 @@ build_contacts_network <- function(ll, contacts, visits) {
     mutate(setting_type = ifelse(is.na(setting_type), "Other", setting_type),
            n_settings   = coalesce(n_settings, 0L)) |>
     transmute(id = case_id, label = case_id, group = setting_type,
-              color = unname(setting_colours[setting_type]),
+              color = coalesce(unname(colours[setting_type]), "#7f7f7f"),
               title = paste0("<b>", htmltools::htmlEscape(case_id), "</b><br>Onset: ", onset_date,
                              "<br>Settings visited: ", n_settings))
 
@@ -641,7 +660,7 @@ ui <- page_navbar(
         checkboxGroupInput("types",
           label = tagList("Include setting types",
             info("Tick or untick to focus on particular kinds of setting.")),
-          choices = names(setting_colours), selected = names(setting_colours)),
+          choices = character(0), selected = character(0)),
         hr(),
         helpText("See ", strong("Definitions"), ", ", strong("How to use"), " and ",
                  strong("Assumptions & parameters"), " tabs at the top.")),
@@ -752,8 +771,11 @@ server <- function(input, output, session) {
   })
 
   observeEvent(raw(), {
-    d <- raw(); rng <- range(c(d$cases$onset_date, d$visit_dates$visit_date), na.rm = TRUE)
+    d    <- raw()
+    rng  <- range(c(d$cases$onset_date, d$visit_dates$visit_date), na.rm = TRUE)
     updateSliderInput(session, "asof", min = rng[1], max = rng[2], value = c(rng[1], rng[2]))
+    types <- unique(d$settings$setting_type)
+    updateCheckboxGroupInput(session, "types", choices = types, selected = types)
   })
 
   params <- reactive({
@@ -802,17 +824,18 @@ server <- function(input, output, session) {
   })
 
   netdata <- reactive({
-    f  <- filtered()
-    fv <- flat_visits(f)
-    p  <- params()
+    f    <- filtered()
+    fv   <- flat_visits(f)
+    p    <- params()
+    cols <- colour_map(f$settings$setting_type)
     switch(input$view,
-      projection = build_setting_projection(fv, f$cases),
-      bipartite  = build_bipartite(fv, f$cases, p$inf_before, p$inf_after, p$inc_min, p$inc_max),
+      projection = build_setting_projection(fv, f$cases, cols),
+      bipartite  = build_bipartite(fv, f$cases, cols, p$inf_before, p$inf_after, p$inc_min, p$inc_max),
       contacts   = {
         ct <- if (input$susp_source == "derive")
           derive_suspected_links(f$cases, fv, p$inc_min, p$inc_max, p$inf_before, p$inf_after)
         else f$contacts
-        build_contacts_network(f$cases, ct, fv)
+        build_contacts_network(f$cases, ct, fv, cols)
       })
   })
 
@@ -828,9 +851,10 @@ server <- function(input, output, session) {
     vn <- if (v == "contacts") visEdges(vn, arrows = "to", smooth = TRUE)
           else if (v == "bipartite") visEdges(vn, smooth = FALSE)
           else visEdges(vn, smooth = TRUE, color = list(color = "#9aa0a6", opacity = 0.7))
-    leg <- lapply(names(setting_colours), function(s)
+    cols <- colour_map(filtered()$settings$setting_type)
+    leg <- lapply(names(cols), function(s)
       list(label = s, shape = if (v == "bipartite") "square" else "dot",
-           color = unname(setting_colours[[s]])))
+           color = unname(cols[[s]])))
     if (v == "bipartite") leg <- c(leg, list(list(label = "Case", shape = "dot", color = CASE_COLOUR)))
     vn |> visLegend(useGroups = FALSE, addNodes = leg, position = "left", width = 0.18)
   })
