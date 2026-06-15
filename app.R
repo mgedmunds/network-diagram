@@ -869,7 +869,7 @@ server <- function(input, output, session) {
               options = list(pageLength = 8, dom = "tp", headerCallback = header_tooltips(unname(tips))))
   })
 
-  src_dt <- function(df) datatable(df, rownames = FALSE,
+  src_dt <- function(df) datatable(df, rownames = FALSE, filter = "top",
     options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
 
   output$src_cases         <- renderDT({ src_dt(raw()$cases) })
