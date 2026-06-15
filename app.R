@@ -14,8 +14,9 @@
 #    from shared settings + timing
 #
 # INPUT (.xlsx) sheets:
-# - linelist: case_id, onset_date, age_group, vaccination_status
-# - visits: case_id, setting_name, setting_type, visit_date (one row per visit)
+# - cases: case_id, onset_date, age_group, vaccination_status
+# - case_settings: case_id, setting_name, setting_type, has_other_visits
+# - visit_dates: case_id, setting_name, visit_date (one row per epi-relevant date)
 # - contacts: from, to, link_type (optional)
 # See sample_outbreak_data.xlsx (has a README sheet). Demo data is used if no
 # file is uploaded.
@@ -67,70 +68,74 @@ hdr <- function(title, msg) {
 # ---- Demo data --------------------------------------------------------------
 make_demo_data <- function() {
   set.seed(42)
-  community <- tibble::tribble(
+  all_settings <- tibble::tribble(
     ~setting_name,              ~setting_type,
     "Oakfield Primary",         "School",
     "St Mary's Secondary",      "School",
     "Hillside Nursery",         "Community",
     "Faith Community Centre",   "Community",
     "Maple Street Household",   "Household",
-    "Birch Close Household",    "Household")
-  comm_w <- c(.24, .20, .16, .14, .13, .13)
-  healthcare <- tibble::tribble(
-    ~setting_name,              ~setting_type,
+    "Birch Close Household",    "Household",
     "Riverside GP Surgery",     "Healthcare",
     "Central Hospital ED",      "Healthcare")
+  community  <- all_settings |> filter(setting_type != "Healthcare")
+  healthcare <- all_settings |> filter(setting_type == "Healthcare")
+  comm_w     <- c(.24, .20, .16, .14, .13, .13)
   n <- 15
-  ll <- tibble::tibble(
+  cases <- tibble::tibble(
     case_id            = sprintf("C%03d", seq_len(n)),
     onset_date         = as.Date("2026-04-01") + sample(0:56, n, replace = TRUE),
-    age_group          = sample(c("0-4","5-11","12-17","18+"), n, TRUE, c(.3,.35,.2,.15)),
+    age_group          = sample(c("<1 year","1–4 years","5–17 years","18–29 years","30–49 years","50+ years"),
+                                n, TRUE, c(.10,.20,.30,.20,.12,.08)),
     vaccination_status = sample(c("Unvaccinated","1 dose","2 doses","Unknown"),
                                 n, TRUE, c(.5,.2,.2,.1))) |> arrange(onset_date)
 
   prim <- sample(seq_len(nrow(community)), n, replace = TRUE, prob = comm_w)
-  visits <- purrr::map_dfr(seq_len(n), function(i) {
-    onset <- ll$onset_date[i]
 
-    # Primary community setting: visit during infectious period (0-3 days before onset)
-    rows <- tibble::tibble(case_id      = ll$case_id[i],
+  visit_rows <- purrr::map_dfr(seq_len(n), function(i) {
+    onset <- cases$onset_date[i]
+    rows <- tibble::tibble(case_id = cases$case_id[i],
                            setting_name = community$setting_name[prim[i]],
-                           setting_type = community$setting_type[prim[i]],
                            visit_date   = onset - sample(0:3, 1))
-
-    # Healthcare visit: during infectious period (1-3 days after onset)
     if (runif(1) < 0.70) {
       h <- healthcare[sample(nrow(healthcare), 1), ]
-      rows <- bind_rows(rows, tibble::tibble(case_id = ll$case_id[i],
-                          setting_name = h$setting_name, setting_type = h$setting_type,
+      rows <- bind_rows(rows, tibble::tibble(case_id = cases$case_id[i],
+                          setting_name = h$setting_name,
                           visit_date   = onset + sample(1:3, 1))) }
-
-    # Exposure window visit: different setting, 8-20 days before onset
     if (runif(1) < 0.65) {
-      exp_opts <- seq_len(nrow(community))[-prim[i]]
-      s_exp <- community[sample(exp_opts, 1), ]
-      rows <- bind_rows(rows, tibble::tibble(case_id = ll$case_id[i],
-                          setting_name = s_exp$setting_name, setting_type = s_exp$setting_type,
+      s_exp <- community[sample(seq_len(nrow(community))[-prim[i]], 1), ]
+      rows <- bind_rows(rows, tibble::tibble(case_id = cases$case_id[i],
+                          setting_name = s_exp$setting_name,
                           visit_date   = onset - sample(8:20, 1))) }
-
-    # Historical visit outside both windows: 22-30 days before onset
     if (runif(1) < 0.35) {
       s_hist <- community[sample(seq_len(nrow(community)), 1), ]
-      rows <- bind_rows(rows, tibble::tibble(case_id = ll$case_id[i],
-                          setting_name = s_hist$setting_name, setting_type = s_hist$setting_type,
+      rows <- bind_rows(rows, tibble::tibble(case_id = cases$case_id[i],
+                          setting_name = s_hist$setting_name,
                           visit_date   = onset - sample(22:30, 1))) }
     rows
-  }) |> arrange(case_id, visit_date) |> distinct(case_id, setting_name, .keep_all = TRUE)
+  }) |> arrange(case_id, visit_date)
+
+  visit_dates   <- visit_rows |> distinct(case_id, setting_name, visit_date)
+  case_settings <- visit_rows |>
+    distinct(case_id, setting_name) |>
+    left_join(all_settings, by = "setting_name") |>
+    mutate(has_other_visits = FALSE)
+  settings <- all_settings |> semi_join(case_settings, by = "setting_name")
 
   prim_name <- community$setting_name[prim]
-  ct <- purrr::map_dfr(seq_len(n)[-1], function(i) {
-    cand <- ll[seq_len(i - 1), ]
+  contacts <- purrr::map_dfr(seq_len(n)[-1], function(i) {
+    cand <- cases[seq_len(i - 1), ]
     w    <- ifelse(prim_name[seq_len(i - 1)] == prim_name[i], 5, 1)
     j    <- sample(seq_len(nrow(cand)), 1, prob = w)
-    tibble::tibble(from = cand$case_id[j], to = ll$case_id[i],
+    tibble::tibble(from = cand$case_id[j], to = cases$case_id[i],
                    link_type = sample(c("Confirmed","Suspected"), 1, prob = c(.7,.3)))
   })
-  list(linelist = ll, visits = visits, contacts = ct)
+  list(cases = cases, settings = settings, case_settings = case_settings,
+       visit_dates = visit_dates, contacts = contacts)
+}
+
+flat_visits <- function(d) {
+  d$case_settings |> left_join(d$visit_dates, by = c("case_id", "setting_name"))
 }
 
 # ---- View builders ----------------------------------------------------------
@@ -193,33 +198,50 @@ build_bipartite <- function(visits, ll,
               color = CASE_COLOUR, shape = "dot", size = 8,
               title = paste0("<b>", case_id, "</b><br>Onset: ", onset_date,
                              "<br>Settings visited: ", ns))
-  edges <- vv |> transmute(
-    from      = case_id,
-    to        = paste0("set::", setting_name),
-    visit_cat = visit_cat,
-    dashes    = visit_cat == "other",
-    arrows    = dplyr::case_when(
-                  visit_cat == "infectious" ~ "to",
-                  visit_cat == "exposure"   ~ "from",
-                  visit_cat == "both"       ~ "to;from",
-                  TRUE                      ~ ""),
-    color     = dplyr::case_when(
-                  visit_cat == "infectious" ~ "#d62728",
-                  visit_cat == "exposure"   ~ "#1f77b4",
-                  visit_cat == "both"       ~ "#9467bd",
-                  TRUE                      ~ "#9aa0a6"),
-    title     = paste0(
-                  "<b>", htmltools::htmlEscape(case_id), "</b> visited <b>", htmltools::htmlEscape(setting_name), "</b>",
-                  if (has_dates) paste0("<br>Date: ", visit_date) else "",
-                  if (has_dates) dplyr::case_when(
-                    visit_cat == "both"       ~
-                      "<br>Present — during both windows<br><i>Falls within both the infectious period and exposure window</i>",
-                    visit_cat == "infectious" ~
-                      "<br>Present — during infectious period<br><i>Case may have transmitted infection here</i>",
-                    visit_cat == "exposure"   ~
-                      "<br>Present — during exposure window<br><i>Case may have acquired infection here</i>",
-                    TRUE ~
-                      "<br>Present — outside both windows<br><i>Not considered relevant to transmission</i>") else ""))
+
+  # Aggregate multiple visit dates per case × setting to one edge.
+  # Priority order: both > infectious > exposure > other.
+  cat_rank <- c(other = 1L, exposure = 2L, infectious = 3L, both = 4L)
+  edges_agg <- vv |>
+    group_by(case_id, setting_name, setting_type) |>
+    summarise(
+      visit_cat = names(which.max(cat_rank[unique(visit_cat)])),
+      date_label = {
+        ds <- sort(unique(visit_date[!is.na(visit_date)]))
+        if (!has_dates || length(ds) == 0) ""
+        else if (length(ds) == 1) paste0("<br>Date: ", ds[1])
+        else paste0("<br>Dates: ", paste(format(ds, "%d %b"), collapse = ", "))
+      },
+      .groups = "drop")
+  edges <- edges_agg |>
+    transmute(
+      from      = case_id,
+      to        = paste0("set::", setting_name),
+      visit_cat = visit_cat,
+      dashes    = visit_cat == "other",
+      arrows    = dplyr::case_when(
+                    visit_cat == "infectious" ~ "to",
+                    visit_cat == "exposure"   ~ "from",
+                    visit_cat == "both"       ~ "to;from",
+                    TRUE                      ~ ""),
+      color     = dplyr::case_when(
+                    visit_cat == "infectious" ~ "#d62728",
+                    visit_cat == "exposure"   ~ "#1f77b4",
+                    visit_cat == "both"       ~ "#9467bd",
+                    TRUE                      ~ "#9aa0a6"),
+      title     = paste0(
+                    "<b>", htmltools::htmlEscape(case_id), "</b> visited <b>",
+                    htmltools::htmlEscape(setting_name), "</b>",
+                    date_label,
+                    dplyr::case_when(
+                      visit_cat == "both"       ~
+                        "<br>Present — during both windows<br><i>Falls within both the infectious period and exposure window</i>",
+                      visit_cat == "infectious" ~
+                        "<br>Present — during infectious period<br><i>Case may have transmitted infection here</i>",
+                      visit_cat == "exposure"   ~
+                        "<br>Present — during exposure window<br><i>Case may have acquired infection here</i>",
+                      TRUE ~
+                        "<br>Present — outside both windows<br><i>Not considered relevant to transmission</i>")))
   list(nodes = bind_rows(setting_nodes, case_nodes), edges = edges)
 }
 
@@ -424,7 +446,7 @@ how_to_use_md <- '
 This dashboard turns an outbreak line list into an interactive picture of **how
 cases and settings are connected**. You do not need any experience with network
 diagrams - this page explains every part. A single case can visit **many
-settings**; each visit is one row in the **visits** table.
+settings**; each visit date is one row in the **visit_dates** table.
 
 ## The three views (sidebar control)
 
@@ -466,7 +488,7 @@ trajectory and prioritise vaccination, isolation or communication.
 
 ## Loading your own data
 
-Upload an .xlsx with sheets **linelist**, **visits** and optional **contacts**.
+Upload an .xlsx with sheets **cases**, **case_settings**, **visit_dates** and optional **contacts**.
 The sample file has a README describing every column.
 
 ## Interpretation
@@ -608,7 +630,7 @@ ui <- page_navbar(
     layout_sidebar(
       sidebar = sidebar(width = 340,
         fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
-        helpText("Needs sheets 'linelist' and 'visits' (and optional 'contacts'). ",
+        helpText("Needs sheets 'cases', 'case_settings' and 'visit_dates' (and optional 'contacts'). ",
                  "Leave empty to explore demo data."),
         tags$label(class = "form-label mb-0",
           "Filter by onset date",
@@ -657,14 +679,17 @@ ui <- page_navbar(
 
   nav_panel("Source data",
     div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
-      card(hdr("Line list",
-               "One row per case. This is the primary case record table — onset date drives the time slider, epidemic curve and infectious-period logic."),
-           DTOutput("src_linelist")),
-      card(hdr("Visits",
-               "One row per case-setting visit. Cases that attended multiple settings appear on multiple rows. This table drives all three network views."),
-           DTOutput("src_visits")),
+      card(hdr("Cases",
+               "One row per case. The primary case record — onset date drives the time slider, epidemic curve and infectious-period logic."),
+           DTOutput("src_cases")),
+      card(hdr("Case settings",
+               "One row per case × setting combination. Records which cases visited which settings and whether the case also visited on non-epidemiologically-relevant dates (has_other_visits)."),
+           DTOutput("src_case_settings")),
+      card(hdr("Visit dates",
+               "One row per epidemiologically relevant visit date. A single case × setting pair can appear on multiple rows here, one per date."),
+           DTOutput("src_visit_dates")),
       card(hdr("Contacts",
-               "One row per recorded transmission link. Optional — if not supplied, the contacts sheet is empty and case-to-case links can be derived from timing instead."),
+               "One row per recorded transmission link. Optional — if not supplied, case-to-case links can be derived from shared settings and timing instead."),
            DTOutput("src_contacts")))),
 
   nav_panel("Definitions",
@@ -708,21 +733,26 @@ server <- function(input, output, session) {
   raw <- reactive({
     if (is.null(input$file)) return(make_demo_data())
     sheets <- readxl::excel_sheets(input$file$datapath)
-    ll <- readxl::read_excel(input$file$datapath, sheet = "linelist")
-    vs <- readxl::read_excel(input$file$datapath, sheet = "visits")
-    ll$onset_date  <- as.Date(ll$onset_date); vs$visit_date <- as.Date(vs$visit_date)
+    cs  <- readxl::read_excel(input$file$datapath, sheet = "cases")
+    cst <- readxl::read_excel(input$file$datapath, sheet = "case_settings")
+    vd  <- readxl::read_excel(input$file$datapath, sheet = "visit_dates")
+    cs$onset_date <- as.Date(cs$onset_date)
+    vd$visit_date <- as.Date(vd$visit_date)
     ct <- if ("contacts" %in% sheets) readxl::read_excel(input$file$datapath, sheet = "contacts")
           else tibble(from = character(), to = character(), link_type = character())
     validate(
-      need(all(c("case_id", "onset_date") %in% names(ll)),
-           "linelist sheet must contain case_id and onset_date."),
-      need(all(c("case_id", "setting_name", "setting_type") %in% names(vs)),
-           "visits sheet must contain case_id, setting_name and setting_type."))
-    list(linelist = ll, visits = vs, contacts = ct)
+      need(all(c("case_id", "onset_date") %in% names(cs)),
+           "cases sheet must contain case_id and onset_date."),
+      need(all(c("case_id", "setting_name", "setting_type") %in% names(cst)),
+           "case_settings sheet must contain case_id, setting_name and setting_type."),
+      need(all(c("case_id", "setting_name", "visit_date") %in% names(vd)),
+           "visit_dates sheet must contain case_id, setting_name and visit_date."))
+    settings <- cst |> distinct(setting_name, setting_type)
+    list(cases = cs, settings = settings, case_settings = cst, visit_dates = vd, contacts = ct)
   })
 
   observeEvent(raw(), {
-    d <- raw(); rng <- range(c(d$linelist$onset_date, d$visits$visit_date), na.rm = TRUE)
+    d <- raw(); rng <- range(c(d$cases$onset_date, d$visit_dates$visit_date), na.rm = TRUE)
     updateSliderInput(session, "asof", min = rng[1], max = rng[2], value = c(rng[1], rng[2]))
   })
 
@@ -762,25 +792,27 @@ server <- function(input, output, session) {
   })
 
   filtered <- reactive({
-    d  <- raw()
-    ll <- d$linelist |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
-    vs <- d$visits   |> filter(setting_type %in% input$types, case_id %in% ll$case_id,
-                                is.na(visit_date) | (visit_date >= input$asof[1] & visit_date <= input$asof[2]))
-    ct <- d$contacts |> filter(from %in% ll$case_id, to %in% ll$case_id)
-    list(linelist = ll, visits = vs, contacts = ct)
+    d   <- raw()
+    cs  <- d$cases |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
+    cst <- d$case_settings |> filter(setting_type %in% input$types, case_id %in% cs$case_id)
+    vd  <- d$visit_dates |> filter(case_id %in% cs$case_id, setting_name %in% cst$setting_name,
+                                    visit_date >= input$asof[1] & visit_date <= input$asof[2])
+    ct  <- d$contacts |> filter(from %in% cs$case_id, to %in% cs$case_id)
+    list(cases = cs, settings = d$settings, case_settings = cst, visit_dates = vd, contacts = ct)
   })
 
   netdata <- reactive({
-    f <- filtered(); p <- params()
+    f  <- filtered()
+    fv <- flat_visits(f)
+    p  <- params()
     switch(input$view,
-      projection = build_setting_projection(f$visits, f$linelist),
-      bipartite  = build_bipartite(f$visits, f$linelist, p$inf_before, p$inf_after, p$inc_min, p$inc_max),
+      projection = build_setting_projection(fv, f$cases),
+      bipartite  = build_bipartite(fv, f$cases, p$inf_before, p$inf_after, p$inc_min, p$inc_max),
       contacts   = {
         ct <- if (input$susp_source == "derive")
-          derive_suspected_links(f$linelist, f$visits, p$inc_min, p$inc_max,
-                                 p$inf_before, p$inf_after)
+          derive_suspected_links(f$cases, fv, p$inc_min, p$inc_max, p$inf_before, p$inf_after)
         else f$contacts
-        build_contacts_network(f$linelist, ct, f$visits)
+        build_contacts_network(f$cases, ct, fv)
       })
   })
 
@@ -803,7 +835,7 @@ server <- function(input, output, session) {
     vn |> visLegend(useGroups = FALSE, addNodes = leg, position = "left", width = 0.18)
   })
 
-  output$curve   <- renderPlotly({ epi_curve(filtered()$linelist) })
+  output$curve   <- renderPlotly({ epi_curve(filtered()$cases) })
 
   output$metrics <- renderDT({
     mt   <- network_metrics(netdata()$nodes, netdata()$edges)
@@ -816,9 +848,10 @@ server <- function(input, output, session) {
   src_dt <- function(df) datatable(df, rownames = FALSE,
     options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
 
-  output$src_linelist <- renderDT({ src_dt(raw()$linelist) })
-  output$src_visits   <- renderDT({ src_dt(raw()$visits) })
-  output$src_contacts <- renderDT({
+  output$src_cases         <- renderDT({ src_dt(raw()$cases) })
+  output$src_case_settings <- renderDT({ src_dt(raw()$case_settings) })
+  output$src_visit_dates   <- renderDT({ src_dt(raw()$visit_dates) })
+  output$src_contacts      <- renderDT({
     ct <- raw()$contacts
     if (nrow(ct) == 0)
       src_dt(tibble::tibble(message = "No contacts sheet supplied — using demo data or file has no contacts tab."))
@@ -827,8 +860,8 @@ server <- function(input, output, session) {
 
   output$ll <- renderDT({
     f  <- filtered()
-    nv <- f$visits |> distinct(case_id, setting_name) |> count(case_id, name = "settings_visited")
-    df <- f$linelist |> left_join(nv, by = "case_id") |>
+    nv <- f$case_settings |> distinct(case_id, setting_name) |> count(case_id, name = "settings_visited")
+    df <- f$cases |> left_join(nv, by = "case_id") |>
       mutate(settings_visited = tidyr::replace_na(settings_visited, 0L))
     tips <- vapply(names(df),
                    function(n) if (n %in% names(ll_tips_lookup)) ll_tips_lookup[[n]] else "", character(1))
