@@ -209,7 +209,7 @@ build_bipartite <- function(visits, ll,
                   visit_cat == "both"       ~ "#9467bd",
                   TRUE                      ~ "#9aa0a6"),
     title     = paste0(
-                  "<b>", case_id, "</b> visited <b>", setting_name, "</b>",
+                  "<b>", htmltools::htmlEscape(case_id), "</b> visited <b>", htmltools::htmlEscape(setting_name), "</b>",
                   if (has_dates) paste0("<br>Date: ", visit_date) else "",
                   if (has_dates) dplyr::case_when(
                     visit_cat == "both"       ~
@@ -264,7 +264,7 @@ build_contacts_network <- function(ll, contacts, visits) {
            n_settings   = coalesce(n_settings, 0L)) |>
     transmute(id = case_id, label = case_id, group = setting_type,
               color = unname(setting_colours[setting_type]),
-              title = paste0("<b>", case_id, "</b><br>Onset: ", onset_date,
+              title = paste0("<b>", htmltools::htmlEscape(case_id), "</b><br>Onset: ", onset_date,
                              "<br>Settings visited: ", n_settings))
 
   edges <- contacts |> filter(from %in% nodes$id, to %in% nodes$id) |>
@@ -279,10 +279,10 @@ build_contacts_network <- function(ll, contacts, visits) {
           case_settings$setting_name[case_settings$case_id == t])
         if (length(shared) == 0) return("None recorded")
         rows <- case_settings[case_settings$case_id == f & case_settings$setting_name %in% shared, ]
-        paste(paste0(rows$setting_name, " (", rows$setting_type, ")"), collapse = "<br>")
+        paste(paste0(htmltools::htmlEscape(rows$setting_name), " (", htmltools::htmlEscape(rows$setting_type), ")"), collapse = "<br>")
       }),
       title = paste0(
-        link_type, " link",
+        htmltools::htmlEscape(link_type), " link",
         ifelse(!is.na(gap), paste0("<br>Onset gap: ", gap, ifelse(gap == 1, " day", " days")), ""),
         "<br>Common settings: ", common_text)
     ) |>
