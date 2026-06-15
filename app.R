@@ -71,6 +71,19 @@ hdr <- function(title, msg) {
   card_header(class = "d-flex justify-content-between align-items-center",
               span(title), info(msg))
 }
+# Inline SVG arrow for the bipartite legend. direction: "right", "left", "both", or "none".
+leg_arrow <- function(color, direction = "none", dashed = FALSE) {
+  dash  <- if (dashed) ' stroke-dasharray="5,3"' else ''
+  x1    <- if (direction %in% c("left",  "both")) 11L else 3L
+  x2    <- if (direction %in% c("right", "both")) 31L else 39L
+  left  <- if (direction %in% c("left",  "both"))
+              sprintf('<polygon points="11,4 3,7 11,10" fill="%s"/>', color) else ''
+  right <- if (direction %in% c("right", "both"))
+              sprintf('<polygon points="31,4 39,7 31,10" fill="%s"/>', color) else ''
+  HTML(sprintf(
+    '<svg width="44" height="14" style="vertical-align:middle;margin-right:6px;overflow:visible;"><line x1="%d" y1="7" x2="%d" y2="7" stroke="%s" stroke-width="2.5"%s/>%s%s</svg>',
+    x1, x2, color, dash, left, right))
+}
 
 # ---- Demo data --------------------------------------------------------------
 make_demo_data <- function() {
@@ -809,11 +822,11 @@ server <- function(input, output, session) {
 
   output$bipartite_key <- renderUI({
     req(input$view == "bipartite")
-    div(style = "display:flex; flex-direction:column; gap:4px; font-size:0.82em; padding:4px 2px 6px 2px;",
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#d62728; margin-right:4px; vertical-align:middle;"), "Present — during infectious period (→ setting)"),
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#1f77b4; margin-right:4px; vertical-align:middle;"), "Present — during exposure window (→ case)"),
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9467bd; margin-right:4px; vertical-align:middle;"), "Present — during both windows (↔)"),
-      tags$span(tags$span(style = "display:inline-block; width:28px; height:3px; background:#9aa0a6; border-top:2px dashed #9aa0a6; margin-right:4px; vertical-align:middle;"), "Present — outside both windows"))
+    div(style = "display:flex; flex-direction:column; gap:6px; font-size:0.82em; padding:4px 2px 6px 2px;",
+      tags$span(leg_arrow("#d62728", "right"), "Infectious period — may have spread infection here"),
+      tags$span(leg_arrow("#1f77b4", "left"),  "Exposure window — may have been infected here"),
+      tags$span(leg_arrow("#9467bd", "both"),  "Both windows overlap"),
+      tags$span(leg_arrow("#9aa0a6", dashed = TRUE), "Outside both windows"))
   })
 
   filtered <- reactive({
