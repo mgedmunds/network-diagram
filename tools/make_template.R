@@ -114,11 +114,28 @@ add_sheet <- function(wb, name, headers, example, col_widths = NULL,
 
   # Other validations (whole, date, custom formula)
   for (v in validations) {
-    extra <- v[setdiff(names(v), c("col", "type"))]
-    do.call(dataValidation, c(
-      list(wb = wb, sheet = name, col = v$col, rows = 2:2000, type = v$type),
-      extra
-    ))
+    if (v$type == "whole") {
+      dataValidation(wb, name,
+                     col      = v$col,
+                     rows     = 2:2000,
+                     type     = "whole",
+                     operator = v$operator,
+                     value    = v$value)
+    } else if (v$type == "date") {
+      # Convert R Date to Excel serial number (days since 1899-12-30)
+      dataValidation(wb, name,
+                     col      = v$col,
+                     rows     = 2:2000,
+                     type     = "date",
+                     operator = v$operator,
+                     value    = as.numeric(v$value - as.Date("1899-12-30")))
+    } else if (v$type == "custom") {
+      dataValidation(wb, name,
+                     col   = v$col,
+                     rows  = 2:2000,
+                     type  = "custom",
+                     value = v$value)
+    }
   }
 }
 
