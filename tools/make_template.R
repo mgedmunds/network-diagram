@@ -224,10 +224,10 @@ add_sheet(
 )
 
 writeFormula(wb, "cases",
-             paste0('IF(B', 2:2000, '="","","C-"&TEXT(ROW()-1,"000"))'),
+             rep('"C-"&TEXT(ROW()-1,"000")', 1000),
              startRow = 2, startCol = 1)
-addStyle(wb, "cases", locked_style,   rows = 2:2000, cols = 1,   gridExpand = TRUE, stack = TRUE)
-addStyle(wb, "cases", unlocked_style, rows = 2:2000, cols = 2:5, gridExpand = TRUE, stack = TRUE)
+addStyle(wb, "cases", locked_style,   rows = 2:1001, cols = 1,   gridExpand = TRUE, stack = TRUE)
+addStyle(wb, "cases", unlocked_style, rows = 2:1001, cols = 2:5, gridExpand = TRUE, stack = TRUE)
 protectWorksheet(wb, "cases", protect = TRUE,
                  lockSelectingLockedCells = FALSE,
                  lockInsertingRows        = FALSE)
@@ -245,10 +245,10 @@ add_sheet(
 )
 
 writeFormula(wb, "contexts",
-             paste0('IF(B', 2:2000, '="","","Ctxt-"&TEXT(ROW()-1,"000"))'),
+             rep('"Ctxt-"&TEXT(ROW()-1,"000")', 1000),
              startRow = 2, startCol = 1)
-addStyle(wb, "contexts", locked_style,   rows = 2:2000, cols = 1,   gridExpand = TRUE, stack = TRUE)
-addStyle(wb, "contexts", unlocked_style, rows = 2:2000, cols = 2:3, gridExpand = TRUE, stack = TRUE)
+addStyle(wb, "contexts", locked_style,   rows = 2:1001, cols = 1,   gridExpand = TRUE, stack = TRUE)
+addStyle(wb, "contexts", unlocked_style, rows = 2:1001, cols = 2:3, gridExpand = TRUE, stack = TRUE)
 protectWorksheet(wb, "contexts", protect = TRUE,
                  lockSelectingLockedCells = FALSE,
                  lockInsertingRows        = FALSE)
@@ -259,11 +259,11 @@ protectWorksheet(wb, "contexts", protect = TRUE,
 add_sheet(
   wb, "case_contexts",
   headers    = c("case_id", "context_id"),
-  example    = list("C001", 1L),
+  example    = list("C-001", "Ctxt-001"),
   col_widths = c(12, 14),
   dropdowns  = list(
-    list(col = 1, formula = "cases!$A$2:$A$2000"),
-    list(col = 2, formula = "contexts!$A$2:$A$2000")
+    list(col = 1, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$B$2:$B$1001),1)"),
+    list(col = 2, formula = "OFFSET(contexts!$A$2,0,0,COUNTA(contexts!$B$2:$B$1001),1)")
   )
 )
 
@@ -277,8 +277,8 @@ add_sheet(
   col_widths = c(12, 14, 15),
   date_cols  = 3,
   dropdowns  = list(
-    list(col = 1, formula = "cases!$A$2:$A$2000"),
-    list(col = 2, formula = "contexts!$A$2:$A$2000")
+    list(col = 1, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$B$2:$B$1001),1)"),
+    list(col = 2, formula = "OFFSET(contexts!$A$2,0,0,COUNTA(contexts!$B$2:$B$1001),1)")
   ),
   validations = list(
     list(col = 3, type = "date", operator = "between",
@@ -295,8 +295,8 @@ add_sheet(
   example    = list("C001", "C002", "Suspected"),
   col_widths = c(12, 12, 14),
   dropdowns  = list(
-    list(col = 1, formula = "cases!$A$2:$A$2000"),
-    list(col = 2, formula = "cases!$A$2:$A$2000"),
+    list(col = 1, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$B$2:$B$1001),1)"),
+    list(col = 2, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$B$2:$B$1001),1)"),
     list(col = 3, formula = '"Confirmed,Suspected"')
   )
 )
