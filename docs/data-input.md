@@ -432,11 +432,37 @@ restore it
 
 ## Requirements for excel input file
 
+### Data validation
+
 | Requirement | Status | Implementation |
 |---|---|---|
 | Date fields must be real dates, DD/MM/YYYY format | Done | `type = "date"` validation on `onset_date` and `visit_date`; cells formatted DD/MM/YYYY |
 | Count/ID fields must be integers | Done | `type = "whole"` validation on `context_id` in the contexts sheet |
 | Categorical fields must enforce fixed values | Done | Dropdown (`type = "list"`) on `age_group`, `vaccination_status`, `case_status`, `link_type` |
 | Linkage tables must only accept IDs that exist in cases/contexts | Done | `type = "list"` dropdown in case_contexts, visit_dates, and contacts referencing `cases!$A$2:$A$2000` and `contexts!$A$2:$A$2000`. Fill cases and contexts first. Also enforced by the app on upload. |
+
+### UIDs
+
+Auto-generated incrementally when a new row is added. Formats:
+
+| Field | Format | Example |
+|---|---|---|
+| `case_id` | `C-nnn` (zero-padded, starting at 001) | C-001, C-002, C-003 |
+| `context_id` | `Ctxt-nnn` (zero-padded, starting at 001) | Ctxt-001, Ctxt-002, Ctxt-003 |
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| case_id auto-increments as C-001, C-002 … | Not done | Requires Excel formula or VBA in the template; not yet implemented |
+| context_id auto-increments as Ctxt-001, Ctxt-002 … | Not done | Requires Excel formula or VBA in the template; not yet implemented |
+| case_id format enforced (C-nnn) | Not done | Could be added as `type = "custom"` validation but not supported in openxlsx 4.2.8.1 |
+| context_id format enforced (Ctxt-nnn) | Not done | Same constraint as above |
+
+> **Note:** auto-increment in a static Excel file requires either an Excel formula referencing the row above, or a VBA macro. A formula approach (e.g. `=IF(B2="","","C-"&TEXT(ROW()-1,"000"))`) can be pre-filled in the template but requires the user not to overwrite it. VBA macros add complexity and may be blocked by NHS IT policy. To be decided.
+
+### Formatting
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| Sheets formatted as named Excel tables | Not done | `openxlsx::addTable()` can create named tables; table names to match schema (cases, contexts, case_contexts, visit_dates, contacts) |
 
 ---
