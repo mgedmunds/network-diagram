@@ -122,13 +122,12 @@ add_sheet <- function(wb, name, headers, example, col_widths = NULL,
                      operator = v$operator,
                      value    = v$value)
     } else if (v$type == "date") {
-      # Convert R Date to Excel serial number (days since 1899-12-30)
       dataValidation(wb, name,
                      col      = v$col,
                      rows     = 2:2000,
                      type     = "date",
                      operator = v$operator,
-                     value    = as.numeric(v$value - as.Date("1899-12-30")))
+                     value    = v$value)
     } else if (v$type == "custom") {
       dataValidation(wb, name,
                      col   = v$col,
