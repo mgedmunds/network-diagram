@@ -54,15 +54,16 @@ Five sheets (from `.xlsx` upload or demo data). Full field-level definitions are
 ### cases — one row per case
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `case_id` | character | yes | unique identifier; PK |
+| `case_id` | character | yes | unique identifier; PK; format `C-nnn` (auto-generated in template) |
 | `onset_date` | date | yes | drives time slider, epi curve, infectious-period logic |
-| `age_group` | character | no | fixed bands: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+` |
+| `age_group` | character | no | fixed bands: `Under 1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+` |
 | `vaccination_status` | character | no | `Unvaccinated`, `1 dose`, `2 doses`, `Unknown` |
+| `case_status` | character | no | `Confirmed`, `Probable`, `Possible` |
 
 ### contexts — one row per context
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `context_id` | integer | yes | surrogate PK; join key throughout |
+| `context_id` | integer | yes | surrogate PK; join key throughout; format `Ctxt-nnn` (auto-generated in template) |
 | `context_name` | character | yes | human-readable name |
 | `context_type` | character | yes | user-defined categorical (not pre-coded) |
 
@@ -71,7 +72,7 @@ Five sheets (from `.xlsx` upload or demo data). Full field-level definitions are
 |---|---|---|---|
 | `case_id` | character | yes | PK + FK → cases |
 | `context_id` | integer | yes | PK + FK → contexts |
-| `has_other_visits` | logical | no | TRUE = continuous presence outside epi windows (e.g. household) |
+| `visit_relevance` | character | derived | Not stored. Computed at runtime: `Infectious period`, `Exposure window`, `Both`, `Neither` |
 
 ### visit_dates — one row per epi-relevant visit date
 | Field | Type | Required | Notes |
@@ -79,8 +80,6 @@ Five sheets (from `.xlsx` upload or demo data). Full field-level definitions are
 | `case_id` | character | yes | PK + FK → case_contexts |
 | `context_id` | integer | yes | PK + FK → case_contexts |
 | `visit_date` | date | yes | one row per calendar day |
-
-`epi_category` is derived at runtime (never stored): `Exposure window`, `Infectious period`, `Both`, `Neither`.
 
 ### contacts — one row per recorded transmission link (optional)
 | Field | Type | Required | Notes |

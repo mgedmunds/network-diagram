@@ -42,7 +42,7 @@ Bridging table between cases and contexts.
 |---|---|---|---|---|
 | `case_id` | PK + FK | character | yes | FK → cases.case_id |
 | `context_id` | PK + FK | integer | yes | FK → contexts.context_id |
-| `has_other_visits` | | logical | no | TRUE = case visited this context on additional dates outside the epi window; no specific dates captured for those |
+| `visit_relevance` | (derived) | character | — | Not stored. Computed at runtime from visit_dates + onset_date + parameters. Values: `Infectious period`, `Exposure window`, `Both`, `Neither`. Recalculates when parameters change. |
 
 > Composite primary key: (`case_id`, `context_id`). `context_name` and `context_type` are not stored here — they are joined from `contexts` at runtime.
 
@@ -60,7 +60,7 @@ Child table hanging off case_contexts. Records only dates that fall within or ne
 
 > Composite primary key: (`case_id`, `context_id`, `visit_date`) — one case visits a context at most once per calendar day.
 
-> `epi_category` is **derived by the app at runtime**, not stored. For each visit_date the app compares it against `onset_date` using the current incubation and infectious period parameters and assigns one of: `Exposure window`, `Infectious period`, `Both`, `Neither`. This drives edge colours in the Who Visited Where view. If the user changes the parameters, categories update automatically with no data migration needed.
+> `visit_relevance` is summarised at the **case × context level** in case_contexts (not per date). The app derives it at runtime by comparing each visit_date against the case's onset_date and epi parameters. It drives edge colours in the Who Visited Where view and recalculates automatically when parameters change.
 
 ---
 
@@ -100,7 +100,7 @@ erDiagram
         string case_id FK
         int context_id PK
         int context_id FK
-        boolean has_other_visits
+        string visit_relevance
     }
 
     VISIT_DATES {
@@ -260,7 +260,7 @@ Minimum fields required from the external linelist:
 - [ ] **Field naming conventions** — specify which fields are needed from the external linelist and what naming conventions are expected on import.
 
 **Epi logic**
-- [ ] **Practitioner override** — should investigators be able to manually override a derived epi_category? If so, add an `override_category` field to visit_dates.
+- [ ] **Practitioner override** — should investigators be able to manually override a derived visit_relevance? If so, add an `override_relevance` field to case_contexts.
 
 **Documentation**
 - [ ] Data flow diagram — external linelist → collection tool → Shiny app → network views
@@ -277,10 +277,10 @@ Six bands aligned with vaccination schedule, school contexts, and UKHSA reportin
 Not a pre-coded fixed list. Categories are defined by the data entered during an outbreak. The data collection form enforces consistency via a growing dropdown; new values can be added when a new context type is encountered. Preserves flexibility across outbreak contexts while keeping the field categorical for network grouping and colour-coding.
 
 **Four-table relational structure**
-Schema split into: `cases`, `contexts`, `case_contexts` (bridging), `visit_dates` (child lookup). Separates context identity from case-context relationships and allows multiple epi-relevant dates per case × context pair without denormalisation. A boolean `has_other_visits` on case_contexts flags non-epi-relevant visits without recording their specific dates.
+Schema split into: `cases`, `contexts`, `case_contexts` (bridging), `visit_dates` (child lookup). Separates context identity from case-context relationships and allows multiple epi-relevant dates per case × context pair without denormalisation.
 
-**Epi-category is derived, not stored**
-Visit timing category (Exposure window, Infectious period, Both, Neither) is computed at runtime from `visit_date`, `onset_date`, and the current parameter values. Never persisted, so changing parameters requires no data migration.
+**visit_relevance is derived, not stored**
+Summarised at the case × context level (not per visit date). Computed at runtime from visit_dates + onset_date + epi parameters. Values: `Infectious period`, `Exposure window`, `Both`, `Neither`. Never persisted; recalculates automatically when parameters change, requiring no data migration.
 
 **Multiple visit dates — edge aggregation in the bipartite view**
 Where a case × context pair has multiple visit dates, the network shows one edge per pair (not one per date) to keep the diagram readable. The edge is classified as `Both` if the case has any date in the exposure window AND any date in the infectious period at that context — even if no single date falls in both simultaneously (e.g. a household resident present across weeks). Otherwise the edge takes the highest-priority single-date category: Infectious > Exposure > Neither. All individual dates are listed in the hover tooltip.
