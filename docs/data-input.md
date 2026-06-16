@@ -118,7 +118,7 @@ Answer: No
 
 _Google and Microsoft both offer UK data residency options, but this may need explicit configuration. REDCap on NHS servers satisfies this by default._
 
-Answer:
+Answer: ideally yes (sharepoint is fine to use)
 
 ---
 
@@ -244,8 +244,6 @@ Once the tool has been used in a real outbreak and requirements are better under
 
 ---
 
----
-
 ## Deployment comparison
 
 Two architectures are compared below, based on whether Posit Connect is available.
@@ -280,7 +278,7 @@ Native. Any user with the URL and appropriate credentials can access the app sim
 
 **Information governance**
 
-If hosted on NHS infrastructure: UK data residency, within existing DSPT controls. If hosted on Posit Connect Cloud (posit.cloud): US servers by default — would need IG sign-off for anything beyond demo data.
+Must be NHS-hosted instance (UK data residency required — Posit Connect Cloud is US-based and is ruled out). UK data residency confirmed for NHS-hosted Connect.
 
 **Data entry flow**
 
@@ -301,7 +299,7 @@ Moderate. The data entry forms, validation logic, and backend read/write need to
 
 | Risk | Mitigation |
 |---|---|
-| Posit Connect not available or slow to procure | Start with Solution 2; migrate when Connect is available |
+| Posit Connect not available or slow to procure | Start with Stage 1 (SharePoint template); migrate when Connect is available |
 | Concurrent writes corrupting data | Use row-level locking or a proper database backend (PostgreSQL) rather than SQLite |
 | SharePoint API access not approved | Use SQLite on Connect server instead |
 
@@ -325,7 +323,7 @@ The Shiny app runs on one designated person's machine (the "operator"). Data is 
 
 **What is needed to set it up**
 
-- R and RStudio installed on the operator's machine (no admin rights needed if portable R is used, or if R is already installed)
+- R and RStudio installed on the operator's machine (no admin rights needed if R is already installed)
 - Shared SharePoint document library accessible to all team members
 - OneDrive sync or mapped drive so the app can read/write the data files
 - A clear protocol for who edits what and when (to prevent conflicts)
@@ -341,12 +339,12 @@ Mitigation options:
 
 **Information governance**
 
-Data stays within SharePoint (already approved). No third-party cloud services involved. UK data residency confirmed by default for NHS Microsoft 365 tenants.
+Data stays within SharePoint (already approved for PII). UK data residency confirmed. No third-party cloud services involved.
 
 **Data entry flow**
 
 1. Field teams enter data into a structured Excel template on SharePoint
-2. Operator imports the file into the app (file upload or mapped drive path)
+2. Operator imports the file into the app via file upload
 3. Operator reviews network diagram and shares view with team (screen share or exported image)
 4. Corrections are made in the source files and re-imported
 
@@ -356,7 +354,7 @@ Developer pushes updates to GitHub. Operator does `git pull` in RStudio and rest
 
 **Development effort**
 
-Lower than Solution 1 — no deployment infrastructure to manage. The data entry forms can be simpler (or omitted in favour of the Excel import approach). The app remains a single-user visualisation tool with a well-defined import format.
+Lower than Solution 1 — no deployment infrastructure to manage. App remains a visualisation tool with a well-defined import format. Data entry forms are optional.
 
 **Key risks**
 
@@ -377,7 +375,7 @@ Lower than Solution 1 — no deployment infrastructure to manage. The data entry
 | **Real-time collaboration** | Yes | No |
 | **Admin rights needed** | No (once Connect is provisioned) | No |
 | **IT involvement** | Yes — to provision Connect | Minimal — shared drive setup only |
-| **Data residency** | NHS-hosted: yes. Posit Cloud: needs IG sign-off | Yes (SharePoint, NHS M365) |
+| **Data residency** | NHS-hosted Connect only (Posit Cloud ruled out) | Yes (SharePoint, NHS M365) |
 | **Development effort** | Moderate (forms + backend + deploy) | Lower (forms optional; import-based) |
 | **Time to first use** | Days to weeks (depends on Connect provisioning) | Hours to days |
 | **Ongoing maintenance** | Click to redeploy | Git pull + restart |
@@ -386,39 +384,48 @@ Lower than Solution 1 — no deployment infrastructure to manage. The data entry
 
 ---
 
-### Recommendation
-
-**If Posit Connect can be provisioned:** Solution 1 is the right long-term architecture. It removes the operator bottleneck, enables real-time collaboration, and supports the built-in data entry ambition cleanly. The one-off IT setup cost is worth it if the tool will be reused.
-
-**If Posit Connect is not available or too slow to procure:** Start with Solution 2. It is viable for investigations with a clear lead data manager and a small, coordinated team. Use an Excel import template on SharePoint as the data entry mechanism. Revisit Solution 1 when the tool has proven its value and IT investment is easier to justify.
-
-In both cases, the Phase 3 development work (data entry forms, validation, smart date suggestions) is the same — only the hosting and data backend differ.
-
----
-
 ## Open questions before finalising the decision
 
 **Q1 — 3.4 Data residency (not answered)**
 Is there a requirement for data to remain within UK borders? SharePoint via Microsoft 365 is UK-hosted by default in NHS tenants, so Stage 1 is likely fine. Confirm with your IG lead if uncertain.
+
+Yes must stay in UK
 
 **Q2 — Multi-site simultaneous access**
 When you say "multiple sites, potentially multiple teams" (2.2), does this mean multiple people need to enter data *at the same time* from different physical locations? If yes:
 - Stage 1 (SharePoint template) handles this natively — SharePoint is cloud-hosted.
 - Stage 2 (built-in Shiny) requires the app to be hosted somewhere accessible to all sites (e.g. shinyapps.io, Posit Connect, or an internal server). A locally-run Shiny app only works for the person running it on their machine. This is the most significant architectural constraint for Option D and needs a deployment decision before Stage 2 is designed.
 
+Yes people will need to enter data at the same time. Fine to do two stage
+
 **Q3 — File upload**
 The file upload function was removed from the app in a recent commit. Stage 1 of the hybrid approach requires it back — in a simpler form (import a fixed-schema Excel file). Should this be restored as part of Stage 1 development, or is the intent to move directly to built-in data entry and skip Stage 1?
 
+restore it 
 ---
 
 ## Decision
 
-_Complete once the three open questions above are answered._
+**Chosen option: Two-stage hybrid**
 
-Chosen option:
+- **Stage 1 (immediate):** SharePoint-based Excel template matching the five-table schema, imported into the Shiny app via restored file upload. Operational within hours. Handles simultaneous multi-site data entry natively (SharePoint is cloud-hosted). Satisfies UK data residency requirement.
+- **Stage 2 (target state):** Built-in Shiny data entry with a persistent backend, hosted on NHS-hosted Posit Connect. Posit Connect Cloud is ruled out (US servers, fails UK data residency). Stage 2 is conditional on Posit Connect being procured and provisioned.
 
-Rationale:
+**Rationale**
 
-Outstanding actions before first use:
+- REDCap and Google Sheets are unavailable. Microsoft Forms cannot handle the relational data model.
+- Simultaneous multi-site entry is required, which a locally-run Shiny app cannot support. Stage 1 resolves this using SharePoint's native cloud access; Stage 2 resolves it via Posit Connect.
+- UK data residency is required. SharePoint (NHS M365) satisfies this for Stage 1. For Stage 2, only an NHS-hosted Posit Connect instance is acceptable — shinyapps.io and Posit Connect Cloud are ruled out.
+- The file upload function (recently removed from the app) must be restored for Stage 1.
+- Built-in data entry remains the long-term goal: tighter validation, smart date suggestions based on onset date, no export/import step, and a single interface for data entry and visualisation. Development with Claude Code makes this feasible without a large team.
+- Stage 1 and Stage 2 use the same data schema — migration between stages requires no redesign.
+
+**Outstanding actions before first use**
+
+1. **Restore file upload in the Shiny app** — limited to the fixed five-table schema; validate on import
+2. **Design the Stage 1 Excel template** — one sheet per table, column names matching the schema exactly, with dropdown validation for fixed fields (age_group, vaccination_status, case_status, link_type) and a settings lookup sheet for setting_type
+3. **Write a brief data entry guide** — one page covering the five tables, required fields, and how to export from the template into the app
+4. **Investigate Posit Connect availability** — ask IT whether the organisation has or can procure an NHS-hosted Posit Connect instance; this gates Stage 2
+5. **Confirm IG sign-off for Stage 2 hosting** — once a hosting platform is identified, confirm with IG/Caldicott lead before any real outbreak data is stored there
 
 ---
