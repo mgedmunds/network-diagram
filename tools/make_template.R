@@ -35,7 +35,9 @@ example_style <- createStyle(
   textDecoration = "italic"
 )
 
-date_style <- createStyle(numFmt = "DD/MM/YYYY")
+date_style     <- createStyle(numFmt = "DD/MM/YYYY")
+locked_style   <- createStyle(fgFill = "#E8F0FE", locked = TRUE)   # light blue = auto-generated, read-only
+unlocked_style <- createStyle(locked = FALSE)
 
 note_style <- createStyle(
   fontColour = "#2C3E50",
@@ -161,8 +163,11 @@ readme_rows <- list(
   list(style = note_style,    text = "7.  Save as .xlsx and upload using the Upload button in the network tool."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "RULES"),
-  list(style = note_style,    text = "•  case_id must be unique in 'cases' and match exactly across all other sheets."),
-  list(style = note_style,    text = "•  context_id must be a unique whole number in 'contexts' and match across all other sheets."),
+  list(style = note_style,    text = "•  case_id and context_id are AUTO-GENERATED — do not type in these columns."),
+  list(style = note_style,    text = "   case_id fills as C-001, C-002 … when you enter onset_date on each row."),
+  list(style = note_style,    text = "   context_id fills as Ctxt-001, Ctxt-002 … when you enter context_name on each row."),
+  list(style = note_style,    text = "   These columns are shaded blue and locked. If the ID does not appear, check the adjacent column is filled."),
+  list(style = note_style,    text = "•  Do not delete rows — IDs are based on row position and will renumber if rows are removed."),
   list(style = note_style,    text = "•  Dates must be entered as Excel dates in DD/MM/YYYY format — not as plain text."),
   list(style = note_style,    text = "   Click on a date cell and use the date picker, or type the date and confirm it shows as a date."),
   list(style = note_style,    text = "•  Do not rename or reorder the sheet tabs."),
@@ -170,7 +175,6 @@ readme_rows <- list(
   list(style = note_style,    text = ""),
   list(style = section_style, text = "VALIDATION — what the cells will check as you type"),
   list(style = note_style,    text = "•  onset_date, visit_date: must be a valid date (DD/MM/YYYY). Text will be rejected."),
-  list(style = note_style,    text = "•  context_id in 'contexts': must be a whole number greater than zero."),
   list(style = note_style,    text = "•  case_id in 'case_contexts', 'visit_dates', 'contacts': dropdown shows only IDs from the 'cases' sheet."),
   list(style = note_style,    text = "•  context_id in 'case_contexts', 'visit_dates': dropdown shows only IDs from the 'contexts' sheet."),
   list(style = note_style,    text = "   Fill 'cases' and 'contexts' first — their IDs will then appear in the dropdowns."),
@@ -198,11 +202,14 @@ for (i in seq_along(readme_rows)) {
 }
 
 # ---- cases ------------------------------------------------------------------
+# case_id (col 1) is auto-generated: C-001, C-002 … based on row position.
+# The formula fires when onset_date (col 2) is non-empty.
+# Col 1 is locked; all other data columns are unlocked.
 
 add_sheet(
   wb, "cases",
   headers    = c("case_id", "onset_date", "age_group", "vaccination_status", "case_status"),
-  example    = list("C001", as.Date("2026-04-01"), "5-17 years", "Unvaccinated", "Confirmed"),
+  example    = list("", as.Date("2026-04-01"), "5-17 years", "Unvaccinated", "Confirmed"),
   col_widths = c(12, 15, 15, 20, 14),
   date_cols  = 2,
   dropdowns  = list(
@@ -211,24 +218,40 @@ add_sheet(
     list(col = 5, formula = '"Confirmed,Probable,Possible"')
   ),
   validations = list(
-    # onset_date must be a real date (col 2)
     list(col = 2, type = "date", operator = "between",
          value = as.Date(c("2000-01-01", "2100-01-01")))
   )
 )
 
+writeFormula(wb, "cases",
+             paste0('IF(B', 2:2000, '="","","C-"&TEXT(ROW()-1,"000"))'),
+             startRow = 2, startCol = 1)
+addStyle(wb, "cases", locked_style,   rows = 2:2000, cols = 1,   gridExpand = TRUE, stack = TRUE)
+addStyle(wb, "cases", unlocked_style, rows = 2:2000, cols = 2:5, gridExpand = TRUE, stack = TRUE)
+protectWorksheet(wb, "cases", protect = TRUE,
+                 lockSelectingLockedCells = FALSE,
+                 lockInsertingRows        = FALSE)
+
 # ---- contexts ---------------------------------------------------------------
+# context_id (col 1) is auto-generated: Ctxt-001, Ctxt-002 … based on row position.
+# The formula fires when context_name (col 2) is non-empty.
+# Col 1 is locked; all other data columns are unlocked.
 
 add_sheet(
   wb, "contexts",
   headers    = c("context_id", "context_name", "context_type"),
-  example    = list(1L, "Oakfield Primary School", "School"),
-  col_widths = c(12, 35, 16),
-  validations = list(
-    # context_id must be a whole number > 0
-    list(col = 1, type = "whole", operator = "greaterThan", value = 0)
-  )
+  example    = list("", "Oakfield Primary School", "School"),
+  col_widths = c(12, 35, 16)
 )
+
+writeFormula(wb, "contexts",
+             paste0('IF(B', 2:2000, '="","","Ctxt-"&TEXT(ROW()-1,"000"))'),
+             startRow = 2, startCol = 1)
+addStyle(wb, "contexts", locked_style,   rows = 2:2000, cols = 1,   gridExpand = TRUE, stack = TRUE)
+addStyle(wb, "contexts", unlocked_style, rows = 2:2000, cols = 2:3, gridExpand = TRUE, stack = TRUE)
+protectWorksheet(wb, "contexts", protect = TRUE,
+                 lockSelectingLockedCells = FALSE,
+                 lockInsertingRows        = FALSE)
 
 # ---- case_contexts ----------------------------------------------------------
 # case_id dropdown pulls from cases col A; context_id from contexts col A

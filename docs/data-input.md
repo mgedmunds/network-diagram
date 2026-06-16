@@ -452,12 +452,13 @@ Auto-generated incrementally when a new row is added. Formats:
 
 | Requirement | Status | Implementation |
 |---|---|---|
-| case_id auto-increments as C-001, C-002 … | Not done | Requires Excel formula or VBA in the template; not yet implemented |
-| context_id auto-increments as Ctxt-001, Ctxt-002 … | Not done | Requires Excel formula or VBA in the template; not yet implemented |
-| case_id format enforced (C-nnn) | Not done | Could be added as `type = "custom"` validation but not supported in openxlsx 4.2.8.1 |
-| context_id format enforced (Ctxt-nnn) | Not done | Same constraint as above |
+| case_id auto-increments as C-001, C-002 … | Done | Formula `IF(B{row}="","","C-"&TEXT(ROW()-1,"000"))` pre-filled in rows 2:2000; triggers when onset_date is entered |
+| context_id auto-increments as Ctxt-001, Ctxt-002 … | Done | Formula `IF(B{row}="","","Ctxt-"&TEXT(ROW()-1,"000"))` pre-filled in rows 2:2000; triggers when context_name is entered |
+| case_id and context_id columns locked (read-only) | Done | Cells styled locked (light blue); worksheet protected with `lockInsertingRows = FALSE` so users can still add rows |
+| case_id format enforced (C-nnn) | Done | Formula output enforces format; column is locked so users cannot type free text |
+| context_id format enforced (Ctxt-nnn) | Done | Same as above |
 
-> **Note:** auto-increment in a static Excel file requires either an Excel formula referencing the row above, or a VBA macro. A formula approach (e.g. `=IF(B2="","","C-"&TEXT(ROW()-1,"000"))`) can be pre-filled in the template but requires the user not to overwrite it. VBA macros add complexity and may be blocked by NHS IT policy. To be decided.
+> **Note:** IDs are based on row position (`ROW()-1`). Deleting a row will renumber all subsequent IDs. Users should be advised not to delete rows — blank rows should be left empty or the example row deleted before upload.
 
 ### Formatting
 
