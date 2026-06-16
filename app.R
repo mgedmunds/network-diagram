@@ -14,7 +14,7 @@
 #    from shared settings + timing
 #
 # TO RUN:
-# install.packages(c("shiny","bslib","visNetwork","dplyr","tidyr",
+# install.packages(c("shiny","bslib","visNetwork","dplyr","tidyr","readxl",
 #                    "lubridate","igraph","plotly","DT","purrr","tibble",
 #                    "jsonlite"))
 # shiny::runApp("app.R")
@@ -25,6 +25,7 @@ library(bslib)
 library(visNetwork)
 library(dplyr)
 library(tidyr)
+library(readxl)
 library(lubridate)
 library(igraph)
 library(plotly)
@@ -780,6 +781,8 @@ ui <- page_navbar(
   nav_panel("Dashboard",
     layout_sidebar(
       sidebar = sidebar(width = 340,
+        fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
+        helpText("Needs sheets: cases, settings, case_settings, visit_dates (and optional contacts). Leave empty to use demo data."),
         tags$label(class = "form-label mb-0",
           "Filter by onset date",
           info("Filters to cases whose symptom onset falls within this date range. Visit dates are filtered to the same window.")),
@@ -909,7 +912,27 @@ ui <- page_navbar(
 server <- function(input, output, session) {
 
   raw <- reactive({
-    make_demo_data()
+    if (is.null(input$file)) return(make_demo_data())
+    sheets <- readxl::excel_sheets(input$file$datapath)
+    cs  <- readxl::read_excel(input$file$datapath, sheet = "cases")
+    st  <- readxl::read_excel(input$file$datapath, sheet = "settings")
+    cst <- readxl::read_excel(input$file$datapath, sheet = "case_settings")
+    vd  <- readxl::read_excel(input$file$datapath, sheet = "visit_dates")
+    cs$onset_date <- as.Date(cs$onset_date)
+    vd$visit_date <- as.Date(vd$visit_date)
+    ct <- if ("contacts" %in% sheets)
+      readxl::read_excel(input$file$datapath, sheet = "contacts")
+      else tibble(from = character(), to = character(), link_type = character())
+    validate(
+      need(all(c("case_id", "onset_date") %in% names(cs)),
+           "cases sheet must contain case_id and onset_date."),
+      need(all(c("setting_id", "setting_name", "setting_type") %in% names(st)),
+           "settings sheet must contain setting_id, setting_name and setting_type."),
+      need(all(c("case_id", "setting_id") %in% names(cst)),
+           "case_settings sheet must contain case_id and setting_id."),
+      need(all(c("case_id", "setting_id", "visit_date") %in% names(vd)),
+           "visit_dates sheet must contain case_id, setting_id and visit_date."))
+    list(cases = cs, settings = st, case_settings = cst, visit_dates = vd, contacts = ct)
   })
 
   observeEvent(raw(), {
