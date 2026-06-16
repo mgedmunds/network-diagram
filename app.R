@@ -906,7 +906,26 @@ server <- function(input, output, session) {
 
   raw <- reactive({
     if (is.null(input$file)) return(make_demo_data())
+
     sheets <- readxl::excel_sheets(input$file$datapath)
+
+    # Helper: format a list of IDs for error messages, capped at 5
+    fmt_ids <- function(ids) {
+      if (length(ids) <= 5) paste(ids, collapse = ", ")
+      else paste0(paste(head(ids, 5), collapse = ", "), " … and ", length(ids) - 5, " more")
+    }
+
+    # Check required sheets exist before attempting to read
+    missing_sheets <- setdiff(c("cases", "contexts", "case_contexts", "visit_dates"), sheets)
+    validate(
+      need(length(missing_sheets) == 0,
+           paste0("The uploaded file is missing required sheet(s): ",
+                  paste(missing_sheets, collapse = ", "), ". ",
+                  "The sheet tab names must match exactly (they are case-sensitive). ",
+                  "Expected tabs: cases, contexts, case_contexts, visit_dates ",
+                  "(contacts is optional). Re-download the template if unsure."))
+    )
+
     cs  <- readxl::read_excel(input$file$datapath, sheet = "cases")
     st  <- readxl::read_excel(input$file$datapath, sheet = "contexts")
     cst <- readxl::read_excel(input$file$datapath, sheet = "case_contexts")
@@ -916,15 +935,63 @@ server <- function(input, output, session) {
     ct <- if ("contacts" %in% sheets)
       readxl::read_excel(input$file$datapath, sheet = "contacts")
       else tibble(from = character(), to = character(), link_type = character())
+
+    # Check required columns in each sheet
+    miss_cs  <- setdiff(c("case_id", "onset_date"), names(cs))
+    miss_st  <- setdiff(c("context_id", "context_name", "context_type"), names(st))
+    miss_cst <- setdiff(c("case_id", "context_id"), names(cst))
+    miss_vd  <- setdiff(c("case_id", "context_id", "visit_date"), names(vd))
     validate(
-      need(all(c("case_id", "onset_date") %in% names(cs)),
-           "cases sheet must contain case_id and onset_date."),
-      need(all(c("context_id", "context_name", "context_type") %in% names(st)),
-           "contexts sheet must contain context_id, context_name and context_type."),
-      need(all(c("case_id", "context_id") %in% names(cst)),
-           "case_contexts sheet must contain case_id and context_id."),
-      need(all(c("case_id", "context_id", "visit_date") %in% names(vd)),
-           "visit_dates sheet must contain case_id, context_id and visit_date."))
+      need(length(miss_cs) == 0,
+           paste0("The 'cases' sheet is missing column(s): ",
+                  paste(miss_cs, collapse = ", "), ". ",
+                  "Required columns are case_id and onset_date. ",
+                  "Check the column headers in row 1 match exactly — they are case-sensitive.")),
+      need(length(miss_st) == 0,
+           paste0("The 'contexts' sheet is missing column(s): ",
+                  paste(miss_st, collapse = ", "), ". ",
+                  "Required columns are context_id, context_name and context_type. ",
+                  "Check the column headers in row 1 match exactly — they are case-sensitive.")),
+      need(length(miss_cst) == 0,
+           paste0("The 'case_contexts' sheet is missing column(s): ",
+                  paste(miss_cst, collapse = ", "), ". ",
+                  "Required columns are case_id and context_id. ",
+                  "Check the column headers in row 1 match exactly — they are case-sensitive.")),
+      need(length(miss_vd) == 0,
+           paste0("The 'visit_dates' sheet is missing column(s): ",
+                  paste(miss_vd, collapse = ", "), ". ",
+                  "Required columns are case_id, context_id and visit_date. ",
+                  "Check the column headers in row 1 match exactly — they are case-sensitive."))
+    )
+
+    # FK integrity checks
+    bad_case_cst  <- setdiff(unique(cst$case_id),    unique(cs$case_id))
+    bad_ctx_cst   <- setdiff(unique(cst$context_id), unique(st$context_id))
+    bad_case_vd   <- setdiff(unique(vd$case_id),     unique(cs$case_id))
+    bad_ctx_vd    <- setdiff(unique(vd$context_id),  unique(st$context_id))
+    validate(
+      need(length(bad_case_cst) == 0,
+           paste0("The 'case_contexts' sheet contains case_id value(s) not found in 'cases': ",
+                  fmt_ids(bad_case_cst), ". ",
+                  "Every case_id in case_contexts must match a case_id in the cases sheet. ",
+                  "Check for typos, or add the missing cases to the cases sheet first.")),
+      need(length(bad_ctx_cst) == 0,
+           paste0("The 'case_contexts' sheet contains context_id value(s) not found in 'contexts': ",
+                  fmt_ids(bad_ctx_cst), ". ",
+                  "Every context_id in case_contexts must match a context_id in the contexts sheet. ",
+                  "Check for typos, or add the missing contexts to the contexts sheet first.")),
+      need(length(bad_case_vd) == 0,
+           paste0("The 'visit_dates' sheet contains case_id value(s) not found in 'cases': ",
+                  fmt_ids(bad_case_vd), ". ",
+                  "Every case_id in visit_dates must match a case_id in the cases sheet. ",
+                  "Check for typos, or add the missing cases to the cases sheet first.")),
+      need(length(bad_ctx_vd) == 0,
+           paste0("The 'visit_dates' sheet contains context_id value(s) not found in 'contexts': ",
+                  fmt_ids(bad_ctx_vd), ". ",
+                  "Every context_id in visit_dates must match a context_id in the contexts sheet. ",
+                  "Check for typos, or add the missing contexts to the contexts sheet first."))
+    )
+
     list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd, contacts = ct)
   })
 
