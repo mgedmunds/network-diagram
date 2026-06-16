@@ -16,6 +16,7 @@
 library(openxlsx)
 
 OUT_PATH <- "templates/outbreak_data_template.xlsx"
+dir.create("templates", showWarnings = FALSE)
 
 # ---- Styles -----------------------------------------------------------------
 
