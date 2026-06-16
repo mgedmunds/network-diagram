@@ -13,16 +13,8 @@
 # 3. Case-to-case (transmission links) -- from the contacts sheet OR derived
 #    from shared settings + timing
 #
-# INPUT (.xlsx) sheets:
-# - cases: case_id, onset_date, age_group, vaccination_status, case_status
-# - case_settings: case_id, setting_id, has_other_visits
-# - visit_dates: case_id, setting_id, visit_date (one row per epi-relevant date)
-# - contacts: from, to, link_type (optional)
-# See sample_outbreak_data.xlsx (has a README sheet). Demo data is used if no
-# file is uploaded.
-#
 # TO RUN:
-# install.packages(c("shiny","bslib","visNetwork","dplyr","tidyr","readxl",
+# install.packages(c("shiny","bslib","visNetwork","dplyr","tidyr",
 #                    "lubridate","igraph","plotly","DT","purrr","tibble",
 #                    "jsonlite"))
 # shiny::runApp("app.R")
@@ -33,7 +25,6 @@ library(bslib)
 library(visNetwork)
 library(dplyr)
 library(tidyr)
-library(readxl)
 library(lubridate)
 library(igraph)
 library(plotly)
@@ -641,11 +632,6 @@ and - in the Who visited where view - settings where infection was likely spread
 (red) versus caught (blue). Combine with the epidemic curve to judge the
 trajectory and prioritise vaccination, isolation or communication.
 
-## Loading your own data
-
-Upload an .xlsx with sheets **cases**, **case_settings**, **visit_dates** and optional **contacts**.
-The sample file has a README describing every column.
-
 ## Interpretation
 
 Links are epidemiological connections recorded or inferred during investigation,
@@ -784,9 +770,6 @@ ui <- page_navbar(
   nav_panel("Dashboard",
     layout_sidebar(
       sidebar = sidebar(width = 340,
-        fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
-        helpText("Needs sheets 'cases', 'case_settings' and 'visit_dates' (and optional 'contacts'). ",
-                 "Leave empty to explore demo data."),
         tags$label(class = "form-label mb-0",
           "Filter by onset date",
           info("Filters to cases whose symptom onset falls within this date range. Visit dates are filtered to the same window.")),
@@ -917,26 +900,7 @@ ui <- page_navbar(
 server <- function(input, output, session) {
 
   raw <- reactive({
-    if (is.null(input$file)) return(make_demo_data())
-    sheets <- readxl::excel_sheets(input$file$datapath)
-    cs  <- readxl::read_excel(input$file$datapath, sheet = "cases")
-    st  <- readxl::read_excel(input$file$datapath, sheet = "settings")
-    cst <- readxl::read_excel(input$file$datapath, sheet = "case_settings")
-    vd  <- readxl::read_excel(input$file$datapath, sheet = "visit_dates")
-    cs$onset_date <- as.Date(cs$onset_date)
-    vd$visit_date <- as.Date(vd$visit_date)
-    ct <- if ("contacts" %in% sheets) readxl::read_excel(input$file$datapath, sheet = "contacts")
-          else tibble(from = character(), to = character(), link_type = character())
-    validate(
-      need(all(c("case_id", "onset_date") %in% names(cs)),
-           "cases sheet must contain case_id and onset_date."),
-      need(all(c("setting_id", "setting_name", "setting_type") %in% names(st)),
-           "settings sheet must contain setting_id, setting_name and setting_type."),
-      need(all(c("case_id", "setting_id") %in% names(cst)),
-           "case_settings sheet must contain case_id and setting_id."),
-      need(all(c("case_id", "setting_id", "visit_date") %in% names(vd)),
-           "visit_dates sheet must contain case_id, setting_id and visit_date."))
-    list(cases = cs, settings = st, case_settings = cst, visit_dates = vd, contacts = ct)
+    make_demo_data()
   })
 
   observeEvent(raw(), {
