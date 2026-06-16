@@ -437,6 +437,6 @@ restore it
 | Date fields must be real dates, DD/MM/YYYY format | Done | `type = "date"` validation on `onset_date` and `visit_date`; cells formatted DD/MM/YYYY |
 | Count/ID fields must be integers | Done | `type = "whole"` validation on `context_id` in the contexts sheet |
 | Categorical fields must enforce fixed values | Done | Dropdown (`type = "list"`) on `age_group`, `vaccination_status`, `case_status`, `link_type` |
-| Linkage tables must only accept IDs that exist in cases/contexts | Partial | Not enforced in Excel — `type = "custom"` (COUNTIF formula) is not supported in openxlsx 4.2.8.1. FK integrity is validated by the app on upload instead. |
+| Linkage tables must only accept IDs that exist in cases/contexts | Done | `type = "list"` dropdown in case_contexts, visit_dates, and contacts referencing `cases!$A$2:$A$2000` and `contexts!$A$2:$A$2000`. Fill cases and contexts first. Also enforced by the app on upload. |
 
 ---

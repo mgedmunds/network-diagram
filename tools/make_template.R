@@ -167,8 +167,9 @@ readme_rows <- list(
   list(style = section_style, text = "VALIDATION — what the cells will check as you type"),
   list(style = note_style,    text = "•  onset_date, visit_date: must be a valid date (DD/MM/YYYY). Text will be rejected."),
   list(style = note_style,    text = "•  context_id in 'contexts': must be a whole number greater than zero."),
-  list(style = note_style,    text = "•  case_id and context_id in other sheets: not enforced in Excel — the upload tool"),
-  list(style = note_style,    text = "   will flag any IDs that do not match the cases or contexts sheets on import."),
+  list(style = note_style,    text = "•  case_id in 'case_contexts', 'visit_dates', 'contacts': dropdown shows only IDs from the 'cases' sheet."),
+  list(style = note_style,    text = "•  context_id in 'case_contexts', 'visit_dates': dropdown shows only IDs from the 'contexts' sheet."),
+  list(style = note_style,    text = "   Fill 'cases' and 'contexts' first — their IDs will then appear in the dropdowns."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "DROPDOWN FIELDS — select from the list; do not type free text"),
   list(style = note_style,    text = "•  age_group:          Under 1 year | 1-4 years | 5-17 years | 18-29 years | 30-49 years | 50+"),
@@ -226,15 +227,21 @@ add_sheet(
 )
 
 # ---- case_contexts ----------------------------------------------------------
+# case_id dropdown pulls from cases col A; context_id from contexts col A
 
 add_sheet(
   wb, "case_contexts",
   headers    = c("case_id", "context_id"),
   example    = list("C001", 1L),
-  col_widths = c(12, 14)
+  col_widths = c(12, 14),
+  dropdowns  = list(
+    list(col = 1, formula = "cases!$A$2:$A$2000"),
+    list(col = 2, formula = "contexts!$A$2:$A$2000")
+  )
 )
 
 # ---- visit_dates ------------------------------------------------------------
+# case_id and context_id dropdowns pull from cases and contexts sheets
 
 add_sheet(
   wb, "visit_dates",
@@ -242,6 +249,10 @@ add_sheet(
   example    = list("C001", 1L, as.Date("2026-04-03")),
   col_widths = c(12, 14, 15),
   date_cols  = 3,
+  dropdowns  = list(
+    list(col = 1, formula = "cases!$A$2:$A$2000"),
+    list(col = 2, formula = "contexts!$A$2:$A$2000")
+  ),
   validations = list(
     list(col = 3, type = "date", operator = "between",
          value = as.Date(c("2000-01-01", "2100-01-01")))
@@ -249,6 +260,7 @@ add_sheet(
 )
 
 # ---- contacts ---------------------------------------------------------------
+# from and to dropdowns both pull from cases col A
 
 add_sheet(
   wb, "contacts",
@@ -256,6 +268,8 @@ add_sheet(
   example    = list("C001", "C002", "Suspected"),
   col_widths = c(12, 12, 14),
   dropdowns  = list(
+    list(col = 1, formula = "cases!$A$2:$A$2000"),
+    list(col = 2, formula = "cases!$A$2:$A$2000"),
     list(col = 3, formula = '"Confirmed,Suspected"')
   )
 )
