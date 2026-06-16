@@ -100,14 +100,10 @@ add_sheet <- function(wb, name, headers, example, col_widths = NULL,
   for (dd in dropdowns) {
     dataValidation(
       wb, name,
-      col       = dd$col,
-      rows      = 2:2000,
-      type      = "list",
-      value     = dd$formula,
-      showErrorMsg  = TRUE,
-      errorStyle    = "stop",
-      errorTitle    = "Invalid value",
-      error         = paste0("Please choose from the dropdown list.")
+      col   = dd$col,
+      rows  = 2:2000,
+      type  = "list",
+      value = dd$formula
     )
   }
 }
