@@ -157,8 +157,6 @@ readme_rows <- list(
   list(style = note_style,    text = "7.  Save as .xlsx and upload using the Upload button in the network tool."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "RULES"),
-  list(style = note_style,    text = "•  Fill sheets IN ORDER: cases -> settings -> case_settings -> visit_dates -> contacts."),
-  list(style = note_style,    text = "   Cross-sheet validation checks case_id and setting_id against the first two sheets."),
   list(style = note_style,    text = "•  case_id must be unique in 'cases' and match exactly across all other sheets."),
   list(style = note_style,    text = "•  setting_id must be a unique whole number in 'settings' and match across all other sheets."),
   list(style = note_style,    text = "•  Dates must be entered as Excel dates in DD/MM/YYYY format — not as plain text."),
@@ -169,9 +167,8 @@ readme_rows <- list(
   list(style = section_style, text = "VALIDATION — what the cells will check as you type"),
   list(style = note_style,    text = "•  onset_date, visit_date: must be a valid date (DD/MM/YYYY). Text will be rejected."),
   list(style = note_style,    text = "•  setting_id in 'settings': must be a whole number greater than zero."),
-  list(style = note_style,    text = "•  case_id in 'case_settings', 'visit_dates', 'contacts': must exist in the 'cases' sheet."),
-  list(style = note_style,    text = "•  setting_id in 'case_settings', 'visit_dates': must exist in the 'settings' sheet."),
-  list(style = note_style,    text = "   Excel will warn you if a value does not match. Fill 'cases' and 'settings' first."),
+  list(style = note_style,    text = "•  case_id and setting_id in other sheets: not enforced in Excel — the upload tool"),
+  list(style = note_style,    text = "   will flag any IDs that do not match the cases or settings sheets on import."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "DROPDOWN FIELDS — select from the list; do not type free text"),
   list(style = note_style,    text = "•  age_group:          Under 1 year | 1-4 years | 5-17 years | 18-29 years | 30-49 years | 50+"),
@@ -229,21 +226,15 @@ add_sheet(
 )
 
 # ---- case_settings ----------------------------------------------------------
-# case_id must exist in cases col A; setting_id must exist in settings col A
 
 add_sheet(
   wb, "case_settings",
   headers    = c("case_id", "setting_id"),
   example    = list("C001", 1L),
-  col_widths = c(12, 14),
-  validations = list(
-    list(col = 1, type = "custom", value = "COUNTIF(cases!$A:$A,A2)>0"),
-    list(col = 2, type = "custom", value = "COUNTIF(settings!$A:$A,B2)>0")
-  )
+  col_widths = c(12, 14)
 )
 
 # ---- visit_dates ------------------------------------------------------------
-# FK checks on case_id and setting_id; visit_date must be a real date
 
 add_sheet(
   wb, "visit_dates",
@@ -252,15 +243,12 @@ add_sheet(
   col_widths = c(12, 14, 15),
   date_cols  = 3,
   validations = list(
-    list(col = 1, type = "custom", value = "COUNTIF(cases!$A:$A,A2)>0"),
-    list(col = 2, type = "custom", value = "COUNTIF(settings!$A:$A,B2)>0"),
     list(col = 3, type = "date", operator = "between",
          value = as.Date(c("2000-01-01", "2100-01-01")))
   )
 )
 
 # ---- contacts ---------------------------------------------------------------
-# from and to must both exist in cases col A
 
 add_sheet(
   wb, "contacts",
@@ -269,10 +257,6 @@ add_sheet(
   col_widths = c(12, 12, 14),
   dropdowns  = list(
     list(col = 3, formula = '"Confirmed,Suspected"')
-  ),
-  validations = list(
-    list(col = 1, type = "custom", value = "COUNTIF(cases!$A:$A,A2)>0"),
-    list(col = 2, type = "custom", value = "COUNTIF(cases!$A:$A,B2)>0")
   )
 )
 
