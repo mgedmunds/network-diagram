@@ -430,7 +430,13 @@ restore it
 
 
 
-## Data validation requirements for excel input file
-- the data type should be enforced, e.g. dates should have to be a date (UK format, DD/MM/YYYY) any count data should be integers, any categorical data should enforce entry of those categories only. Linkage tables should only allow e.g. case ids and context ids that appear in the case table / contexts table should be bale to be entered. 
+## Requirements for excel input file
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| Date fields must be real dates, DD/MM/YYYY format | Done | `type = "date"` validation on `onset_date` and `visit_date`; cells formatted DD/MM/YYYY |
+| Count/ID fields must be integers | Done | `type = "whole"` validation on `context_id` in the contexts sheet |
+| Categorical fields must enforce fixed values | Done | Dropdown (`type = "list"`) on `age_group`, `vaccination_status`, `case_status`, `link_type` |
+| Linkage tables must only accept IDs that exist in cases/contexts | Partial | Not enforced in Excel — `type = "custom"` (COUNTIF formula) is not supported in openxlsx 4.2.8.1. FK integrity is validated by the app on upload instead. |
 
 ---
