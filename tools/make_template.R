@@ -74,19 +74,18 @@ add_sheet <- function(wb, name, headers, example, col_widths = NULL,
   addWorksheet(wb, name, tabColour = "#2980B9")
 
   # Write data as a named Excel table (table name matches schema table name).
-  # tableStyle = "none" so all visual styling comes from our own styles below.
   eg_df <- as.data.frame(example, stringsAsFactors = FALSE)
   names(eg_df) <- headers
-  addTable(wb, name, eg_df,
-           startRow   = 1,
-           startCol   = 1,
-           tableName  = name,
-           tableStyle = "none",
-           withFilter = TRUE)
+  writeDataTable(wb, name, eg_df,
+                 startRow    = 1,
+                 startCol    = 1,
+                 tableName   = name,
+                 tableStyle  = "TableStyleLight1",
+                 headerStyle = hdr_style,
+                 withFilter  = TRUE,
+                 bandedRows  = FALSE)
 
-  # Apply header and example row styles on top of the table
-  addStyle(wb, name, hdr_style,
-           rows = 1, cols = seq_along(headers), gridExpand = TRUE, stack = TRUE)
+  # Style the example row as grey italic
   addStyle(wb, name, example_style,
            rows = 2, cols = seq_along(headers), gridExpand = TRUE, stack = TRUE)
 
