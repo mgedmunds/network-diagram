@@ -14,7 +14,7 @@
 #    from shared settings + timing
 #
 # INPUT (.xlsx) sheets:
-# - cases: case_id, onset_date, age_group, vaccination_status
+# - cases: case_id, onset_date, age_group, vaccination_status, case_status
 # - case_settings: case_id, setting_name, setting_type, has_other_visits
 # - visit_dates: case_id, setting_name, visit_date (one row per epi-relevant date)
 # - contacts: from, to, link_type (optional)
@@ -105,6 +105,7 @@ digraph erd {
       <TR><TD ALIGN="LEFT">onset_date</TD><TD ALIGN="LEFT">date</TD><TD>required</TD></TR>
       <TR><TD ALIGN="LEFT">age_group</TD><TD ALIGN="LEFT">character</TD><TD> </TD></TR>
       <TR><TD ALIGN="LEFT">vaccination_status</TD><TD ALIGN="LEFT">character</TD><TD> </TD></TR>
+      <TR><TD ALIGN="LEFT">case_status</TD><TD ALIGN="LEFT">character</TD><TD> </TD></TR>
     </TABLE>>]
 
   SETTINGS [label=<
@@ -159,7 +160,8 @@ DICT_TABLES <- list(
     "case_id",             "character", "PK",  "Yes",     "Unique case identifier. Join key across all tables. Must be unique within the dataset.",
     "onset_date",          "date",      "—",   "Yes",     "Symptom onset date. Drives the time slider, epidemic curve, and all epi-period derivations (exposure window, infectious period).",
     "age_group",           "character", "—",   "No",      "Age band. Fixed values: &lt;1 year, 1–4 years, 5–17 years, 18–29 years, 30–49 years, 50+ years. Aligned with UKHSA reporting and vaccination schedule milestones.",
-    "vaccination_status",  "character", "—",   "No",      "Measles vaccination history at time of illness. Values: Unvaccinated, 1 dose, 2 doses, Unknown."
+    "vaccination_status",  "character", "—",   "No",      "Measles vaccination history at time of illness. Values: Unvaccinated, 1 dose, 2 doses, Unknown.",
+    "case_status",         "character", "—",   "No",      "Classification of the case. Values: Confirmed, Probable, Possible. Definition pending."
   ),
   settings = tibble::tribble(
     ~Field,          ~Type,       ~Key,  ~Required, ~Description,
@@ -211,7 +213,9 @@ make_demo_data <- function() {
     age_group          = sample(c("<1 year","1–4 years","5–17 years","18–29 years","30–49 years","50+ years"),
                                 n, TRUE, c(.10,.20,.30,.20,.12,.08)),
     vaccination_status = sample(c("Unvaccinated","1 dose","2 doses","Unknown"),
-                                n, TRUE, c(.5,.2,.2,.1))) |> arrange(onset_date)
+                                n, TRUE, c(.5,.2,.2,.1)),
+    case_status        = sample(c("Confirmed","Probable","Possible"),
+                                n, TRUE, c(.6,.3,.1))) |> arrange(onset_date)
 
   prim <- sample(seq_len(nrow(community)), n, replace = TRUE, prob = comm_w)
 
@@ -504,6 +508,7 @@ ll_tips_lookup <- c(
   onset_date         = "Date the case first developed symptoms. Drives the time slider, epidemic curve and infectious-period logic.",
   age_group          = "Age band of the case.",
   vaccination_status = "Recorded measles vaccination status of the case.",
+  case_status        = "Classification of the case: Confirmed, Probable, or Possible.",
   settings_visited   = "Number of distinct settings this case is recorded as having visited.")
 
 # ---- Definitions content ----------------------------------------------------

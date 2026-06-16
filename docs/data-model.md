@@ -18,6 +18,7 @@ Four tables. Each has a clearly defined grain and primary key.
 | `onset_date` | | date | yes | Drives time slider, epi curve, and infectious-period derivations |
 | `age_group` | | character | no | Fixed bands — see Decisions |
 | `vaccination_status` | | character | no | `Unvaccinated`, `1 dose`, `2 doses`, `Unknown` |
+| `case_status` | | character | no | `Confirmed`, `Probable`, `Possible` — definitions pending |
 
 ---
 
@@ -85,6 +86,7 @@ erDiagram
         date onset_date
         string age_group
         string vaccination_status
+        string case_status
     }
 
     SETTINGS {
@@ -247,7 +249,8 @@ Minimum fields required from the external linelist:
 
 **Schema**
 - [x] **`setting_id`** — implemented as integer surrogate PK on settings; used as FK in case_settings and visit_dates. setting_name and setting_type removed from case_settings.
-- [ ] **`case_status`** — add `Confirmed`, `Probable`, `Suspected` to cases? Would affect which cases appear in the network and how transmission links are displayed.
+- [x] **`case_status`** — added as optional character field on cases. Values: `Confirmed`, `Probable`, `Possible`.
+- [ ] **`case_status` definitions** — write plain-language definitions for Confirmed, Probable, and Possible. Update the data dictionary description and the Definitions tab in the app.
 - [ ] **`vaccination_status`** — keep measles-specific values or make generic for reuse across outbreaks?
 - [ ] **"Neither" dates in visit_dates** — should dates outside all epi windows be recorded? Currently the table implies all rows are epi-relevant. If "Neither" dates are needed, consider adding an `epi_relevant` flag.
 
