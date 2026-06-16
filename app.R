@@ -797,6 +797,11 @@ ui <- page_navbar(
           label = tagList("Include setting types",
             info("Tick or untick to focus on particular kinds of setting.")),
           choices = character(0), selected = character(0)),
+        checkboxGroupInput("case_status_filter",
+          label = tagList("Case confidence",
+            info("Filter by how firmly the case has been classified. Confirmed and Probable are included by default; untick to exclude or tick Possible to include.")),
+          choices  = c("Confirmed", "Probable", "Possible"),
+          selected = c("Confirmed", "Probable")),
         hr(),
         helpText("See ", strong("Definitions"), ", ", strong("How to use"), " and ",
                  strong("Assumptions & parameters"), " tabs at the top.")),
@@ -940,6 +945,11 @@ server <- function(input, output, session) {
     updateSliderInput(session, "asof", min = rng[1], max = rng[2], value = c(rng[1], rng[2]))
     types <- unique(d$settings$setting_type)
     updateCheckboxGroupInput(session, "types", choices = types, selected = types)
+    statuses <- if ("case_status" %in% names(d$cases))
+      intersect(c("Confirmed","Probable","Possible"), unique(d$cases$case_status))
+    else c("Confirmed","Probable","Possible")
+    updateCheckboxGroupInput(session, "case_status_filter",
+      choices = statuses, selected = intersect(statuses, c("Confirmed","Probable")))
   })
 
   params <- reactive({
@@ -980,6 +990,8 @@ server <- function(input, output, session) {
   filtered <- reactive({
     d   <- raw()
     cs  <- d$cases |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
+    if ("case_status" %in% names(cs))
+      cs <- cs |> filter(is.na(case_status) | case_status %in% input$case_status_filter)
     st  <- d$settings |> filter(setting_type %in% input$types)
     cst <- d$case_settings |> filter(case_id %in% cs$case_id, setting_id %in% st$setting_id)
     st  <- st |> filter(setting_id %in% cst$setting_id)

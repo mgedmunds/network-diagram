@@ -18,7 +18,7 @@ Four tables. Each has a clearly defined grain and primary key.
 | `onset_date` | | date | yes | Drives time slider, epi curve, and infectious-period derivations |
 | `age_group` | | character | no | Fixed bands — see Decisions |
 | `vaccination_status` | | character | no | `Unvaccinated`, `1 dose`, `2 doses`, `Unknown` |
-| `case_status` | | character | no | `Confirmed`, `Probable`, `Possible` — definitions pending |
+| `case_status` | | character | no | `Confirmed`, `Probable`, `Possible` — definitions pending. Drives the Case confidence filter in the sidebar (default: Confirmed and Probable shown). |
 
 ---
 
