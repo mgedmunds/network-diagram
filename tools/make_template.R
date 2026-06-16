@@ -35,7 +35,7 @@ example_style <- createStyle(
   textDecoration = "italic"
 )
 
-date_style <- createStyle(numFmt = "YYYY-MM-DD")
+date_style <- createStyle(numFmt = "DD/MM/YYYY")
 
 note_style <- createStyle(
   fontColour = "#2C3E50",
@@ -59,14 +59,18 @@ section_style <- createStyle(
 wb <- createWorkbook()
 
 # ---- Helper: add a data sheet -----------------------------------------------
-# headers    — character vector of column names (in order)
-# example    — list of example values (one per column)
-# col_widths — numeric vector of column widths
-# date_cols  — integer vector of column indices to format as dates
-# dropdowns  — list of list(col, formula) where formula is the Excel list string
+# headers     — character vector of column names (in order)
+# example     — list of example values (one per column)
+# col_widths  — numeric vector of column widths
+# date_cols   — integer vector of column indices to format as dates
+# dropdowns   — list of list(col, formula): Excel list-string dropdowns
+# validations — list of list(col, type, ...): other dataValidation calls
+#               Supported types: "whole", "date", "custom"
+#               Extra args (operator, value) are passed through to dataValidation()
 
 add_sheet <- function(wb, name, headers, example, col_widths = NULL,
-                      date_cols = NULL, dropdowns = list()) {
+                      date_cols = NULL, dropdowns = list(),
+                      validations = list()) {
   addWorksheet(wb, name, tabColour = "#2980B9")
 
   # Header row
@@ -81,7 +85,7 @@ add_sheet <- function(wb, name, headers, example, col_widths = NULL,
   addStyle(wb, name, example_style,
            rows = 2, cols = seq_along(headers), gridExpand = TRUE)
 
-  # Date format on date columns (applies to all data rows)
+  # Date format on date columns (applies to all data rows including example)
   if (!is.null(date_cols)) {
     addStyle(wb, name, date_style,
              rows = 2:2000, cols = date_cols, gridExpand = TRUE, stack = TRUE)
@@ -97,7 +101,7 @@ add_sheet <- function(wb, name, headers, example, col_widths = NULL,
     setColWidths(wb, name, cols = seq_along(headers), widths = "auto")
   }
 
-  # Dropdown validation on data rows (row 2 onwards)
+  # Dropdown validation (list type) on data rows
   for (dd in dropdowns) {
     dataValidation(
       wb, name,
@@ -106,6 +110,15 @@ add_sheet <- function(wb, name, headers, example, col_widths = NULL,
       type  = "list",
       value = dd$formula
     )
+  }
+
+  # Other validations (whole, date, custom formula)
+  for (v in validations) {
+    extra <- v[setdiff(names(v), c("col", "type"))]
+    do.call(dataValidation, c(
+      list(wb = wb, sheet = name, col = v$col, rows = 2:2000, type = v$type),
+      extra
+    ))
   }
 }
 
@@ -128,11 +141,21 @@ readme_rows <- list(
   list(style = note_style,    text = "7.  Save as .xlsx and upload using the Upload button in the network tool."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "RULES"),
+  list(style = note_style,    text = "•  Fill sheets IN ORDER: cases -> settings -> case_settings -> visit_dates -> contacts."),
+  list(style = note_style,    text = "   Cross-sheet validation checks case_id and setting_id against the first two sheets."),
   list(style = note_style,    text = "•  case_id must be unique in 'cases' and match exactly across all other sheets."),
-  list(style = note_style,    text = "•  setting_id must be a unique integer in 'settings' and match across all other sheets."),
-  list(style = note_style,    text = "•  Dates must be entered as Excel dates, not text. Use the YYYY-MM-DD format shown."),
+  list(style = note_style,    text = "•  setting_id must be a unique whole number in 'settings' and match across all other sheets."),
+  list(style = note_style,    text = "•  Dates must be entered as Excel dates in DD/MM/YYYY format — not as plain text."),
+  list(style = note_style,    text = "   Click on a date cell and use the date picker, or type the date and confirm it shows as a date."),
   list(style = note_style,    text = "•  Do not rename or reorder the sheet tabs."),
   list(style = note_style,    text = "•  Do not rename or reorder the column headers."),
+  list(style = note_style,    text = ""),
+  list(style = section_style, text = "VALIDATION — what the cells will check as you type"),
+  list(style = note_style,    text = "•  onset_date, visit_date: must be a valid date (DD/MM/YYYY). Text will be rejected."),
+  list(style = note_style,    text = "•  setting_id in 'settings': must be a whole number greater than zero."),
+  list(style = note_style,    text = "•  case_id in 'case_settings', 'visit_dates', 'contacts': must exist in the 'cases' sheet."),
+  list(style = note_style,    text = "•  setting_id in 'case_settings', 'visit_dates': must exist in the 'settings' sheet."),
+  list(style = note_style,    text = "   Excel will warn you if a value does not match. Fill 'cases' and 'settings' first."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "DROPDOWN FIELDS — select from the list; do not type free text"),
   list(style = note_style,    text = "•  age_group:          Under 1 year | 1-4 years | 5-17 years | 18-29 years | 30-49 years | 50+"),
@@ -161,13 +184,18 @@ for (i in seq_along(readme_rows)) {
 add_sheet(
   wb, "cases",
   headers    = c("case_id", "onset_date", "age_group", "vaccination_status", "case_status"),
-  example    = list("C001", as.Date("2026-04-01"), "5-17 years",  "Unvaccinated", "Confirmed"),
+  example    = list("C001", as.Date("2026-04-01"), "5-17 years", "Unvaccinated", "Confirmed"),
   col_widths = c(12, 15, 15, 20, 14),
   date_cols  = 2,
   dropdowns  = list(
     list(col = 3, formula = '"Under 1 year,1-4 years,5-17 years,18-29 years,30-49 years,50+"'),
     list(col = 4, formula = '"Unvaccinated,1 dose,2 doses,Unknown"'),
     list(col = 5, formula = '"Confirmed,Probable,Possible"')
+  ),
+  validations = list(
+    # onset_date must be a real date (col 2)
+    list(col = 2, type = "date", operator = "between",
+         value = as.Date(c("2000-01-01", "2100-01-01")))
   )
 )
 
@@ -177,29 +205,46 @@ add_sheet(
   wb, "settings",
   headers    = c("setting_id", "setting_name", "setting_type"),
   example    = list(1L, "Oakfield Primary School", "School"),
-  col_widths = c(12, 35, 16)
+  col_widths = c(12, 35, 16),
+  validations = list(
+    # setting_id must be a whole number > 0
+    list(col = 1, type = "whole", operator = "greaterThan", value = 0)
+  )
 )
 
 # ---- case_settings ----------------------------------------------------------
+# case_id must exist in cases col A; setting_id must exist in settings col A
 
 add_sheet(
   wb, "case_settings",
   headers    = c("case_id", "setting_id"),
   example    = list("C001", 1L),
-  col_widths = c(12, 14)
+  col_widths = c(12, 14),
+  validations = list(
+    list(col = 1, type = "custom", value = "COUNTIF(cases!$A:$A,A2)>0"),
+    list(col = 2, type = "custom", value = "COUNTIF(settings!$A:$A,B2)>0")
+  )
 )
 
 # ---- visit_dates ------------------------------------------------------------
+# FK checks on case_id and setting_id; visit_date must be a real date
 
 add_sheet(
   wb, "visit_dates",
   headers    = c("case_id", "setting_id", "visit_date"),
   example    = list("C001", 1L, as.Date("2026-04-03")),
   col_widths = c(12, 14, 15),
-  date_cols  = 3
+  date_cols  = 3,
+  validations = list(
+    list(col = 1, type = "custom", value = "COUNTIF(cases!$A:$A,A2)>0"),
+    list(col = 2, type = "custom", value = "COUNTIF(settings!$A:$A,B2)>0"),
+    list(col = 3, type = "date", operator = "between",
+         value = as.Date(c("2000-01-01", "2100-01-01")))
+  )
 )
 
 # ---- contacts ---------------------------------------------------------------
+# from and to must both exist in cases col A
 
 add_sheet(
   wb, "contacts",
@@ -208,6 +253,10 @@ add_sheet(
   col_widths = c(12, 12, 14),
   dropdowns  = list(
     list(col = 3, formula = '"Confirmed,Suspected"')
+  ),
+  validations = list(
+    list(col = 1, type = "custom", value = "COUNTIF(cases!$A:$A,A2)>0"),
+    list(col = 2, type = "custom", value = "COUNTIF(cases!$A:$A,B2)>0")
   )
 )
 
