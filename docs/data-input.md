@@ -463,6 +463,6 @@ Auto-generated incrementally when a new row is added. Formats:
 
 | Requirement | Status | Implementation |
 |---|---|---|
-| Sheets formatted as named Excel tables | Not done | `openxlsx::addTable()` can create named tables; table names to match schema (cases, contexts, case_contexts, visit_dates, contacts) |
+| Sheets formatted as named Excel tables | Done | `addTable()` with `tableName = name` — table names match schema: cases, contexts, case_contexts, visit_dates, contacts. `tableStyle = "none"` so custom header/row styles still apply. |
 
 ---
