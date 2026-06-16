@@ -138,18 +138,12 @@ readme_rows <- list(
   list(style = note_style,    text = "•  age_group:          Under 1 year | 1-4 years | 5-17 years | 18-29 years | 30-49 years | 50+"),
   list(style = note_style,    text = "•  vaccination_status: Unvaccinated | 1 dose | 2 doses | Unknown"),
   list(style = note_style,    text = "•  case_status:        Confirmed | Probable | Possible"),
-  list(style = note_style,    text = "•  has_other_visits:   Yes | No"),
   list(style = note_style,    text = "•  link_type:          Confirmed | Suspected"),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "SETTING TYPE"),
   list(style = note_style,    text = "•  setting_type is free text — you define the categories for this outbreak."),
   list(style = note_style,    text = "•  Use consistent capitalisation across all rows (e.g. always 'School', not 'school')."),
   list(style = note_style,    text = "•  Suggested values: School, Household, Healthcare, Community, Workplace, Childcare."),
-  list(style = note_style,    text = ""),
-  list(style = section_style, text = "HAS_OTHER_VISITS"),
-  list(style = note_style,    text = "•  Set to Yes if the case had routine presence at this setting (e.g. lives in household,"),
-  list(style = note_style,    text = "   attends school daily) beyond the specific dates recorded in visit_dates."),
-  list(style = note_style,    text = "•  Set to No if the recorded visit_dates represent all known visits."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "CONTACTS SHEET"),
   list(style = note_style,    text = "•  Optional. Leave blank if transmission links are not known."),
@@ -187,17 +181,12 @@ add_sheet(
 )
 
 # ---- case_settings ----------------------------------------------------------
-# has_other_visits stored as Yes/No in the template for clarity;
-# the app coerces to logical on import.
 
 add_sheet(
   wb, "case_settings",
-  headers    = c("case_id", "setting_id", "has_other_visits"),
-  example    = list("C001", 1L, "No"),
-  col_widths = c(12, 14, 18),
-  dropdowns  = list(
-    list(col = 3, formula = '"Yes,No"')
-  )
+  headers    = c("case_id", "setting_id"),
+  example    = list("C001", 1L),
+  col_widths = c(12, 14)
 )
 
 # ---- visit_dates ------------------------------------------------------------

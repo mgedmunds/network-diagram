@@ -113,7 +113,7 @@ digraph erd {
       <TR><TD COLSPAN="3" BGCOLOR="#e6550d" ALIGN="CENTER"><FONT COLOR="white"><B> case_settings </B></FONT></TD></TR>
       <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
       <TR><TD ALIGN="LEFT"><U>setting_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK + FK</TD></TR>
-      <TR><TD ALIGN="LEFT">has_other_visits</TD><TD ALIGN="LEFT">logical</TD><TD> </TD></TR>
+      <TR><TD ALIGN="LEFT"><I>visit_relevance</I></TD><TD ALIGN="LEFT"><I>character</I></TD><TD><I>derived</I></TD></TR>
     </TABLE>>]
 
   VISIT_DATES [label=<
@@ -122,7 +122,6 @@ digraph erd {
       <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
       <TR><TD ALIGN="LEFT"><U>setting_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK + FK</TD></TR>
       <TR><TD ALIGN="LEFT"><U>visit_date</U></TD><TD ALIGN="LEFT">date</TD><TD>PK</TD></TR>
-      <TR><TD ALIGN="LEFT"><I>epi_category</I></TD><TD ALIGN="LEFT"><I>character</I></TD><TD><I>derived</I></TD></TR>
     </TABLE>>]
 
   CONTACTS [label=<
@@ -162,18 +161,16 @@ DICT_TABLES <- list(
     "setting_type",  "character", "—",   "Yes",     "User-defined categorical label (e.g. School, Household). Not pre-coded — values come from the data. Drives node colour and the setting-type filter."
   ),
   case_settings = tibble::tribble(
-    ~Field,              ~Type,       ~Key,        ~Required, ~Description,
-    "case_id",           "character", "PK + FK",   "Yes",     "Composite primary key. FK to cases.case_id.",
-    "setting_id",        "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to settings.setting_id.",
-    "has_other_visits",  "logical",   "—",         "No",      "TRUE if the case visited this setting on dates outside all epi windows (e.g. routine household residence). Specific dates for those visits are not recorded in visit_dates.",
-    "visit_relevance",   "character", "(derived)", "—",       "<i>Not stored. Computed at runtime.</i> Summary of when the case was present at this setting relative to their epi windows. Values: <b>Infectious period</b> (case may have spread infection here), <b>Exposure window</b> (case may have acquired infection here), <b>Both</b> (present across both windows, e.g. household resident), <b>Neither</b> (visits recorded but outside both windows). Recalculates automatically when parameters change."
+    ~Field,             ~Type,       ~Key,        ~Required, ~Description,
+    "case_id",          "character", "PK + FK",   "Yes",     "Composite primary key. FK to cases.case_id.",
+    "setting_id",       "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to settings.setting_id.",
+    "visit_relevance",  "character", "(derived)", "—",       "<i>Not stored. Computed at runtime.</i> Summary of when the case was present at this setting relative to their epi windows. Values: <b>Infectious period</b> (case may have spread infection here), <b>Exposure window</b> (case may have acquired infection here), <b>Both</b> (present across both windows, e.g. household resident), <b>Neither</b> (visits recorded but outside both windows). Recalculates automatically when parameters change."
   ),
   visit_dates = tibble::tribble(
     ~Field,           ~Type,       ~Key,        ~Required, ~Description,
     "case_id",        "character", "PK + FK",   "Yes",     "Composite primary key. FK to case_settings.case_id.",
     "setting_id",     "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to case_settings.setting_id.",
     "visit_date",     "date",      "PK",        "Yes",     "Date of an epi-relevant visit. One row per calendar day per case-setting pair.",
-    "epi_category",   "character", "(derived)", "—",       "<i>Not stored. Computed at runtime</i> from visit_date vs onset_date using current parameters.<br><b>Exposure window:</b> onset &minus; inc_max &le; date &le; onset &minus; inc_min<br><b>Infectious period:</b> onset &minus; inf_before &le; date &le; onset + inf_after<br><b>Both:</b> dates span both windows across the case&ndash;setting pair (e.g. household resident)<br><b>Neither:</b> date outside all windows. Recalculates automatically when parameters change."
   ),
   contacts = tibble::tribble(
     ~Field,       ~Type,       ~Key,  ~Required, ~Description,
@@ -254,11 +251,7 @@ make_demo_data <- function() {
   }) |> arrange(case_id, visit_date)
 
   visit_dates   <- visit_rows |> distinct(case_id, setting_id, visit_date)
-  case_settings <- visit_rows |>
-    distinct(case_id, setting_id) |>
-    left_join(all_settings |> select(setting_id, setting_type), by = "setting_id") |>
-    mutate(has_other_visits = setting_type == "Household") |>
-    select(case_id, setting_id, has_other_visits)
+  case_settings <- visit_rows |> distinct(case_id, setting_id)
   settings <- all_settings |> semi_join(case_settings, by = "setting_id")
 
   prim_id <- community$setting_id[prim]
@@ -838,7 +831,7 @@ ui <- page_navbar(
                "One row per case. The primary case record — onset date drives the time slider, epidemic curve and infectious-period logic."),
            DTOutput("src_cases")),
       card(hdr("Case settings",
-               "One row per case × setting combination. Records which cases visited which settings and whether the case also visited on non-epidemiologically-relevant dates (has_other_visits)."),
+               "One row per case × setting combination. visit_relevance summarises when the case was present relative to their infectious period and exposure window."),
            DTOutput("src_case_settings")),
       card(hdr("Visit dates",
                "One row per epidemiologically relevant visit date. A single case × setting pair can appear on multiple rows here, one per date."),
@@ -883,14 +876,14 @@ ui <- page_navbar(
     div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
       card(
         hdr("Schema diagram",
-            "Entity-relationship diagram. Underlined fields are primary keys. Italic epi_category is derived at runtime and not stored."),
+            "Entity-relationship diagram. Underlined fields are primary keys. Italic visit_relevance is derived at runtime and not stored."),
         card_body(
           grVizOutput("erd_plot", height = "500px"),
           div(style = "margin-top:8px;",
               downloadButton("download_erd", "Download SVG", class = "btn-outline-secondary btn-sm")))
       ),
       card(
-        hdr("Data dictionary", "Field-level definitions. epi_category in visit_dates is computed live from parameters and is never stored."),
+        hdr("Data dictionary", "Field-level definitions. visit_relevance in case_settings is computed live from parameters and is never stored."),
         card_body(
           navset_tab(
             nav_panel("cases",         DTOutput("dict_cases")),
@@ -920,8 +913,6 @@ server <- function(input, output, session) {
     vd  <- readxl::read_excel(input$file$datapath, sheet = "visit_dates")
     cs$onset_date <- as.Date(cs$onset_date)
     vd$visit_date <- as.Date(vd$visit_date)
-    if ("has_other_visits" %in% names(cst))
-      cst$has_other_visits <- cst$has_other_visits %in% c(TRUE, "TRUE", "Yes", "yes", "Y", "y", 1)
     ct <- if ("contacts" %in% sheets)
       readxl::read_excel(input$file$datapath, sheet = "contacts")
       else tibble(from = character(), to = character(), link_type = character())
