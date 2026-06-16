@@ -15,8 +15,8 @@
 #
 # INPUT (.xlsx) sheets:
 # - cases: case_id, onset_date, age_group, vaccination_status, case_status
-# - case_settings: case_id, setting_name, setting_type, has_other_visits
-# - visit_dates: case_id, setting_name, visit_date (one row per epi-relevant date)
+# - case_settings: case_id, setting_id, has_other_visits
+# - visit_dates: case_id, setting_id, visit_date (one row per epi-relevant date)
 # - contacts: from, to, link_type (optional)
 # See sample_outbreak_data.xlsx (has a README sheet). Demo data is used if no
 # file is uploaded.
@@ -1061,7 +1061,7 @@ server <- function(input, output, session) {
 
   output$ll <- renderDT({
     f  <- filtered()
-    nv <- f$case_settings |> distinct(case_id, setting_name) |> count(case_id, name = "settings_visited")
+    nv <- f$case_settings |> distinct(case_id, setting_id) |> count(case_id, name = "settings_visited")
     df <- f$cases |> left_join(nv, by = "case_id") |>
       mutate(settings_visited = tidyr::replace_na(settings_visited, 0L))
     tips <- vapply(names(df),
