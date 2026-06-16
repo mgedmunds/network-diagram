@@ -920,6 +920,8 @@ server <- function(input, output, session) {
     vd  <- readxl::read_excel(input$file$datapath, sheet = "visit_dates")
     cs$onset_date <- as.Date(cs$onset_date)
     vd$visit_date <- as.Date(vd$visit_date)
+    if ("has_other_visits" %in% names(cst))
+      cst$has_other_visits <- cst$has_other_visits %in% c(TRUE, "TRUE", "Yes", "yes", "Y", "y", 1)
     ct <- if ("contacts" %in% sheets)
       readxl::read_excel(input$file$datapath, sheet = "contacts")
       else tibble(from = character(), to = character(), link_type = character())
