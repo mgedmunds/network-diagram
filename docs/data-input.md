@@ -428,4 +428,9 @@ restore it
 4. **Investigate Posit Connect availability** — ask IT whether the organisation has or can procure an NHS-hosted Posit Connect instance; this gates Stage 2
 5. **Confirm IG sign-off for Stage 2 hosting** — once a hosting platform is identified, confirm with IG/Caldicott lead before any real outbreak data is stored there
 
+
+
+## Data validation requirements for excel input file
+- the data type should be enforced, e.g. dates should have to be a date (UK format, DD/MM/YYYY) any count data should be integers, any categorical data should enforce entry of those categories only. Linkage tables should only allow e.g. case ids and setting ids that appear in the case table / settings table should be bale to be entered. 
+
 ---
