@@ -781,7 +781,7 @@ ui <- page_navbar(
             info("Tick or untick to focus on particular kinds of setting.")),
           choices = character(0), selected = character(0)),
         checkboxGroupInput("case_status_filter",
-          label = tagList("Case confidence",
+          label = tagList("Case status",
             info("Filter by how firmly the case has been classified. Confirmed and Probable are included by default; untick to exclude or tick Possible to include.")),
           choices  = c("Confirmed", "Probable", "Possible"),
           selected = c("Confirmed", "Probable")),
