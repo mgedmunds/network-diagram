@@ -135,7 +135,7 @@ readme_rows <- list(
   list(style = note_style,    text = "•  Do not rename or reorder the column headers."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "DROPDOWN FIELDS — select from the list; do not type free text"),
-  list(style = note_style,    text = "•  age_group:          <1 year | 1-4 years | 5-17 years | 18-29 years | 30-49 years | 50+"),
+  list(style = note_style,    text = "•  age_group:          Under 1 year | 1-4 years | 5-17 years | 18-29 years | 30-49 years | 50+"),
   list(style = note_style,    text = "•  vaccination_status: Unvaccinated | 1 dose | 2 doses | Unknown"),
   list(style = note_style,    text = "•  case_status:        Confirmed | Probable | Possible"),
   list(style = note_style,    text = "•  has_other_visits:   Yes | No"),
@@ -167,11 +167,11 @@ for (i in seq_along(readme_rows)) {
 add_sheet(
   wb, "cases",
   headers    = c("case_id", "onset_date", "age_group", "vaccination_status", "case_status"),
-  example    = list("C001", as.Date("2026-04-01"), "5-17 years", "Unvaccinated", "Confirmed"),
+  example    = list("C001", as.Date("2026-04-01"), "5-17 years",  "Unvaccinated", "Confirmed"),
   col_widths = c(12, 15, 15, 20, 14),
   date_cols  = 2,
   dropdowns  = list(
-    list(col = 3, formula = '"<1 year,1-4 years,5-17 years,18-29 years,30-49 years,50+"'),
+    list(col = 3, formula = '"Under 1 year,1-4 years,5-17 years,18-29 years,30-49 years,50+"'),
     list(col = 4, formula = '"Unvaccinated,1 dose,2 doses,Unknown"'),
     list(col = 5, formula = '"Confirmed,Probable,Possible"')
   )
