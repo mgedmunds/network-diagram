@@ -783,7 +783,7 @@ ui <- page_navbar(
                     value = c(Sys.Date() - 60, Sys.Date()), timeFormat = "%d %b %Y",
                     animate = animationOptions(interval = 900)),
         checkboxGroupInput("types",
-          label = tagList("Include context types",
+          label = tagList("Contexts to include",
             info("Tick or untick to focus on particular kinds of context.")),
           choices = character(0), selected = character(0)),
         checkboxGroupInput("case_status_filter",
