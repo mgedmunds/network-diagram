@@ -148,17 +148,17 @@ readme_rows <- list(
   list(style = note_style,    text = ""),
   list(style = section_style, text = "HOW TO FILL IN THIS TEMPLATE"),
   list(style = note_style,    text = "1.  Fill in the 'cases' sheet first — one row per case."),
-  list(style = note_style,    text = "2.  Fill in the 'settings' sheet — one row per location linked to the outbreak."),
-  list(style = note_style,    text = "    Assign each setting a unique integer ID starting from 1."),
-  list(style = note_style,    text = "3.  Fill in 'case_settings' — one row per case x setting combination."),
-  list(style = note_style,    text = "4.  Fill in 'visit_dates' — one row per date a case visited a setting."),
+  list(style = note_style,    text = "2.  Fill in the 'contexts' sheet — one row per location linked to the outbreak."),
+  list(style = note_style,    text = "    Assign each context a unique integer ID starting from 1."),
+  list(style = note_style,    text = "3.  Fill in 'case_contexts' — one row per case x context combination."),
+  list(style = note_style,    text = "4.  Fill in 'visit_dates' — one row per date a case visited a context."),
   list(style = note_style,    text = "5.  Fill in 'contacts' (optional) — one row per known transmission link."),
   list(style = note_style,    text = "6.  Delete the example rows (shaded grey, italic) before uploading."),
   list(style = note_style,    text = "7.  Save as .xlsx and upload using the Upload button in the network tool."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "RULES"),
   list(style = note_style,    text = "•  case_id must be unique in 'cases' and match exactly across all other sheets."),
-  list(style = note_style,    text = "•  setting_id must be a unique whole number in 'settings' and match across all other sheets."),
+  list(style = note_style,    text = "•  context_id must be a unique whole number in 'contexts' and match across all other sheets."),
   list(style = note_style,    text = "•  Dates must be entered as Excel dates in DD/MM/YYYY format — not as plain text."),
   list(style = note_style,    text = "   Click on a date cell and use the date picker, or type the date and confirm it shows as a date."),
   list(style = note_style,    text = "•  Do not rename or reorder the sheet tabs."),
@@ -166,9 +166,9 @@ readme_rows <- list(
   list(style = note_style,    text = ""),
   list(style = section_style, text = "VALIDATION — what the cells will check as you type"),
   list(style = note_style,    text = "•  onset_date, visit_date: must be a valid date (DD/MM/YYYY). Text will be rejected."),
-  list(style = note_style,    text = "•  setting_id in 'settings': must be a whole number greater than zero."),
-  list(style = note_style,    text = "•  case_id and setting_id in other sheets: not enforced in Excel — the upload tool"),
-  list(style = note_style,    text = "   will flag any IDs that do not match the cases or settings sheets on import."),
+  list(style = note_style,    text = "•  context_id in 'contexts': must be a whole number greater than zero."),
+  list(style = note_style,    text = "•  case_id and context_id in other sheets: not enforced in Excel — the upload tool"),
+  list(style = note_style,    text = "   will flag any IDs that do not match the cases or contexts sheets on import."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "DROPDOWN FIELDS — select from the list; do not type free text"),
   list(style = note_style,    text = "•  age_group:          Under 1 year | 1-4 years | 5-17 years | 18-29 years | 30-49 years | 50+"),
@@ -176,15 +176,15 @@ readme_rows <- list(
   list(style = note_style,    text = "•  case_status:        Confirmed | Probable | Possible"),
   list(style = note_style,    text = "•  link_type:          Confirmed | Suspected"),
   list(style = note_style,    text = ""),
-  list(style = section_style, text = "SETTING TYPE"),
-  list(style = note_style,    text = "•  setting_type is free text — you define the categories for this outbreak."),
+  list(style = section_style, text = "CONTEXT TYPE"),
+  list(style = note_style,    text = "•  context_type is free text — you define the categories for this outbreak."),
   list(style = note_style,    text = "•  Use consistent capitalisation across all rows (e.g. always 'School', not 'school')."),
   list(style = note_style,    text = "•  Suggested values: School, Household, Healthcare, Community, Workplace, Childcare."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "CONTACTS SHEET"),
   list(style = note_style,    text = "•  Optional. Leave blank if transmission links are not known."),
   list(style = note_style,    text = "•  'from' is the source case; 'to' is the case who was infected."),
-  list(style = note_style,    text = "•  The app can derive Suspected links automatically from shared settings and timing.")
+  list(style = note_style,    text = "•  The app can derive Suspected links automatically from shared contexts and timing.")
 )
 
 for (i in seq_along(readme_rows)) {
@@ -212,24 +212,24 @@ add_sheet(
   )
 )
 
-# ---- settings ---------------------------------------------------------------
+# ---- contexts ---------------------------------------------------------------
 
 add_sheet(
-  wb, "settings",
-  headers    = c("setting_id", "setting_name", "setting_type"),
+  wb, "contexts",
+  headers    = c("context_id", "context_name", "context_type"),
   example    = list(1L, "Oakfield Primary School", "School"),
   col_widths = c(12, 35, 16),
   validations = list(
-    # setting_id must be a whole number > 0
+    # context_id must be a whole number > 0
     list(col = 1, type = "whole", operator = "greaterThan", value = 0)
   )
 )
 
-# ---- case_settings ----------------------------------------------------------
+# ---- case_contexts ----------------------------------------------------------
 
 add_sheet(
-  wb, "case_settings",
-  headers    = c("case_id", "setting_id"),
+  wb, "case_contexts",
+  headers    = c("case_id", "context_id"),
   example    = list("C001", 1L),
   col_widths = c(12, 14)
 )
@@ -238,7 +238,7 @@ add_sheet(
 
 add_sheet(
   wb, "visit_dates",
-  headers    = c("case_id", "setting_id", "visit_date"),
+  headers    = c("case_id", "context_id", "visit_date"),
   example    = list("C001", 1L, as.Date("2026-04-03")),
   col_widths = c(12, 14, 15),
   date_cols  = 3,

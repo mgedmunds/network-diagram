@@ -2,16 +2,16 @@
 # Measles Outbreak Network Explorer
 # -----------------------------------------------------------------------------
 # Interactive R Shiny dashboard for visualising a measles outbreak across
-# settings, handling cases that visit MULTIPLE settings (case x setting
+# contexts, handling cases that visit MULTIPLE contexts (case x context
 # affiliation / bipartite network). Key epidemiological parameters (incubation
 # and infectious periods) are editable on the "Assumptions & parameters" tab and
 # update the model live.
 #
 # Views:
-# 1. Settings <-> settings (shared cases) -- bipartite projection onto settings
-# 2. Cases x settings (bipartite) -- shows multi-setting cases directly
+# 1. Contexts <-> contexts (shared cases) -- bipartite projection onto contexts
+# 2. Cases x contexts (bipartite) -- shows multi-context cases directly
 # 3. Case-to-case (transmission links) -- from the contacts sheet OR derived
-#    from shared settings + timing
+#    from shared contexts + timing
 #
 # TO RUN:
 # install.packages(c("shiny","bslib","visNetwork","dplyr","tidyr","readxl",
@@ -37,8 +37,8 @@ library(DiagrammeR)   # ERD diagram in Reference tab (new dependency)
 
 # ---- Configuration ----------------------------------------------------------
 # 10 perceptually distinct colours (D3 category10). Assigned in order to whatever
-# setting types appear in the loaded data — no types are pre-coded.
-SETTING_PALETTE <- c(
+# context types appear in the loaded data — no types are pre-coded.
+CONTEXT_PALETTE <- c(
   "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
   "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
 )
@@ -46,7 +46,7 @@ CASE_COLOUR <- "#444444"
 
 colour_map <- function(types) {
   types <- unique(types[!is.na(types)])
-  setNames(SETTING_PALETTE[(seq_along(types) - 1L) %% length(SETTING_PALETTE) + 1L], types)
+  setNames(CONTEXT_PALETTE[(seq_along(types) - 1L) %% length(CONTEXT_PALETTE) + 1L], types)
 }
 
 # Default epidemiological parameters (measles, approximate). All editable in-app.
@@ -87,7 +87,7 @@ digraph erd {
   edge  [fontname="Helvetica" fontsize=9 color="#555555"
          arrowhead=crow arrowtail=tee dir=both]
 
-  { rank=same; CASES; SETTINGS }
+  { rank=same; CASES; CONTEXTS }
   { rank=same; VISIT_DATES; CONTACTS }
 
   CASES [label=<
@@ -100,19 +100,19 @@ digraph erd {
       <TR><TD ALIGN="LEFT">case_status</TD><TD ALIGN="LEFT">character</TD><TD> </TD></TR>
     </TABLE>>]
 
-  SETTINGS [label=<
+  CONTEXTS [label=<
     <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-      <TR><TD COLSPAN="3" BGCOLOR="#31a354" ALIGN="CENTER"><FONT COLOR="white"><B> settings </B></FONT></TD></TR>
-      <TR><TD ALIGN="LEFT"><U>setting_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK</TD></TR>
-      <TR><TD ALIGN="LEFT">setting_name</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
-      <TR><TD ALIGN="LEFT">setting_type</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
+      <TR><TD COLSPAN="3" BGCOLOR="#31a354" ALIGN="CENTER"><FONT COLOR="white"><B> contexts </B></FONT></TD></TR>
+      <TR><TD ALIGN="LEFT"><U>context_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK</TD></TR>
+      <TR><TD ALIGN="LEFT">context_name</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
+      <TR><TD ALIGN="LEFT">context_type</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
     </TABLE>>]
 
-  CASE_SETTINGS [label=<
+  CASE_CONTEXTS [label=<
     <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-      <TR><TD COLSPAN="3" BGCOLOR="#e6550d" ALIGN="CENTER"><FONT COLOR="white"><B> case_settings </B></FONT></TD></TR>
+      <TR><TD COLSPAN="3" BGCOLOR="#e6550d" ALIGN="CENTER"><FONT COLOR="white"><B> case_contexts </B></FONT></TD></TR>
       <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
-      <TR><TD ALIGN="LEFT"><U>setting_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK + FK</TD></TR>
+      <TR><TD ALIGN="LEFT"><U>context_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK + FK</TD></TR>
       <TR><TD ALIGN="LEFT"><I>visit_relevance</I></TD><TD ALIGN="LEFT"><I>character</I></TD><TD><I>derived</I></TD></TR>
     </TABLE>>]
 
@@ -120,7 +120,7 @@ digraph erd {
     <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
       <TR><TD COLSPAN="3" BGCOLOR="#756bb1" ALIGN="CENTER"><FONT COLOR="white"><B> visit_dates </B></FONT></TD></TR>
       <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
-      <TR><TD ALIGN="LEFT"><U>setting_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK + FK</TD></TR>
+      <TR><TD ALIGN="LEFT"><U>context_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK + FK</TD></TR>
       <TR><TD ALIGN="LEFT"><U>visit_date</U></TD><TD ALIGN="LEFT">date</TD><TD>PK</TD></TR>
     </TABLE>>]
 
@@ -132,9 +132,9 @@ digraph erd {
       <TR><TD ALIGN="LEFT">link_type</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
     </TABLE>>]
 
-  CASES         -> CASE_SETTINGS [label=" 1:N "]
-  SETTINGS      -> CASE_SETTINGS [label=" 1:N "]
-  CASE_SETTINGS -> VISIT_DATES   [label=" 1:N "]
+  CASES         -> CASE_CONTEXTS [label=" 1:N "]
+  CONTEXTS      -> CASE_CONTEXTS [label=" 1:N "]
+  CASE_CONTEXTS -> VISIT_DATES   [label=" 1:N "]
   CASES         -> CONTACTS      [label=" 1:N\n(from + to) " style=dashed]
 }
 '
@@ -154,37 +154,37 @@ DICT_TABLES <- list(
     "vaccination_status",  "character", "—",   "No",      "Measles vaccination history at time of illness. Values: Unvaccinated, 1 dose, 2 doses, Unknown.",
     "case_status",         "character", "—",   "No",      "Classification of the case. Values: Confirmed, Probable, Possible. Definition pending."
   ),
-  settings = tibble::tribble(
+  contexts = tibble::tribble(
     ~Field,          ~Type,       ~Key,  ~Required, ~Description,
-    "setting_id",    "integer",   "PK",  "Yes",     "Surrogate primary key. Unique integer assigned to each setting. Used as the join key in case_settings and visit_dates.",
-    "setting_name",  "character", "—",   "Yes",     "Human-readable name for the setting. Free text; should be unique within the dataset.",
-    "setting_type",  "character", "—",   "Yes",     "User-defined categorical label (e.g. School, Household). Not pre-coded — values come from the data. Drives node colour and the setting-type filter."
+    "context_id",    "integer",   "PK",  "Yes",     "Surrogate primary key. Unique integer assigned to each context. Used as the join key in case_contexts and visit_dates.",
+    "context_name",  "character", "—",   "Yes",     "Human-readable name for the context. Free text; should be unique within the dataset.",
+    "context_type",  "character", "—",   "Yes",     "User-defined categorical label (e.g. School, Household). Not pre-coded — values come from the data. Drives node colour and the context-type filter."
   ),
-  case_settings = tibble::tribble(
+  case_contexts = tibble::tribble(
     ~Field,             ~Type,       ~Key,        ~Required, ~Description,
     "case_id",          "character", "PK + FK",   "Yes",     "Composite primary key. FK to cases.case_id.",
-    "setting_id",       "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to settings.setting_id.",
-    "visit_relevance",  "character", "(derived)", "—",       "<i>Not stored. Computed at runtime.</i> Summary of when the case was present at this setting relative to their epi windows. Values: <b>Infectious period</b> (case may have spread infection here), <b>Exposure window</b> (case may have acquired infection here), <b>Both</b> (present across both windows, e.g. household resident), <b>Neither</b> (visits recorded but outside both windows). Recalculates automatically when parameters change."
+    "context_id",       "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to contexts.context_id.",
+    "visit_relevance",  "character", "(derived)", "—",       "<i>Not stored. Computed at runtime.</i> Summary of when the case was present at this context relative to their epi windows. Values: <b>Infectious period</b> (case may have spread infection here), <b>Exposure window</b> (case may have acquired infection here), <b>Both</b> (present across both windows, e.g. household resident), <b>Neither</b> (visits recorded but outside both windows). Recalculates automatically when parameters change."
   ),
   visit_dates = tibble::tribble(
     ~Field,           ~Type,       ~Key,        ~Required, ~Description,
-    "case_id",        "character", "PK + FK",   "Yes",     "Composite primary key. FK to case_settings.case_id.",
-    "setting_id",     "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to case_settings.setting_id.",
-    "visit_date",     "date",      "PK",        "Yes",     "Date of an epi-relevant visit. One row per calendar day per case-setting pair.",
+    "case_id",        "character", "PK + FK",   "Yes",     "Composite primary key. FK to case_contexts.case_id.",
+    "context_id",     "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to case_contexts.context_id.",
+    "visit_date",     "date",      "PK",        "Yes",     "Date of an epi-relevant visit. One row per calendar day per case-context pair.",
   ),
   contacts = tibble::tribble(
     ~Field,       ~Type,       ~Key,  ~Required, ~Description,
     "from",       "character", "FK",  "Yes",     "Source case. FK to cases.case_id.",
     "to",         "character", "FK",  "Yes",     "Recipient case. FK to cases.case_id.",
-    "link_type",  "character", "—",   "Yes",     "Strength of evidence: <b>Confirmed</b> (epidemiologically established) or <b>Suspected</b> (plausible based on timing and shared setting)."
+    "link_type",  "character", "—",   "Yes",     "Strength of evidence: <b>Confirmed</b> (epidemiologically established) or <b>Suspected</b> (plausible based on timing and shared context)."
   )
 )
 
 # ---- Demo data --------------------------------------------------------------
 make_demo_data <- function() {
   set.seed(42)
-  all_settings <- tibble::tribble(
-    ~setting_id, ~setting_name,              ~setting_type,
+  all_contexts <- tibble::tribble(
+    ~context_id, ~context_name,              ~context_type,
     1L,          "Oakfield Primary",         "School",
     2L,          "St Mary's Secondary",      "School",
     3L,          "Hillside Nursery",         "Community",
@@ -193,8 +193,8 @@ make_demo_data <- function() {
     6L,          "Birch Close Household",    "Household",
     7L,          "Riverside GP Surgery",     "Healthcare",
     8L,          "Central Hospital ED",      "Healthcare")
-  community  <- all_settings |> filter(setting_type != "Healthcare")
-  healthcare <- all_settings |> filter(setting_type == "Healthcare")
+  community  <- all_contexts |> filter(context_type != "Healthcare")
+  healthcare <- all_contexts |> filter(context_type == "Healthcare")
   comm_w     <- c(.24, .20, .16, .14, .13, .13)
   n <- 15
   cases <- tibble::tibble(
@@ -217,44 +217,44 @@ make_demo_data <- function() {
     inf_win   <- seq(onset - DEF_INF_BEFORE, onset + DEF_INF_AFTER)
     exp_win   <- seq(onset - DEF_INC_MAX,    onset - DEF_INC_MIN)
 
-    prim_stype <- community$setting_type[prim[i]]
+    prim_ctype <- community$context_type[prim[i]]
     # Households: case is resident, so record dates spanning both the exposure and infectious windows.
-    # Other settings: 1–3 visits during the infectious period only.
-    prim_dates <- if (prim_stype == "Household")
+    # Other contexts: 1–3 visits during the infectious period only.
+    prim_dates <- if (prim_ctype == "Household")
                     c(pick_dates(exp_win, sample(2:4, 1)),
                       pick_dates(inf_win, sample(2:4, 1)))
                   else pick_dates(inf_win, sample(1:3, 1, prob = c(.4, .4, .2)))
     rows <- tibble::tibble(case_id    = cases$case_id[i],
-                           setting_id = community$setting_id[prim[i]],
+                           context_id = community$context_id[prim[i]],
                            visit_date = prim_dates)
 
     if (runif(1) < 0.70) {
       h <- healthcare[sample(nrow(healthcare), 1), ]
       rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
-                          setting_id = h$setting_id,
+                          context_id = h$context_id,
                           visit_date = onset + sample(1:3, 1))) }
 
     if (runif(1) < 0.65) {
       s_exp      <- community[sample(seq_len(nrow(community))[-prim[i]], 1), ]
-      exp_dates  <- if (s_exp$setting_type == "Household") onset - sample(DEF_INC_MIN:DEF_INC_MAX, 1)
+      exp_dates  <- if (s_exp$context_type == "Household") onset - sample(DEF_INC_MIN:DEF_INC_MAX, 1)
                     else pick_dates(exp_win, sample(1:2, 1))
       rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
-                          setting_id = s_exp$setting_id,
+                          context_id = s_exp$context_id,
                           visit_date = exp_dates)) }
 
     if (runif(1) < 0.35) {
       s_hist <- community[sample(seq_len(nrow(community)), 1), ]
       rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
-                          setting_id = s_hist$setting_id,
+                          context_id = s_hist$context_id,
                           visit_date = onset - sample(22:30, 1))) }
     rows
   }) |> arrange(case_id, visit_date)
 
-  visit_dates   <- visit_rows |> distinct(case_id, setting_id, visit_date)
-  case_settings <- visit_rows |> distinct(case_id, setting_id)
-  settings <- all_settings |> semi_join(case_settings, by = "setting_id")
+  visit_dates   <- visit_rows |> distinct(case_id, context_id, visit_date)
+  case_contexts <- visit_rows |> distinct(case_id, context_id)
+  contexts <- all_contexts |> semi_join(case_contexts, by = "context_id")
 
-  prim_id <- community$setting_id[prim]
+  prim_id <- community$context_id[prim]
   contacts <- purrr::map_dfr(seq_len(n)[-1], function(i) {
     cand <- cases[seq_len(i - 1), ]
     w    <- ifelse(prim_id[seq_len(i - 1)] == prim_id[i], 5, 1)
@@ -262,17 +262,17 @@ make_demo_data <- function() {
     tibble::tibble(from = cand$case_id[j], to = cases$case_id[i],
                    link_type = sample(c("Confirmed","Suspected"), 1, prob = c(.7,.3)))
   })
-  list(cases = cases, settings = settings, case_settings = case_settings,
+  list(cases = cases, contexts = contexts, case_contexts = case_contexts,
        visit_dates = visit_dates, contacts = contacts)
 }
 
 flat_visits <- function(d) {
-  d$case_settings |>
-    left_join(d$settings, by = "setting_id") |>
-    left_join(d$visit_dates, by = c("case_id", "setting_id"))
+  d$case_contexts |>
+    left_join(d$contexts, by = "context_id") |>
+    left_join(d$visit_dates, by = c("case_id", "context_id"))
 }
 
-derive_visit_relevance <- function(case_settings, visit_dates, cases,
+derive_visit_relevance <- function(case_contexts, visit_dates, cases,
                                    inf_before, inf_after, inc_min, inc_max) {
   vd <- visit_dates |>
     left_join(cases |> select(case_id, onset_date), by = "case_id") |>
@@ -282,7 +282,7 @@ derive_visit_relevance <- function(case_settings, visit_dates, cases,
       in_exposure   = !is.na(onset_date) & !is.na(visit_date) &
         visit_date >= onset_date - inc_max   & visit_date <= onset_date - inc_min
     ) |>
-    group_by(case_id, setting_id) |>
+    group_by(case_id, context_id) |>
     summarise(
       any_infectious = any(in_infectious, na.rm = TRUE),
       any_exposure   = any(in_exposure,   na.rm = TRUE),
@@ -296,32 +296,32 @@ derive_visit_relevance <- function(case_settings, visit_dates, cases,
         TRUE                          ~ "Neither"
       )
     ) |>
-    select(case_id, setting_id, visit_relevance)
-  case_settings |>
-    left_join(vd, by = c("case_id", "setting_id")) |>
+    select(case_id, context_id, visit_relevance)
+  case_contexts |>
+    left_join(vd, by = c("case_id", "context_id")) |>
     mutate(visit_relevance = coalesce(visit_relevance, "Neither"))
 }
 
 # ---- View builders ----------------------------------------------------------
-build_setting_projection <- function(visits, ll, colours) {
+build_context_projection <- function(visits, ll, colours) {
   if (nrow(visits) == 0)
     return(list(nodes = tibble(id = character(), label = character()),
                 edges = tibble(from = character(), to = character())))
-  nodes <- visits |> distinct(case_id, setting_name, setting_type) |>
-    count(setting_name, setting_type, name = "cases") |>
-    transmute(id = setting_name, label = setting_name, group = setting_type,
-              value = cases, color = unname(colours[setting_type]), shape = "dot",
-              title = paste0("<b>", setting_name, "</b><br>", setting_type,
+  nodes <- visits |> distinct(case_id, context_name, context_type) |>
+    count(context_name, context_type, name = "cases") |>
+    transmute(id = context_name, label = context_name, group = context_type,
+              value = cases, color = unname(colours[context_type]), shape = "dot",
+              title = paste0("<b>", context_name, "</b><br>", context_type,
                              "<br>Cases linked here: ", cases))
-  per_case <- visits |> distinct(case_id, setting_name) |> group_by(case_id) |>
-    summarise(s = list(sort(unique(setting_name))), .groups = "drop") |>
+  per_case <- visits |> distinct(case_id, context_name) |> group_by(case_id) |>
+    summarise(s = list(sort(unique(context_name))), .groups = "drop") |>
     filter(lengths(s) >= 2)
   edges <- purrr::map_dfr(per_case$s, function(s) {
     m <- t(combn(s, 2)); tibble::tibble(from = m[, 1], to = m[, 2]) })
   if (nrow(edges)) {
     edges <- edges |> count(from, to, name = "weight") |>
       transmute(from, to, value = weight,
-                title = paste0(weight, " shared case(s) connect these settings"))
+                title = paste0(weight, " shared case(s) connect these contexts"))
   } else edges <- tibble::tibble(from = character(), to = character(),
                                  value = numeric(), title = character())
   list(nodes = nodes, edges = edges)
@@ -333,25 +333,25 @@ build_bipartite <- function(visits, ll, colours) {
                 edges = tibble(from = character(), to = character())))
   has_dates <- "visit_date" %in% names(visits) && any(!is.na(visits$visit_date))
 
-  setting_nodes <- visits |> distinct(setting_name, setting_type, case_id) |>
-    count(setting_name, setting_type, name = "cases") |>
-    transmute(id = paste0("set::", setting_name), label = setting_name,
-              group = setting_type, kind = "Setting",
-              color = unname(colours[setting_type]), shape = "square",
+  context_nodes <- visits |> distinct(context_name, context_type, case_id) |>
+    count(context_name, context_type, name = "cases") |>
+    transmute(id = paste0("ctx::", context_name), label = context_name,
+              group = context_type, kind = "Context",
+              color = unname(colours[context_type]), shape = "square",
               size  = 14 + 4 * sqrt(cases),
-              title = paste0("<b>", setting_name, "</b><br>", setting_type,
+              title = paste0("<b>", context_name, "</b><br>", context_type,
                              "<br>Distinct cases: ", cases))
-  nset <- visits |> distinct(case_id, setting_name) |> count(case_id, name = "ns")
+  nset <- visits |> distinct(case_id, context_name) |> count(case_id, name = "ns")
   case_nodes <- visits |> distinct(case_id) |>
     left_join(ll |> select(case_id, onset_date), by = "case_id") |>
     left_join(nset, by = "case_id") |>
     transmute(id = case_id, label = "", group = "Case", kind = "Case",
               color = CASE_COLOUR, shape = "dot", size = 8,
               title = paste0("<b>", case_id, "</b><br>Onset: ", onset_date,
-                             "<br>Settings visited: ", ns))
+                             "<br>Contexts visited: ", ns))
 
   edges_agg <- visits |>
-    group_by(case_id, setting_name, setting_type, visit_relevance) |>
+    group_by(case_id, context_name, context_type, visit_relevance) |>
     summarise(
       date_label = {
         ds <- sort(unique(visit_date[!is.na(visit_date)]))
@@ -365,7 +365,7 @@ build_bipartite <- function(visits, ll, colours) {
   edges <- edges_agg |>
     transmute(
       from             = case_id,
-      to               = paste0("set::", setting_name),
+      to               = paste0("ctx::", context_name),
       visit_relevance  = visit_relevance,
       dashes           = visit_relevance == "Neither",
       arrows           = dplyr::case_when(
@@ -380,7 +380,7 @@ build_bipartite <- function(visits, ll, colours) {
                            TRUE                                   ~ "#9aa0a6"),
       title            = paste0(
                            "<b>", htmltools::htmlEscape(case_id), "</b> visited <b>",
-                           htmltools::htmlEscape(setting_name), "</b>",
+                           htmltools::htmlEscape(context_name), "</b>",
                            date_label,
                            dplyr::case_when(
                              visit_relevance == "Both"              ~
@@ -391,18 +391,18 @@ build_bipartite <- function(visits, ll, colours) {
                                "<br>Present — during exposure window<br><i>Case may have acquired infection here</i>",
                              TRUE ~
                                "<br>Present — outside both windows<br><i>Not considered relevant to transmission</i>")))
-  list(nodes = bind_rows(setting_nodes, case_nodes), edges = edges)
+  list(nodes = bind_rows(context_nodes, case_nodes), edges = edges)
 }
 
-# Derive SUSPECTED case-to-case links from shared settings + onset timing.
+# Derive SUSPECTED case-to-case links from shared contexts + onset timing.
 # A suspected link (earlier -> later case) is drawn when two cases attended the
-# same setting and the later onset falls within [inc_min - inf_before,
+# same context and the later onset falls within [inc_min - inf_before,
 # inc_max + inf_after] days after the earlier onset.
 derive_suspected_links <- function(ll, visits, inc_min, inc_max, inf_before, inf_after) {
   empty <- tibble(from = character(), to = character(), link_type = character())
   if (nrow(visits) == 0) return(empty)
   onset <- setNames(ll$onset_date, ll$case_id)
-  pair_list <- visits |> distinct(case_id, setting_name) |> group_by(setting_name) |>
+  pair_list <- visits |> distinct(case_id, context_name) |> group_by(context_name) |>
     summarise(cz = list(sort(unique(case_id))), .groups = "drop") |>
     filter(lengths(cz) >= 2)
   if (nrow(pair_list) == 0) return(empty)
@@ -421,22 +421,22 @@ derive_suspected_links <- function(ll, visits, inc_min, inc_max, inf_before, inf
 build_contacts_network <- function(ll, contacts, visits, colours) {
   primary <- if (nrow(visits))
     visits |> arrange(visit_date) |> group_by(case_id) |> slice(1) |> ungroup() |>
-      select(case_id, setting_type)
-  else tibble(case_id = character(), setting_type = character())
+      select(case_id, context_type)
+  else tibble(case_id = character(), context_type = character())
 
-  n_settings  <- visits |> distinct(case_id, setting_name) |> count(case_id, name = "n_settings")
-  case_settings <- visits |> distinct(case_id, setting_name, setting_type)
+  n_contexts  <- visits |> distinct(case_id, context_name) |> count(case_id, name = "n_contexts")
+  case_contexts <- visits |> distinct(case_id, context_name, context_type)
   onset <- setNames(ll$onset_date, ll$case_id)
 
   nodes <- ll |>
     left_join(primary,     by = "case_id") |>
-    left_join(n_settings,  by = "case_id") |>
-    mutate(setting_type = ifelse(is.na(setting_type), "Other", setting_type),
-           n_settings   = coalesce(n_settings, 0L)) |>
-    transmute(id = case_id, label = case_id, group = setting_type,
-              color = coalesce(unname(colours[setting_type]), "#7f7f7f"),
+    left_join(n_contexts,  by = "case_id") |>
+    mutate(context_type = ifelse(is.na(context_type), "Other", context_type),
+           n_contexts   = coalesce(n_contexts, 0L)) |>
+    transmute(id = case_id, label = case_id, group = context_type,
+              color = coalesce(unname(colours[context_type]), "#7f7f7f"),
               title = paste0("<b>", htmltools::htmlEscape(case_id), "</b><br>Onset: ", onset_date,
-                             "<br>Settings visited: ", n_settings))
+                             "<br>Contexts visited: ", n_contexts))
 
   edges <- contacts |> filter(from %in% nodes$id, to %in% nodes$id) |>
     mutate(
@@ -446,16 +446,16 @@ build_contacts_network <- function(ll, contacts, visits, colours) {
       }),
       common_text = purrr::map2_chr(from, to, function(f, t) {
         shared <- intersect(
-          case_settings$setting_name[case_settings$case_id == f],
-          case_settings$setting_name[case_settings$case_id == t])
+          case_contexts$context_name[case_contexts$case_id == f],
+          case_contexts$context_name[case_contexts$case_id == t])
         if (length(shared) == 0) return("None recorded")
-        rows <- case_settings[case_settings$case_id == f & case_settings$setting_name %in% shared, ]
-        paste(paste0(htmltools::htmlEscape(rows$setting_name), " (", htmltools::htmlEscape(rows$setting_type), ")"), collapse = "<br>")
+        rows <- case_contexts[case_contexts$case_id == f & case_contexts$context_name %in% shared, ]
+        paste(paste0(htmltools::htmlEscape(rows$context_name), " (", htmltools::htmlEscape(rows$context_type), ")"), collapse = "<br>")
       }),
       title = paste0(
         htmltools::htmlEscape(link_type), " link",
         ifelse(!is.na(gap), paste0("<br>Onset gap: ", gap, ifelse(gap == 1, " day", " days")), ""),
-        "<br>Common settings: ", common_text)
+        "<br>Common contexts: ", common_text)
     ) |>
     transmute(from, to, dashes = link_type == "Suspected", title)
 
@@ -494,9 +494,9 @@ header_tooltips <- function(tips) {
     jsonlite::toJSON(tips)))
 }
 metric_tips_lookup <- c(
-  Node        = "The individual case or the setting this row describes.",
-  Kind        = "Whether this node is a Case or a Setting (Who visited where view only).",
-  Degree      = "Number of direct links. For a setting: how many case-visits it has. For a case: how many settings it visited (Who visited where) or contacts it has.",
+  Node        = "The individual case or the context this row describes.",
+  Kind        = "Whether this node is a Case or a Context (Who visited where view only).",
+  Degree      = "Number of direct links. For a context: how many case-visits it has. For a case: how many contexts it visited (Who visited where) or contacts it has.",
   Betweenness = "How often this node lies on the connecting path between others. A high value flags a 'bridge' joining otherwise separate parts of the outbreak.")
 ll_tips_lookup <- c(
   case_id            = "Unique identifier for each case.",
@@ -504,7 +504,7 @@ ll_tips_lookup <- c(
   age_group          = "Age band of the case.",
   vaccination_status = "Recorded measles vaccination status of the case.",
   case_status        = "Classification of the case: Confirmed, Probable, or Possible.",
-  settings_visited   = "Number of distinct settings this case is recorded as having visited.")
+  contexts_visited   = "Number of distinct contexts this case is recorded as having visited.")
 
 # ---- Definitions content ----------------------------------------------------
 definitions_md <- '
@@ -526,7 +526,7 @@ such in the contacts data. Shown as a **solid line** in the Who infected whom vi
 
 A case with a plausible but unverified link to a later case. A suspected link
 may be recorded as "Suspected" in the contacts data, or derived automatically
-by this tool when two cases attended the same setting and the gap between their
+by this tool when two cases attended the same context and the gap between their
 onset dates falls within the range expected given the incubation and infectious
 periods. Shown as a **dashed line** in the Who infected whom view. See the
 **Assumptions & parameters** tab for how the derived rule is defined and how to
@@ -534,11 +534,11 @@ adjust the parameters.
 
 ---
 
-### Setting
+### Context
 
 A place where one or more cases were present during the outbreak — for example a
-school, healthcare facility, community group, or household. Settings are the
-nodes in the Settings network and Who visited where views.
+school, healthcare facility, community group, or household. Contexts are the
+nodes in the Contexts network and Who visited where views.
 
 ### Transmission link
 
@@ -550,14 +550,14 @@ from source to recipient in the Who infected whom view.
 
 The number of direct links a node has. In the Who infected whom view this is the
 total number of transmission links (in or out). In the Who visited where view it is the
-number of settings a case visited, or the number of cases linked to a setting.
-A high-degree node is a hub — either a case linked to many others, or a setting
+number of contexts a case visited, or the number of cases linked to a context.
+A high-degree node is a hub — either a case linked to many others, or a context
 attended by many cases.
 
 ### Betweenness
 
 How often a node lies on the shortest connecting path between other nodes in the
-network. A high betweenness value flags a "bridge" — a case or setting that
+network. A high betweenness value flags a "bridge" — a case or context that
 connects otherwise separate parts of the outbreak. Removing a high-betweenness
 node would fragment the network into more isolated clusters.
 
@@ -594,30 +594,30 @@ how_to_use_md <- '
 ## What this tool is for
 
 This dashboard turns an outbreak line list into an interactive picture of **how
-cases and settings are connected**. You do not need any experience with network
+cases and contexts are connected**. You do not need any experience with network
 diagrams - this page explains every part. A single case can visit **many
-settings**; each visit date is one row in the **visit_dates** table.
+contexts**; each visit date is one row in the **visit_dates** table.
 
 ## The three views (sidebar control)
 
-**Settings network** - each dot is a place; two places are joined when a case
-visited both (thicker line = more shared cases). Best for seeing how settings
+**Contexts network** - each dot is a place; two places are joined when a case
+visited both (thicker line = more shared cases). Best for seeing how contexts
 are connected.
 
-**Who visited where** - shows cases (dark dots) and settings (coloured squares);
-each line is a visit. A multi-setting case appears joined to several squares.
+**Who visited where** - shows cases (dark dots) and contexts (coloured squares);
+each line is a visit. A multi-context case appears joined to several squares.
 
 **Who infected whom** - suspected transmission links between cases, either taken
-from the contacts sheet or derived from shared settings and timing. How
+from the contacts sheet or derived from shared contexts and timing. How
 "suspected" is defined, and the parameters behind it, are on the
 **Assumptions & parameters** tab.
 
 ## Reading the network
 
-Colour = setting type (legend). Size = number of cases. Hover any dot or line for
+Colour = context type (legend). Size = number of cases. Hover any dot or line for
 details, drag to rearrange, click to highlight connections. In the Who visited
 where view, line colour and arrows show the direction of potential transmission:
-**red arrow → setting** = present during infectious period (may have spread
+**red arrow → context** = present during infectious period (may have spread
 infection there); **blue arrow → case** = present during exposure window (may
 have acquired infection there); **purple ↔** = present during both windows;
 **grey dashed** = outside both windows (not transmission-relevant).
@@ -631,8 +631,8 @@ a node bridges otherwise separate clusters.
 
 ## Ways to use it
 
-Find hub settings (large, high-degree), bridge settings (high betweenness),
-and - in the Who visited where view - settings where infection was likely spread
+Find hub contexts (large, high-degree), bridge contexts (high betweenness),
+and - in the Who visited where view - contexts where infection was likely spread
 (red) versus caught (blue). Combine with the epidemic curve to judge the
 trajectory and prioritise vaccination, isolation or communication.
 
@@ -652,14 +652,14 @@ the key epidemiological parameters. **Changes update the dashboard immediately.*
 
 ### Nodes and edges
 
-- **Setting node** - a place where cases were present (school, healthcare centre,
+- **Context node** - a place where cases were present (school, healthcare centre,
   community group, household).
 - **Case node** - an individual confirmed or probable case.
-- **Shared-case link (Settings network view)** - drawn whenever at least one
-  case attended both settings. This is based purely on **co-attendance**; it
+- **Shared-case link (Contexts network view)** - drawn whenever at least one
+  case attended both contexts. This is based purely on **co-attendance**; it
   makes no timing assumption. The line weight is the number of shared cases.
 - **Visit link (Who visited where view)** - one line per recorded visit of a case to a
-  setting.
+  context.
 
 ### When is a visit "infectious"?
 
@@ -668,7 +668,7 @@ a visit is marked red when its date falls from *infectious-days-before* to
 *infectious-days-after* the case onset — meaning the case was infectious at the
 time of the visit. This is a **necessary but not sufficient** condition for
 onward transmission: it shows that the case could have been infectious at that
-setting, but does not confirm that a susceptible person was present or went on
+context, but does not confirm that a susceptible person was present or went on
 to develop symptoms within the incubation period. Visits outside that window are
 shown grey and represent possible exposure to infection (the case may have
 acquired infection there). Measles is commonly treated as infectious from about
@@ -684,7 +684,7 @@ below.
   suspected link can come from either:
   1. a row marked "Suspected" in the contacts sheet, or
   2. **derivation by the tool** (if you select that option below): two cases
-     attended the **same setting**, and the later case onset falls a plausible
+     attended the **same context**, and the later case onset falls a plausible
      interval after the earlier one, given the incubation and infectious periods.
 
 ### The derived-link rule
@@ -708,7 +708,7 @@ jurisdiction. Treat them as starting points and adjust to your local guidance.
 ### Caveats
 
 Co-attendance and timing make a link **plausible**, not proven - two cases at the
-same setting in a consistent window may still be unrelated, and true links may be
+same context in a consistent window may still be unrelated, and true links may be
 missing if visits were not recorded. Use the diagram to generate and prioritise
 hypotheses, alongside your wider outbreak knowledge.
 '
@@ -775,7 +775,7 @@ ui <- page_navbar(
     layout_sidebar(
       sidebar = sidebar(width = 340,
         fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
-        helpText("Needs sheets: cases, settings, case_settings, visit_dates (and optional contacts). Leave empty to use demo data."),
+        helpText("Needs sheets: cases, contexts, case_contexts, visit_dates (and optional contacts). Leave empty to use demo data."),
         tags$label(class = "form-label mb-0",
           "Filter by onset date",
           info("Filters to cases whose symptom onset falls within this date range. Visit dates are filtered to the same window.")),
@@ -783,8 +783,8 @@ ui <- page_navbar(
                     value = c(Sys.Date() - 60, Sys.Date()), timeFormat = "%d %b %Y",
                     animate = animationOptions(interval = 900)),
         checkboxGroupInput("types",
-          label = tagList("Include setting types",
-            info("Tick or untick to focus on particular kinds of setting.")),
+          label = tagList("Include context types",
+            info("Tick or untick to focus on particular kinds of context.")),
           choices = character(0), selected = character(0)),
         checkboxGroupInput("case_status_filter",
           label = tagList("Case status",
@@ -801,15 +801,15 @@ ui <- page_navbar(
             span("Network"),
             div(class = "d-flex align-items-center gap-2",
               selectInput("view", NULL, width = "290px",
-                choices = c("Settings network"  = "projection",
+                choices = c("Contexts network"  = "projection",
                             "Who visited where" = "bipartite",
                             "Who infected whom" = "contacts"),
                 selected = "bipartite"),
               tags$button(id = "net-toggle-btn",
                 class = "btn btn-sm btn-outline-secondary",
                 onclick = "toggleNetwork()", "Maximise"),
-              info(paste0("Settings network links places that share a case. ",
-                          "Who visited where shows cases and settings together. ",
+              info(paste0("Contexts network links places that share a case. ",
+                          "Who visited where shows cases and contexts together. ",
                           "Who infected whom uses the contacts table or links derived from timing ",
                           "(see Assumptions & parameters).")))),
           uiOutput("bipartite_key"),
@@ -821,7 +821,7 @@ ui <- page_navbar(
                  "Ranks nodes by how connected they are. Hover the column headings for definitions."),
              DTOutput("metrics")),
         card(hdr("Line list (filtered)",
-                 "Case records currently shown, with how many settings each visited. Hover headings for definitions."),
+                 "Case records currently shown, with how many contexts each visited. Hover headings for definitions."),
              DTOutput("ll")))
     )),
 
@@ -830,14 +830,14 @@ ui <- page_navbar(
       card(hdr("Cases",
                "One row per case. The primary case record — onset date drives the time slider, epidemic curve and infectious-period logic."),
            DTOutput("src_cases")),
-      card(hdr("Case settings",
-               "One row per case × setting combination. visit_relevance summarises when the case was present relative to their infectious period and exposure window."),
-           DTOutput("src_case_settings")),
+      card(hdr("Case contexts",
+               "One row per case × context combination. visit_relevance summarises when the case was present relative to their infectious period and exposure window."),
+           DTOutput("src_case_contexts")),
       card(hdr("Visit dates",
-               "One row per epidemiologically relevant visit date. A single case × setting pair can appear on multiple rows here, one per date."),
+               "One row per epidemiologically relevant visit date. A single case × context pair can appear on multiple rows here, one per date."),
            DTOutput("src_visit_dates")),
       card(hdr("Contacts",
-               "One row per recorded transmission link. Optional — if not supplied, case-to-case links can be derived from shared settings and timing instead."),
+               "One row per recorded transmission link. Optional — if not supplied, case-to-case links can be derived from shared contexts and timing instead."),
            DTOutput("src_contacts")))),
 
   nav_panel("Definitions",
@@ -865,7 +865,7 @@ ui <- page_navbar(
           radioButtons("susp_source",
             "How should SUSPECTED case-to-case links be defined?",
             c("As recorded in the contacts sheet"                                    = "file",
-              "Derive from shared settings + timing (uses the parameters above)"     = "derive"),
+              "Derive from shared contexts + timing (uses the parameters above)"     = "derive"),
             selected = "file"),
           uiOutput("susp_readout"),
           actionButton("reset_params", "Reset to defaults",
@@ -883,12 +883,12 @@ ui <- page_navbar(
               downloadButton("download_erd", "Download SVG", class = "btn-outline-secondary btn-sm")))
       ),
       card(
-        hdr("Data dictionary", "Field-level definitions. visit_relevance in case_settings is computed live from parameters and is never stored."),
+        hdr("Data dictionary", "Field-level definitions. visit_relevance in case_contexts is computed live from parameters and is never stored."),
         card_body(
           navset_tab(
             nav_panel("cases",         DTOutput("dict_cases")),
-            nav_panel("settings",      DTOutput("dict_settings")),
-            nav_panel("case_settings", DTOutput("dict_case_settings")),
+            nav_panel("contexts",      DTOutput("dict_contexts")),
+            nav_panel("case_contexts", DTOutput("dict_case_contexts")),
             nav_panel("visit_dates",   DTOutput("dict_visit_dates")),
             nav_panel("contacts",      DTOutput("dict_contacts"))
           )
@@ -908,8 +908,8 @@ server <- function(input, output, session) {
     if (is.null(input$file)) return(make_demo_data())
     sheets <- readxl::excel_sheets(input$file$datapath)
     cs  <- readxl::read_excel(input$file$datapath, sheet = "cases")
-    st  <- readxl::read_excel(input$file$datapath, sheet = "settings")
-    cst <- readxl::read_excel(input$file$datapath, sheet = "case_settings")
+    st  <- readxl::read_excel(input$file$datapath, sheet = "contexts")
+    cst <- readxl::read_excel(input$file$datapath, sheet = "case_contexts")
     vd  <- readxl::read_excel(input$file$datapath, sheet = "visit_dates")
     cs$onset_date <- as.Date(cs$onset_date)
     vd$visit_date <- as.Date(vd$visit_date)
@@ -919,20 +919,20 @@ server <- function(input, output, session) {
     validate(
       need(all(c("case_id", "onset_date") %in% names(cs)),
            "cases sheet must contain case_id and onset_date."),
-      need(all(c("setting_id", "setting_name", "setting_type") %in% names(st)),
-           "settings sheet must contain setting_id, setting_name and setting_type."),
-      need(all(c("case_id", "setting_id") %in% names(cst)),
-           "case_settings sheet must contain case_id and setting_id."),
-      need(all(c("case_id", "setting_id", "visit_date") %in% names(vd)),
-           "visit_dates sheet must contain case_id, setting_id and visit_date."))
-    list(cases = cs, settings = st, case_settings = cst, visit_dates = vd, contacts = ct)
+      need(all(c("context_id", "context_name", "context_type") %in% names(st)),
+           "contexts sheet must contain context_id, context_name and context_type."),
+      need(all(c("case_id", "context_id") %in% names(cst)),
+           "case_contexts sheet must contain case_id and context_id."),
+      need(all(c("case_id", "context_id", "visit_date") %in% names(vd)),
+           "visit_dates sheet must contain case_id, context_id and visit_date."))
+    list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd, contacts = ct)
   })
 
   observeEvent(raw(), {
     d    <- raw()
     rng  <- range(c(d$cases$onset_date, d$visit_dates$visit_date), na.rm = TRUE)
     updateSliderInput(session, "asof", min = rng[1], max = rng[2], value = c(rng[1], rng[2]))
-    types <- unique(d$settings$setting_type)
+    types <- unique(d$contexts$context_type)
     updateCheckboxGroupInput(session, "types", choices = types, selected = types)
     statuses <- if ("case_status" %in% names(d$cases))
       intersect(c("Confirmed","Probable","Possible"), unique(d$cases$case_status))
@@ -961,7 +961,7 @@ server <- function(input, output, session) {
     p  <- params(); lb <- p$inc_min - p$inf_before; ub <- p$inc_max + p$inf_after
     div(style = "background:#eef6fb; border-left:4px solid #2c7fb8; padding:8px 12px; margin:8px 0; border-radius:4px;",
         HTML(sprintf(paste0("With the current values, a <b>suspected</b> link is drawn from an ",
-                            "earlier case to a later case who shared a setting when the later onset is between ",
+                            "earlier case to a later case who shared a context when the later onset is between ",
                             "<b>%g</b> and <b>%g days</b> after the earlier one. The bipartite view marks a visit ",
                             "as infectious when it falls from <b>%g days before</b> to <b>%g days after</b> onset."),
                      lb, ub, p$inf_before, p$inf_after)))
@@ -981,24 +981,24 @@ server <- function(input, output, session) {
     cs  <- d$cases |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
     if ("case_status" %in% names(cs))
       cs <- cs |> filter(is.na(case_status) | case_status %in% input$case_status_filter)
-    st  <- d$settings |> filter(setting_type %in% input$types)
-    cst <- d$case_settings |> filter(case_id %in% cs$case_id, setting_id %in% st$setting_id)
-    st  <- st |> filter(setting_id %in% cst$setting_id)
-    vd  <- d$visit_dates |> filter(case_id %in% cs$case_id, setting_id %in% cst$setting_id)
+    st  <- d$contexts |> filter(context_type %in% input$types)
+    cst <- d$case_contexts |> filter(case_id %in% cs$case_id, context_id %in% st$context_id)
+    st  <- st |> filter(context_id %in% cst$context_id)
+    vd  <- d$visit_dates |> filter(case_id %in% cs$case_id, context_id %in% cst$context_id)
     ct  <- d$contacts |> filter(from %in% cs$case_id, to %in% cs$case_id)
-    list(cases = cs, settings = st, case_settings = cst, visit_dates = vd, contacts = ct)
+    list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd, contacts = ct)
   })
 
   netdata <- reactive({
     f    <- filtered()
     p    <- params()
-    f$case_settings <- derive_visit_relevance(
-      f$case_settings, f$visit_dates, f$cases,
+    f$case_contexts <- derive_visit_relevance(
+      f$case_contexts, f$visit_dates, f$cases,
       p$inf_before, p$inf_after, p$inc_min, p$inc_max)
     fv   <- flat_visits(f)
-    cols <- colour_map(f$settings$setting_type)
+    cols <- colour_map(f$contexts$context_type)
     switch(input$view,
-      projection = build_setting_projection(fv, f$cases, cols),
+      projection = build_context_projection(fv, f$cases, cols),
       bipartite  = build_bipartite(fv, f$cases, cols),
       contacts   = {
         ct <- if (input$susp_source == "derive")
@@ -1020,7 +1020,7 @@ server <- function(input, output, session) {
     vn <- if (v == "contacts") visEdges(vn, arrows = "to", smooth = TRUE)
           else if (v == "bipartite") visEdges(vn, smooth = FALSE)
           else visEdges(vn, smooth = TRUE, color = list(color = "#9aa0a6", opacity = 0.7))
-    cols <- colour_map(filtered()$settings$setting_type)
+    cols <- colour_map(filtered()$contexts$context_type)
     leg <- lapply(names(cols), function(s)
       list(label = s, shape = if (v == "bipartite") "square" else "dot",
            color = unname(cols[[s]])))
@@ -1042,7 +1042,7 @@ server <- function(input, output, session) {
     options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
 
   output$src_cases         <- renderDT({ src_dt(raw()$cases) })
-  output$src_case_settings <- renderDT({ src_dt(raw()$case_settings) })
+  output$src_case_contexts <- renderDT({ src_dt(raw()$case_contexts) })
   output$src_visit_dates   <- renderDT({ src_dt(raw()$visit_dates) })
   output$src_contacts      <- renderDT({
     ct <- raw()$contacts
@@ -1053,9 +1053,9 @@ server <- function(input, output, session) {
 
   output$ll <- renderDT({
     f  <- filtered()
-    nv <- f$case_settings |> distinct(case_id, setting_id) |> count(case_id, name = "settings_visited")
+    nv <- f$case_contexts |> distinct(case_id, context_id) |> count(case_id, name = "contexts_visited")
     df <- f$cases |> left_join(nv, by = "case_id") |>
-      mutate(settings_visited = tidyr::replace_na(settings_visited, 0L))
+      mutate(contexts_visited = tidyr::replace_na(contexts_visited, 0L))
     tips <- vapply(names(df),
                    function(n) if (n %in% names(ll_tips_lookup)) ll_tips_lookup[[n]] else "", character(1))
     datatable(df, rownames = FALSE,
@@ -1081,8 +1081,8 @@ server <- function(input, output, session) {
                              columnDefs = list(list(width = "45%", targets = 4))))
 
   output$dict_cases         <- renderDT({ dict_dt(DICT_TABLES$cases) })
-  output$dict_settings      <- renderDT({ dict_dt(DICT_TABLES$settings) })
-  output$dict_case_settings <- renderDT({ dict_dt(DICT_TABLES$case_settings) })
+  output$dict_contexts      <- renderDT({ dict_dt(DICT_TABLES$contexts) })
+  output$dict_case_contexts <- renderDT({ dict_dt(DICT_TABLES$case_contexts) })
   output$dict_visit_dates   <- renderDT({ dict_dt(DICT_TABLES$visit_dates) })
   output$dict_contacts      <- renderDT({ dict_dt(DICT_TABLES$contacts) })
 

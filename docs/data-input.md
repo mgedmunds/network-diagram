@@ -32,7 +32,7 @@ Answer:No
 
 **1.3 Do staff have access to Microsoft 365 (SharePoint, Forms, Excel Online)?**
 
-_Microsoft 365 is standard in most NHS settings. If SharePoint is available and staff are confident with Excel, this option may be the path of least resistance even if it has weaker validation._
+_Microsoft 365 is standard in most NHS contexts. If SharePoint is available and staff are confident with Excel, this option may be the path of least resistance even if it has weaker validation._
 
 Answer: Yes
 
@@ -58,7 +58,7 @@ Answer: 1-3
 
 **2.2 Would data entry happen from a single location or across multiple sites (e.g. different hospitals or field teams)?**
 
-_Multi-site entry increases the risk of duplicate or inconsistent records and strengthens the case for a platform with record locking and a shared lookup list for settings._
+_Multi-site entry increases the risk of duplicate or inconsistent records and strengthens the case for a platform with record locking and a shared lookup list for contexts._
 
 Answer: Multiple sites, potentially multiple teams
 
@@ -94,7 +94,7 @@ Answer: yes
 
 _If data includes names, addresses, or NHS numbers, the platform must meet NHS information governance requirements (DSPT, Data Security and Protection). Google Workspace and consumer tools may not be approved for identifiable data in your organisation without explicit IG sign-off._
 
-Answer: I envisage that this tool will run using a subset of data from a larger line list dataset that will include PII. No PII should be necessary for the app (though may want to include case initials). To assist some elements of data input (I am thinking about the dates a case visited each setting, for which a date range relevant to the onset date should be available, but also with flexibility to pick from suitable dates when onest date not known / asymptomatic)
+Answer: I envisage that this tool will run using a subset of data from a larger line list dataset that will include PII. No PII should be necessary for the app (though may want to include case initials). To assist some elements of data input (I am thinking about the dates a case visited each context, for which a date range relevant to the onset date should be available, but also with flexibility to pick from suitable dates when onest date not known / asymptomatic)
 
 ---
 
@@ -134,9 +134,9 @@ Answer: basic excel level
 
 ---
 
-**4.2 Who would be responsible for managing the settings lookup list during an outbreak — adding new settings as they are identified?**
+**4.2 Who would be responsible for managing the contexts lookup list during an outbreak — adding new contexts as they are identified?**
 
-_In all options, someone needs to add new settings before case-setting links can be recorded. This needs to be a named role with clear access. If it falls to whoever is available, a simpler shared list (e.g. a sheet tab or REDCap lookup instrument) is safer than a scripted dropdown._
+_In all options, someone needs to add new contexts before case-context links can be recorded. This needs to be a named role with clear access. If it falls to whoever is available, a simpler shared list (e.g. a sheet tab or REDCap lookup instrument) is safer than a scripted dropdown._
 
 Answer: staff with basic-intermediate data skills - a tool to enable editable validation categories for selected fields is required
 
@@ -160,11 +160,11 @@ Answer:
 
 --- currently use an excel file. Could also consider a sharepoint list which is starting to be used. 
 
-**5.2 Are setting names and types recorded anywhere in the existing linelist, or would they be entered fresh into this tool?**
+**5.2 Are context names and types recorded anywhere in the existing linelist, or would they be entered fresh into this tool?**
 
-_If settings are already coded in the linelist (e.g. as exposure locations), there may be an opportunity to extract them automatically. If not, they will need to be entered manually into the network tool._
+_If contexts are already coded in the linelist (e.g. as exposure locations), there may be an opportunity to extract them automatically. If not, they will need to be entered manually into the network tool._
 
-Answer: I would suggst setting names are recorded in the main linelist spreadsheet, with relevant parts of tables / views of tables avaiable for import.
+Answer: I would suggst context names are recorded in the main linelist spreadsheet, with relevant parts of tables / views of tables avaiable for import.
 
 ---
 
@@ -208,7 +208,7 @@ Answer: there can be brief technical input to get it up and running quickly, and
 
 - **Option A (Google Sheets):** Ruled out — no Google Workspace access on work devices.
 - **Option B (REDCap):** Ruled out — not available in the organisation.
-- **Option C (Microsoft Forms + SharePoint) as a full solution:** Ruled out for this data model. Microsoft Forms is designed for flat surveys, not relational data. It cannot enforce foreign key integrity (e.g. requiring a case to exist before case-setting links are created), cannot handle multiple visit dates per case-setting combination cleanly, and cannot manage an editable lookup list for setting types. A Power Automate pipeline to maintain the five-table schema would be fragile and require ongoing technical maintenance. SharePoint as a *component* (see 7.3) remains viable.
+- **Option C (Microsoft Forms + SharePoint) as a full solution:** Ruled out for this data model. Microsoft Forms is designed for flat surveys, not relational data. It cannot enforce foreign key integrity (e.g. requiring a case to exist before case-context links are created), cannot handle multiple visit dates per case-context combination cleanly, and cannot manage an editable lookup list for context types. A Power Automate pipeline to maintain the five-table schema would be fragile and require ongoing technical maintenance. SharePoint as a *component* (see 7.3) remains viable.
 
 ---
 
@@ -218,7 +218,7 @@ The answers point toward **Option D (built-in Shiny data entry)** as the target 
 
 The core reasons:
 
-- The data model is relational (5 linked tables, FK integrity, editable setting type dropdown, multiple visit dates per case-setting). No off-the-shelf form tool handles this well without significant scripting that would be harder to maintain than the Shiny app itself.
+- The data model is relational (5 linked tables, FK integrity, editable context type dropdown, multiple visit dates per case-context). No off-the-shelf form tool handles this well without significant scripting that would be harder to maintain than the Shiny app itself.
 - The requirement for smart date suggestions based on onset date (3.1) is straightforward to implement in Shiny but would require complex logic in any external form tool.
 - The requirement for the tool to be adaptable to different organisms (2.4) is already partially met by the editable parameters — extending this to schema changes is easier in a single codebase.
 - No admin rights are needed to run a local Shiny app. Development with Claude Code significantly reduces the effort involved.
@@ -234,7 +234,7 @@ Yes. A two-stage approach is recommended:
 
 **Stage 1 — SharePoint export template (short-term, ready in hours/days)**
 
-Build a pre-designed Excel template or SharePoint List structure that matches the five-table schema exactly. Cases are pulled (manually or via copy-paste) from the existing linelist; the network-specific tables (case_settings, visit_dates, contacts) are entered directly. The Shiny app reads from this file via a file import mechanism. This requires restoring a limited form of file upload to the app (removed in a recent commit — see open questions).
+Build a pre-designed Excel template or SharePoint List structure that matches the five-table schema exactly. Cases are pulled (manually or via copy-paste) from the existing linelist; the network-specific tables (case_contexts, visit_dates, contacts) are entered directly. The Shiny app reads from this file via a file import mechanism. This requires restoring a limited form of file upload to the app (removed in a recent commit — see open questions).
 
 This stage satisfies the "operational in hours" requirement and works within existing SharePoint approval.
 
@@ -283,7 +283,7 @@ Must be NHS-hosted instance (UK data residency required — Posit Connect Cloud 
 **Data entry flow**
 
 1. Health protection practitioner opens the app URL in their browser
-2. Enters cases, settings, visits, and contacts directly in the app
+2. Enters cases, contexts, visits, and contacts directly in the app
 3. Data written immediately to the shared backend
 4. Network diagram and epi curve update in real time for all users
 
@@ -423,7 +423,7 @@ restore it
 **Outstanding actions before first use**
 
 1. **Restore file upload in the Shiny app** — limited to the fixed five-table schema; validate on import
-2. **Design the Stage 1 Excel template** — one sheet per table, column names matching the schema exactly, with dropdown validation for fixed fields (age_group, vaccination_status, case_status, link_type) and a settings lookup sheet for setting_type
+2. **Design the Stage 1 Excel template** — one sheet per table, column names matching the schema exactly, with dropdown validation for fixed fields (age_group, vaccination_status, case_status, link_type) and a contexts lookup sheet for context_type
 3. **Write a brief data entry guide** — one page covering the five tables, required fields, and how to export from the template into the app
 4. **Investigate Posit Connect availability** — ask IT whether the organisation has or can procure an NHS-hosted Posit Connect instance; this gates Stage 2
 5. **Confirm IG sign-off for Stage 2 hosting** — once a hosting platform is identified, confirm with IG/Caldicott lead before any real outbreak data is stored there
@@ -431,6 +431,6 @@ restore it
 
 
 ## Data validation requirements for excel input file
-- the data type should be enforced, e.g. dates should have to be a date (UK format, DD/MM/YYYY) any count data should be integers, any categorical data should enforce entry of those categories only. Linkage tables should only allow e.g. case ids and setting ids that appear in the case table / settings table should be bale to be entered. 
+- the data type should be enforced, e.g. dates should have to be a date (UK format, DD/MM/YYYY) any count data should be integers, any categorical data should enforce entry of those categories only. Linkage tables should only allow e.g. case ids and context ids that appear in the case table / contexts table should be bale to be entered. 
 
 ---

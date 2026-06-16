@@ -15,7 +15,7 @@ Use the `visNetwork` R package for all interactive network diagrams.
 ## Reasons
 
 - `visNetworkOutput` integrates directly with Shiny reactive inputs (node selection feeds back via `input$net_selected`)
-- Hover tooltips support HTML formatting, which is needed for case/setting summaries
+- Hover tooltips support HTML formatting, which is needed for case/context summaries
 - Physics-based layout (Barnes-Hut) handles variable-size outbreak networks without manual positioning
 - Maximise/minimise and highlight-on-click features work out of the box
 

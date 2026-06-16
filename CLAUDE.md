@@ -7,7 +7,7 @@ The primary users are **public health / outbreak investigation teams** who are n
 technically trained. Everything must be explainable to a non-statistician.
 
 The tool takes structured outbreak data (linelist, visits, contacts) and produces
-interactive network diagrams showing how cases and settings are connected, alongside
+interactive network diagrams showing how cases and contexts are connected, alongside
 an epidemic curve, network metrics, and editable epidemiological parameters.
 
 This is currently a **working prototype under active development**. It is not yet
@@ -59,25 +59,25 @@ Five sheets (from `.xlsx` upload or demo data). Full field-level definitions are
 | `age_group` | character | no | fixed bands: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+` |
 | `vaccination_status` | character | no | `Unvaccinated`, `1 dose`, `2 doses`, `Unknown` |
 
-### settings — one row per setting
+### contexts — one row per context
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `setting_id` | integer | yes | surrogate PK; join key throughout |
-| `setting_name` | character | yes | human-readable name |
-| `setting_type` | character | yes | user-defined categorical (not pre-coded) |
+| `context_id` | integer | yes | surrogate PK; join key throughout |
+| `context_name` | character | yes | human-readable name |
+| `context_type` | character | yes | user-defined categorical (not pre-coded) |
 
-### case_settings — one row per case × setting combination
+### case_contexts — one row per case × context combination
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `case_id` | character | yes | PK + FK → cases |
-| `setting_id` | integer | yes | PK + FK → settings |
+| `context_id` | integer | yes | PK + FK → contexts |
 | `has_other_visits` | logical | no | TRUE = continuous presence outside epi windows (e.g. household) |
 
 ### visit_dates — one row per epi-relevant visit date
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `case_id` | character | yes | PK + FK → case_settings |
-| `setting_id` | integer | yes | PK + FK → case_settings |
+| `case_id` | character | yes | PK + FK → case_contexts |
+| `context_id` | integer | yes | PK + FK → case_contexts |
 | `visit_date` | date | yes | one row per calendar day |
 
 `epi_category` is derived at runtime (never stored): `Exposure window`, `Infectious period`, `Both`, `Neither`.
@@ -97,8 +97,8 @@ Three views selectable from a dropdown in the network card header:
 
 | View | ID | Description |
 |---|---|---|
-| Settings network | `"projection"` | Places linked by shared cases; edge weight = shared cases |
-| Who visited where | `"bipartite"` | Cases × settings; edges coloured by visit timing category (see ADR-002) |
+| Contexts network | `"projection"` | Places linked by shared cases; edge weight = shared cases |
+| Who visited where | `"bipartite"` | Cases × contexts; edges coloured by visit timing category (see ADR-002) |
 | Who infected whom | `"contacts"` | Transmission links from contacts sheet or derived from timing |
 
 **Which views to keep is an open decision (Phase 2).** Do not add new views or
@@ -147,7 +147,7 @@ Derived rule for suspected transmission links (Who infected whom view): onset ga
   layout unless bslib has no equivalent.
 - **Tooltips:** use the `info()` helper (defined near the top of app.R) for all ⓘ
   icon tooltips. Use `hdr()` for card headers that need a tooltip.
-- **Setting colours:** use `colour_map(types)` to assign colours from `SETTING_PALETTE`. Do not hardcode hex colours for setting types anywhere else. Setting types are dynamic (user-defined), so colours must be assigned at runtime.
+- **Context colours:** use `colour_map(types)` to assign colours from `CONTEXT_PALETTE`. Do not hardcode hex colours for context types anywhere else. Context types are dynamic (user-defined), so colours must be assigned at runtime.
 - **Reactive pattern:** keep data loading in `raw()`, filtering in `filtered()`,
   network building in `netdata()`. Do not add new top-level reactives for data
   that fits this chain.
@@ -167,7 +167,7 @@ Derived rule for suspected transmission links (Who infected whom view): onset ga
 - Do not refactor working code as part of a bug fix or feature addition
 - Do not add explanatory comments describing *what* code does — only *why* if the
   reason is non-obvious
-- Do not change the `SETTING_PALETTE` colours or their order
+- Do not change the `CONTEXT_PALETTE` colours or their order
 - Do not alter the dev panel task list (DEV_TASKS) without being asked
 
 ---

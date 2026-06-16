@@ -18,41 +18,41 @@ One row per confirmed or probable case.
 
 ---
 
-## settings
+## contexts
 
-One row per unique setting. Provided as a dedicated `settings` sheet in the xlsx upload.
+One row per unique context. Provided as a dedicated `contexts` sheet in the xlsx upload.
 
 | Field | Type | Key | Indexed | Required | Description |
 |---|---|---|---|---|---|
-| `setting_id` | integer | PK | Yes | Yes | Surrogate primary key. Unique integer assigned to each setting. Used as the join key in `case_settings` and `visit_dates`. |
-| `setting_name` | character | — | No | Yes | Human-readable name for the setting. Free text; should be unique within the dataset. |
-| `setting_type` | character | — | Yes | Yes | User-defined categorical label describing the type of setting (e.g. `School`, `Household`, `Healthcare`). Not pre-coded — values are determined by the data entered. Drives node colour in the network and the setting-type filter. |
+| `context_id` | integer | PK | Yes | Yes | Surrogate primary key. Unique integer assigned to each context. Used as the join key in `case_contexts` and `visit_dates`. |
+| `context_name` | character | — | No | Yes | Human-readable name for the context. Free text; should be unique within the dataset. |
+| `context_type` | character | — | Yes | Yes | User-defined categorical label describing the type of context (e.g. `School`, `Household`, `Healthcare`). Not pre-coded — values are determined by the data entered. Drives node colour in the network and the context-type filter. |
 
 ---
 
-## case_settings
+## case_contexts
 
-One row per case × setting combination. Bridging table between `cases` and `settings`.
+One row per case × context combination. Bridging table between `cases` and `contexts`.
 
 | Field | Type | Key | Indexed | Required | Description |
 |---|---|---|---|---|---|
 | `case_id` | character | PK + FK | Yes | Yes | Composite primary key. FK → `cases.case_id`. |
-| `setting_id` | integer | PK + FK | Yes | Yes | Composite primary key. FK → `settings.setting_id`. |
-| `has_other_visits` | logical | — | No | No | `TRUE` if the case visited this setting on dates that fall outside all epi windows. Specific dates for those visits are not recorded in `visit_dates`. Typically `TRUE` for household residents who are continuously present. |
+| `context_id` | integer | PK + FK | Yes | Yes | Composite primary key. FK → `contexts.context_id`. |
+| `has_other_visits` | logical | — | No | No | `TRUE` if the case visited this context on dates that fall outside all epi windows. Specific dates for those visits are not recorded in `visit_dates`. Typically `TRUE` for household residents who are continuously present. |
 
-> `setting_name` and `setting_type` are not stored here — they are joined from the `settings` table at runtime when needed.
+> `context_name` and `context_type` are not stored here — they are joined from the `contexts` table at runtime when needed.
 
 ---
 
 ## visit_dates
 
-One row per epidemiologically relevant visit date for a given case × setting pair. Child table of `case_settings`.
+One row per epidemiologically relevant visit date for a given case × context pair. Child table of `case_contexts`.
 
 | Field | Type | Key | Indexed | Required | Description |
 |---|---|---|---|---|---|
-| `case_id` | character | PK + FK | Yes | Yes | Composite primary key. FK → `case_settings.case_id`. |
-| `setting_id` | integer | PK + FK | Yes | Yes | Composite primary key. FK → `case_settings.setting_id`. |
-| `visit_date` | date | PK | Yes | Yes | Date of a visit that falls within or near the epi windows. One row per calendar day — a case visits a setting at most once per calendar day. Format: YYYY-MM-DD. |
+| `case_id` | character | PK + FK | Yes | Yes | Composite primary key. FK → `case_contexts.case_id`. |
+| `context_id` | integer | PK + FK | Yes | Yes | Composite primary key. FK → `case_contexts.context_id`. |
+| `visit_date` | date | PK | Yes | Yes | Date of a visit that falls within or near the epi windows. One row per calendar day — a case visits a context at most once per calendar day. Format: YYYY-MM-DD. |
 
 ### Derived field: `epi_category`
 
@@ -60,12 +60,12 @@ Not stored. Computed at runtime for each `visit_date` by comparing against `onse
 
 | Category | Condition | Epidemiological meaning |
 |---|---|---|
-| `Exposure window` | `onset − inc_max ≤ visit_date ≤ onset − inc_min` | Case may have been infected at this setting on this date |
-| `Infectious period` | `onset − inf_before ≤ visit_date ≤ onset + inf_after` | Case may have infected others at this setting on this date |
-| `Both` | Case has at least one date in the exposure window AND at least one date in the infectious period at this setting | Setting is relevant in both directions (e.g. household resident present across both windows) |
+| `Exposure window` | `onset − inc_max ≤ visit_date ≤ onset − inc_min` | Case may have been infected at this context on this date |
+| `Infectious period` | `onset − inf_before ≤ visit_date ≤ onset + inf_after` | Case may have infected others at this context on this date |
+| `Both` | Case has at least one date in the exposure window AND at least one date in the infectious period at this context | Context is relevant in both directions (e.g. household resident present across both windows) |
 | `Neither` | Date falls outside all windows | Visit is recorded but not considered transmission-relevant |
 
-**Edge aggregation rule:** Where a case × setting pair has multiple visit dates, the network edge takes the highest-priority category across all dates: Both > Infectious > Exposure > Neither.
+**Edge aggregation rule:** Where a case × context pair has multiple visit dates, the network edge takes the highest-priority category across all dates: Both > Infectious > Exposure > Neither.
 
 **Default parameter values (measles):**
 
@@ -76,19 +76,19 @@ Not stored. Computed at runtime for each `visit_date` by comparing against `onse
 | `inf_before` | 4 days | Days before onset during which the case is infectious |
 | `inf_after` | 4 days | Days after onset during which the case is infectious |
 
-With default measles parameters the exposure window and infectious period do not overlap (inc_min > inf_before), so `Both` can only arise from a case-setting pair that has dates spanning both windows across separate visits — typically a household where the resident was present before and during illness.
+With default measles parameters the exposure window and infectious period do not overlap (inc_min > inf_before), so `Both` can only arise from a case-context pair that has dates spanning both windows across separate visits — typically a household where the resident was present before and during illness.
 
 ---
 
 ## contacts
 
-One row per recorded transmission link. Optional sheet — if absent, suspected links may be derived from shared settings and timing.
+One row per recorded transmission link. Optional sheet — if absent, suspected links may be derived from shared contexts and timing.
 
 | Field | Type | Key | Indexed | Required | Description |
 |---|---|---|---|---|---|
 | `from` | character | FK | Yes | Yes | Source case. FK → `cases.case_id`. |
 | `to` | character | FK | Yes | Yes | Recipient case. FK → `cases.case_id`. |
-| `link_type` | character | — | No | Yes | Strength of evidence: `Confirmed` (epidemiologically established) or `Suspected` (plausible based on timing and shared setting). |
+| `link_type` | character | — | No | Yes | Strength of evidence: `Confirmed` (epidemiologically established) or `Suspected` (plausible based on timing and shared context). |
 
 ---
 
@@ -96,9 +96,9 @@ One row per recorded transmission link. Optional sheet — if absent, suspected 
 
 - `case_id` must be unique in `cases`
 - `onset_date` must be a valid date
-- `setting_id` must be unique in `settings`
-- All `case_id` values in `case_settings` must exist in `cases`
-- All `setting_id` values in `case_settings` must exist in `settings`
-- All (`case_id`, `setting_id`) pairs in `visit_dates` must exist in `case_settings`
+- `context_id` must be unique in `contexts`
+- All `case_id` values in `case_contexts` must exist in `cases`
+- All `context_id` values in `case_contexts` must exist in `contexts`
+- All (`case_id`, `context_id`) pairs in `visit_dates` must exist in `case_contexts`
 - `from` and `to` in `contacts` must both exist in `cases`
 - `inc_min` < `inc_max` (enforced in the app parameters panel)

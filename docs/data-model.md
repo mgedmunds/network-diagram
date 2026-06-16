@@ -22,43 +22,43 @@ Four tables. Each has a clearly defined grain and primary key.
 
 ---
 
-### settings — one row per setting
+### contexts — one row per context
 
 | Field | Key | Type | Required | Notes |
 |---|---|---|---|---|
-| `setting_id` | PK | integer | yes | Surrogate primary key; join key in case_settings and visit_dates |
-| `setting_name` | | character | yes | Human-readable name; should be unique within the dataset |
-| `setting_type` | | character | yes | User-defined categorical — see Decisions |
+| `context_id` | PK | integer | yes | Surrogate primary key; join key in case_contexts and visit_dates |
+| `context_name` | | character | yes | Human-readable name; should be unique within the dataset |
+| `context_type` | | character | yes | User-defined categorical — see Decisions |
 
-> Provided as a dedicated `settings` sheet in the xlsx upload.
+> Provided as a dedicated `contexts` sheet in the xlsx upload.
 
 ---
 
-### case_settings — one row per case × setting combination
+### case_contexts — one row per case × context combination
 
-Bridging table between cases and settings.
+Bridging table between cases and contexts.
 
 | Field | Key | Type | Required | Notes |
 |---|---|---|---|---|
 | `case_id` | PK + FK | character | yes | FK → cases.case_id |
-| `setting_id` | PK + FK | integer | yes | FK → settings.setting_id |
-| `has_other_visits` | | logical | no | TRUE = case visited this setting on additional dates outside the epi window; no specific dates captured for those |
+| `context_id` | PK + FK | integer | yes | FK → contexts.context_id |
+| `has_other_visits` | | logical | no | TRUE = case visited this context on additional dates outside the epi window; no specific dates captured for those |
 
-> Composite primary key: (`case_id`, `setting_id`). `setting_name` and `setting_type` are not stored here — they are joined from `settings` at runtime.
+> Composite primary key: (`case_id`, `context_id`). `context_name` and `context_type` are not stored here — they are joined from `contexts` at runtime.
 
 ---
 
 ### visit_dates — one row per epidemiologically relevant visit date
 
-Child table hanging off case_settings. Records only dates that fall within or near the infectious/exposure window.
+Child table hanging off case_contexts. Records only dates that fall within or near the infectious/exposure window.
 
 | Field | Key | Type | Required | Notes |
 |---|---|---|---|---|
-| `case_id` | PK + FK | character | yes | FK → case_settings.case_id |
-| `setting_id` | PK + FK | integer | yes | FK → case_settings.setting_id |
+| `case_id` | PK + FK | character | yes | FK → case_contexts.case_id |
+| `context_id` | PK + FK | integer | yes | FK → case_contexts.context_id |
 | `visit_date` | PK | date | yes | Date of the epi-relevant visit |
 
-> Composite primary key: (`case_id`, `setting_id`, `visit_date`) — one case visits a setting at most once per calendar day.
+> Composite primary key: (`case_id`, `context_id`, `visit_date`) — one case visits a context at most once per calendar day.
 
 > `epi_category` is **derived by the app at runtime**, not stored. For each visit_date the app compares it against `onset_date` using the current incubation and infectious period parameters and assigns one of: `Exposure window`, `Infectious period`, `Both`, `Neither`. This drives edge colours in the Who Visited Where view. If the user changes the parameters, categories update automatically with no data migration needed.
 
@@ -72,7 +72,7 @@ Child table hanging off case_settings. Records only dates that fall within or ne
 | `to` | FK | character | yes | Recipient case; FK → cases.case_id |
 | `link_type` | | character | yes | `Confirmed` or `Suspected` |
 
-> (`from`, `to`) treated as unique per link. Optional sheet — if absent, case-to-case links can be derived from shared settings and timing.
+> (`from`, `to`) treated as unique per link. Optional sheet — if absent, case-to-case links can be derived from shared contexts and timing.
 
 ---
 
@@ -89,25 +89,25 @@ erDiagram
         string case_status
     }
 
-    SETTINGS {
-        int setting_id PK
-        string setting_name
-        string setting_type
+    CONTEXTS {
+        int context_id PK
+        string context_name
+        string context_type
     }
 
-    CASE_SETTINGS {
+    CASE_CONTEXTS {
         string case_id PK
         string case_id FK
-        int setting_id PK
-        int setting_id FK
+        int context_id PK
+        int context_id FK
         boolean has_other_visits
     }
 
     VISIT_DATES {
         string case_id PK
         string case_id FK
-        int setting_id PK
-        int setting_id FK
+        int context_id PK
+        int context_id FK
         date visit_date PK
     }
 
@@ -117,9 +117,9 @@ erDiagram
         string link_type
     }
 
-    CASES ||--o{ CASE_SETTINGS : "attended"
-    SETTINGS ||--o{ CASE_SETTINGS : "received"
-    CASE_SETTINGS ||--o{ VISIT_DATES : "has epi-relevant dates"
+    CASES ||--o{ CASE_CONTEXTS : "attended"
+    CONTEXTS ||--o{ CASE_CONTEXTS : "received"
+    CASE_CONTEXTS ||--o{ VISIT_DATES : "has epi-relevant dates"
     CASES ||--o{ CONTACTS : "source (from)"
     CASES ||--o{ CONTACTS : "recipient (to)"
 ```
@@ -141,12 +141,12 @@ For each row in `visit_dates`, the app derives a category by comparing `visit_da
 
 | Category | Condition | Epi meaning |
 |---|---|---|
-| **Exposure window** | `onset_date − inc_max` ≤ `visit_date` ≤ `onset_date − inc_min` | Case may have been infected at this setting on this date |
-| **Infectious period** | `onset_date − inf_before` ≤ `visit_date` ≤ `onset_date + inf_after` | Case may have infected others at this setting on this date |
-| **Both** | Case has at least one date in the exposure window AND at least one date in the infectious period at this setting | Setting is relevant in both directions — case may have been infected there and may have infected others there |
+| **Exposure window** | `onset_date − inc_max` ≤ `visit_date` ≤ `onset_date − inc_min` | Case may have been infected at this context on this date |
+| **Infectious period** | `onset_date − inf_before` ≤ `visit_date` ≤ `onset_date + inf_after` | Case may have infected others at this context on this date |
+| **Both** | Case has at least one date in the exposure window AND at least one date in the infectious period at this context | Context is relevant in both directions — case may have been infected there and may have infected others there |
 | **Neither** | Date outside all windows | Visit is recorded but not considered epi-relevant |
 
-Where a case × setting pair has multiple visit dates, the app picks the highest-priority category (Both > Infectious > Exposure > Neither) for the network edge, and lists all individual dates in the hover tooltip.
+Where a case × context pair has multiple visit dates, the app picks the highest-priority category (Both > Infectious > Exposure > Neither) for the network edge, and lists all individual dates in the hover tooltip.
 
 Parameters (`inc_min`, `inc_max`, `inf_before`, `inf_after`) are set in the Assumptions & Parameters tab and applied live.
 
@@ -159,9 +159,9 @@ Five sheets expected:
 | Sheet | Grain | Required fields |
 |---|---|---|
 | `cases` | one row per case | `case_id`, `onset_date` |
-| `settings` | one row per setting | `setting_id`, `setting_name`, `setting_type` |
-| `case_settings` | one row per case × setting | `case_id`, `setting_id` |
-| `visit_dates` | one row per epi-relevant date | `case_id`, `setting_id`, `visit_date` |
+| `contexts` | one row per context | `context_id`, `context_name`, `context_type` |
+| `case_contexts` | one row per case × context | `case_id`, `context_id` |
+| `visit_dates` | one row per epi-relevant date | `case_id`, `context_id`, `visit_date` |
 | `contacts` | one row per link (optional) | `from`, `to`, `link_type` |
 
 ---
@@ -172,9 +172,9 @@ The Shiny app receives a clean structured export from a separate data collection
 
 Requirements:
 - Concurrent multi-user entry during an active outbreak
-- Validation on entry: field types, required fields, FK integrity (case_id must exist before case_settings rows are added)
-- `setting_type` enforced as a user-defined categorical dropdown; values accumulate as data is entered
-- Batch addition: multiple visit_dates rows for one case-setting in a single step
+- Validation on entry: field types, required fields, FK integrity (case_id must exist before case_contexts rows are added)
+- `context_type` enforced as a user-defined categorical dropdown; values accumulate as data is entered
+- Batch addition: multiple visit_dates rows for one case-context in a single step
 - Export as .xlsx with the four named sheets above
 
 ### Option A — Google Sheets (with Apps Script)
@@ -183,7 +183,7 @@ Requirements:
 |---|---|
 | **Concurrency** | Native real-time co-editing |
 | **Validation** | Cell dropdowns, conditional formatting, Apps Script for cross-sheet FK checks |
-| **setting_type** | Dropdown from a lookup tab; new types added there |
+| **context_type** | Dropdown from a lookup tab; new types added there |
 | **Transfer** | Download as .xlsx → rename sheets to match expected names → upload |
 | **Pros** | Zero infrastructure, zero cost, familiar, rapid to set up |
 | **Cons** | Validation bypassable via paste; no audit trail; FK integrity needs scripting |
@@ -194,7 +194,7 @@ Requirements:
 |---|---|
 | **Concurrency** | Full multi-user with record locking and audit trail |
 | **Validation** | Field-level enforcement; branching logic; repeating instruments handle multiple visit_dates naturally |
-| **setting_type** | Dropdown with "add new" via field configuration |
+| **context_type** | Dropdown with "add new" via field configuration |
 | **Transfer** | CSV export with field mapping to match schema |
 | **Pros** | Robust and auditable; widely used in NHS/public health; handles repeating data and FK logic cleanly |
 | **Cons** | Requires institutional access; longer setup; may be over-engineered for a short single-outbreak |
@@ -205,7 +205,7 @@ Requirements:
 |---|---|
 | **Concurrency** | Forms handles concurrency; Excel on SharePoint has co-authoring |
 | **Validation** | Forms enforces field types; limited relational validation |
-| **setting_type** | Dropdown in Forms (list maintained separately) |
+| **context_type** | Dropdown in Forms (list maintained separately) |
 | **Transfer** | Download Excel from SharePoint → upload |
 | **Pros** | Within Microsoft/NHS ecosystem; no extra accounts |
 | **Cons** | Forms → Excel pipeline via Power Automate is fragile; FK integrity difficult to enforce |
@@ -216,7 +216,7 @@ Requirements:
 |---|---|
 | **Concurrency** | Possible with SQLite backend; concurrent writes need careful handling |
 | **Validation** | Full control — all relational rules enforceable in R |
-| **setting_type** | Dropdown built from values already in the database |
+| **context_type** | Dropdown built from values already in the database |
 | **Transfer** | None — data already in the tool |
 | **Pros** | Single interface; tightest possible validation; no export/import step |
 | **Cons** | Most development effort; significantly expands Phase 3 scope |
@@ -248,7 +248,7 @@ Minimum fields required from the external linelist:
 ## Open questions
 
 **Schema**
-- [x] **`setting_id`** — implemented as integer surrogate PK on settings; used as FK in case_settings and visit_dates. setting_name and setting_type removed from case_settings.
+- [x] **`context_id`** — implemented as integer surrogate PK on contexts; used as FK in case_contexts and visit_dates. context_name and context_type removed from case_contexts.
 - [x] **`case_status`** — added as optional character field on cases. Values: `Confirmed`, `Probable`, `Possible`.
 - [ ] **`case_status` definitions** — write plain-language definitions for Confirmed, Probable, and Possible. Update the data dictionary description and the Definitions tab in the app.
 - [ ] **`vaccination_status`** — keep measles-specific values or make generic for reuse across outbreaks?
@@ -271,22 +271,22 @@ Minimum fields required from the external linelist:
 ## Decisions made
 
 **`age_group` — fixed bands**
-Six bands aligned with vaccination schedule, school settings, and UKHSA reporting practice: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+ years`.
+Six bands aligned with vaccination schedule, school contexts, and UKHSA reporting practice: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+ years`.
 
-**`setting_type` — user-defined categorical**
-Not a pre-coded fixed list. Categories are defined by the data entered during an outbreak. The data collection form enforces consistency via a growing dropdown; new values can be added when a new setting type is encountered. Preserves flexibility across outbreak contexts while keeping the field categorical for network grouping and colour-coding.
+**`context_type` — user-defined categorical**
+Not a pre-coded fixed list. Categories are defined by the data entered during an outbreak. The data collection form enforces consistency via a growing dropdown; new values can be added when a new context type is encountered. Preserves flexibility across outbreak contexts while keeping the field categorical for network grouping and colour-coding.
 
 **Four-table relational structure**
-Schema split into: `cases`, `settings`, `case_settings` (bridging), `visit_dates` (child lookup). Separates setting identity from case-setting relationships and allows multiple epi-relevant dates per case × setting pair without denormalisation. A boolean `has_other_visits` on case_settings flags non-epi-relevant visits without recording their specific dates.
+Schema split into: `cases`, `contexts`, `case_contexts` (bridging), `visit_dates` (child lookup). Separates context identity from case-context relationships and allows multiple epi-relevant dates per case × context pair without denormalisation. A boolean `has_other_visits` on case_contexts flags non-epi-relevant visits without recording their specific dates.
 
 **Epi-category is derived, not stored**
 Visit timing category (Exposure window, Infectious period, Both, Neither) is computed at runtime from `visit_date`, `onset_date`, and the current parameter values. Never persisted, so changing parameters requires no data migration.
 
 **Multiple visit dates — edge aggregation in the bipartite view**
-Where a case × setting pair has multiple visit dates, the network shows one edge per pair (not one per date) to keep the diagram readable. The edge is classified as `Both` if the case has any date in the exposure window AND any date in the infectious period at that setting — even if no single date falls in both simultaneously (e.g. a household resident present across weeks). Otherwise the edge takes the highest-priority single-date category: Infectious > Exposure > Neither. All individual dates are listed in the hover tooltip.
+Where a case × context pair has multiple visit dates, the network shows one edge per pair (not one per date) to keep the diagram readable. The edge is classified as `Both` if the case has any date in the exposure window AND any date in the infectious period at that context — even if no single date falls in both simultaneously (e.g. a household resident present across weeks). Otherwise the edge takes the highest-priority single-date category: Infectious > Exposure > Neither. All individual dates are listed in the hover tooltip.
 
-**`setting_id` — surrogate primary key for settings**
-Settings are identified by an integer surrogate key (`setting_id`) rather than `setting_name`. This prevents join failures if two distinct venues share a name. `setting_name` and `setting_type` live only in the `settings` table and are joined at runtime; they are not duplicated in `case_settings` or `visit_dates`.
+**`context_id` — surrogate primary key for contexts**
+Contexts are identified by an integer surrogate key (`context_id`) rather than `context_name`. This prevents join failures if two distinct venues share a name. `context_name` and `context_type` live only in the `contexts` table and are joined at runtime; they are not duplicated in `case_contexts` or `visit_dates`.
 
 ---
 
@@ -294,10 +294,10 @@ Settings are identified by an integer surrogate key (`setting_id`) rather than `
 
 - `case_id` must be unique in cases
 - `onset_date` must be a valid date
-- `setting_id` must be unique in settings
-- All `case_id` values in case_settings must exist in cases
-- All `setting_id` values in case_settings must exist in settings
-- All (`case_id`, `setting_id`) pairs in visit_dates must exist in case_settings
+- `context_id` must be unique in contexts
+- All `case_id` values in case_contexts must exist in cases
+- All `context_id` values in case_contexts must exist in contexts
+- All (`case_id`, `context_id`) pairs in visit_dates must exist in case_contexts
 - `from` and `to` in contacts must both exist in cases
 - `inc_min` < `inc_max` (enforced in app parameters)
 

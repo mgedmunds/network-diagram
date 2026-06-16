@@ -12,12 +12,12 @@ Cases as nodes, positioned on a timeline by onset date. Edges drawn when timing 
 - Could replace or complement the time slider
 
 ### Ego network
-Focused view centred on a single selected case or setting, showing only its direct connections.
+Focused view centred on a single selected case or context, showing only its direct connections.
 - Useful for drilling into a complex network
 - Could be implemented as a filter on existing views rather than a new view
 
 ### Spatial / geographic
-Cases or settings plotted on a map, edges drawn between linked nodes.
+Cases or contexts plotted on a map, edges drawn between linked nodes.
 - Requires postcode / coordinates data not currently in the schema
 - Significant additional data collection burden
 
