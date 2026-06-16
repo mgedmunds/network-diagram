@@ -244,6 +244,158 @@ Once the tool has been used in a real outbreak and requirements are better under
 
 ---
 
+---
+
+## Deployment comparison
+
+Two architectures are compared below, based on whether Posit Connect is available.
+
+---
+
+### Solution 1 — Posit Connect (centrally hosted)
+
+**How it works**
+
+The Shiny app is deployed to a Posit Connect server (either NHS-hosted or Posit's cloud). All users access it via a URL in their browser — no R installation required on their machine. Data entered through the app is written to a persistent backend: either a SQLite database or a SharePoint List accessed via the Microsoft Graph API.
+
+```
+[User browser] --> [Posit Connect server]
+                        |
+                   [Shiny app (R)]
+                        |
+              [SQLite / SharePoint List]
+                  (persistent data)
+```
+
+**What is needed to set it up**
+
+- Posit Connect instance provisioned by IT (one-off)
+- App deployed from RStudio using the `rsconnect` package (no admin rights on local machine needed)
+- If using SharePoint as the data backend: Azure AD app registration to allow the Shiny app to read/write SharePoint Lists (one-off IT task)
+- If using SQLite: a persistent storage volume on the Connect server (IT configuration)
+
+**Multi-site access**
+
+Native. Any user with the URL and appropriate credentials can access the app simultaneously. Record-level locking or last-write-wins behaviour for the data backend should be considered for concurrent editing.
+
+**Information governance**
+
+If hosted on NHS infrastructure: UK data residency, within existing DSPT controls. If hosted on Posit Connect Cloud (posit.cloud): US servers by default — would need IG sign-off for anything beyond demo data.
+
+**Data entry flow**
+
+1. Health protection practitioner opens the app URL in their browser
+2. Enters cases, settings, visits, and contacts directly in the app
+3. Data written immediately to the shared backend
+4. Network diagram and epi curve update in real time for all users
+
+**Maintenance**
+
+Schema or feature changes: developer pulls changes in RStudio, clicks "Republish" — live within seconds, no downtime. No action needed from users.
+
+**Development effort**
+
+Moderate. The data entry forms, validation logic, and backend read/write need to be built (Phase 3 scope). The hosting infrastructure is handled by Connect.
+
+**Key risks**
+
+| Risk | Mitigation |
+|---|---|
+| Posit Connect not available or slow to procure | Start with Solution 2; migrate when Connect is available |
+| Concurrent writes corrupting data | Use row-level locking or a proper database backend (PostgreSQL) rather than SQLite |
+| SharePoint API access not approved | Use SQLite on Connect server instead |
+
+---
+
+### Solution 2 — Locally run (no central server)
+
+**How it works**
+
+The Shiny app runs on one designated person's machine (the "operator"). Data is stored as a set of CSV files or a SQLite database on a SharePoint document library (accessed as a mapped drive or via OneDrive sync). Other team members share data by editing the same files on SharePoint, coordinating with the operator to avoid conflicts. The operator refreshes the app to see updates.
+
+```
+[Operator's machine]
+  R + Shiny app
+       |
+  [SQLite / CSV files]
+       |
+  [SharePoint document library]  <-- other team members edit files here
+  (synced via OneDrive)
+```
+
+**What is needed to set it up**
+
+- R and RStudio installed on the operator's machine (no admin rights needed if portable R is used, or if R is already installed)
+- Shared SharePoint document library accessible to all team members
+- OneDrive sync or mapped drive so the app can read/write the data files
+- A clear protocol for who edits what and when (to prevent conflicts)
+
+**Multi-site access**
+
+Not simultaneous. Only the operator can run the app and see the live network diagram. Other sites contribute data by editing shared files on SharePoint, which the operator loads into the app. This is a significant constraint for multi-team investigations.
+
+Mitigation options:
+- Designate one person per outbreak as the data operator
+- Other sites submit data via a simple structured Excel template that the operator imports
+- The operator shares their screen during team meetings for live network review
+
+**Information governance**
+
+Data stays within SharePoint (already approved). No third-party cloud services involved. UK data residency confirmed by default for NHS Microsoft 365 tenants.
+
+**Data entry flow**
+
+1. Field teams enter data into a structured Excel template on SharePoint
+2. Operator imports the file into the app (file upload or mapped drive path)
+3. Operator reviews network diagram and shares view with team (screen share or exported image)
+4. Corrections are made in the source files and re-imported
+
+**Maintenance**
+
+Developer pushes updates to GitHub. Operator does `git pull` in RStudio and restarts the app. Straightforward but manual.
+
+**Development effort**
+
+Lower than Solution 1 — no deployment infrastructure to manage. The data entry forms can be simpler (or omitted in favour of the Excel import approach). The app remains a single-user visualisation tool with a well-defined import format.
+
+**Key risks**
+
+| Risk | Mitigation |
+|---|---|
+| Operator's machine unavailable during outbreak | Pre-install R on a second machine; keep the app deployable in minutes via GitHub |
+| Conflicting edits to shared data files | Clear protocol: one person owns each table; use SharePoint version history to recover |
+| Operator bottleneck slows data entry | Keep the import format simple so field teams can self-serve; operator role is review not entry |
+| App not accessible to remote team members for live review | Use screen sharing (Teams) for group sessions |
+
+---
+
+### Side-by-side comparison
+
+| | Solution 1 (Posit Connect) | Solution 2 (Local) |
+|---|---|---|
+| **Multi-site simultaneous access** | Yes | No — operator model only |
+| **Real-time collaboration** | Yes | No |
+| **Admin rights needed** | No (once Connect is provisioned) | No |
+| **IT involvement** | Yes — to provision Connect | Minimal — shared drive setup only |
+| **Data residency** | NHS-hosted: yes. Posit Cloud: needs IG sign-off | Yes (SharePoint, NHS M365) |
+| **Development effort** | Moderate (forms + backend + deploy) | Lower (forms optional; import-based) |
+| **Time to first use** | Days to weeks (depends on Connect provisioning) | Hours to days |
+| **Ongoing maintenance** | Click to redeploy | Git pull + restart |
+| **Suitable for reuse across outbreaks** | Yes | Yes, with caveats |
+| **Suitable for multi-team investigations** | Yes | With coordination overhead |
+
+---
+
+### Recommendation
+
+**If Posit Connect can be provisioned:** Solution 1 is the right long-term architecture. It removes the operator bottleneck, enables real-time collaboration, and supports the built-in data entry ambition cleanly. The one-off IT setup cost is worth it if the tool will be reused.
+
+**If Posit Connect is not available or too slow to procure:** Start with Solution 2. It is viable for investigations with a clear lead data manager and a small, coordinated team. Use an Excel import template on SharePoint as the data entry mechanism. Revisit Solution 1 when the tool has proven its value and IT investment is easier to justify.
+
+In both cases, the Phase 3 development work (data entry forms, validation, smart date suggestions) is the same — only the hosting and data backend differ.
+
+---
+
 ## Open questions before finalising the decision
 
 **Q1 — 3.4 Data residency (not answered)**
