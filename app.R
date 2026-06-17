@@ -713,10 +713,133 @@ missing if visits were not recorded. Use the diagram to generate and prioritise
 hypotheses, alongside your wider outbreak knowledge.
 '
 
+# ---- Timeline helpers -------------------------------------------------------
+timeline_row_count <- function(sel, f) {
+  cases_df <- f$cases; ctx_df <- f$contexts; vd <- f$visit_dates
+  is_case  <- sel %in% cases_df$case_id
+  if (is_case) {
+    return(1L + length(unique(vd$context_id[vd$case_id == sel])))
+  }
+  clean <- sub("^ctx::", "", sel)
+  ctx_r <- ctx_df[ctx_df$context_name == clean, ]
+  if (nrow(ctx_r) == 0) return(0L)
+  ctx_id <- ctx_r$context_id[1]
+  linked <- unique(vd$case_id[vd$context_id == ctx_id])
+  linked <- linked[linked %in% cases_df$case_id]
+  n <- 1L
+  for (cid in linked) n <- n + 1L + length(unique(vd$context_id[vd$case_id == cid]))
+  n
+}
+
+build_timeline_plot <- function(sel, f, p) {
+  cases_df <- f$cases; ctx_df <- f$contexts; vd <- f$visit_dates
+  is_case  <- sel %in% cases_df$case_id
+  clean    <- sub("^ctx::", "", sel)
+  is_ctx   <- !is_case && clean %in% ctx_df$context_name
+  if (!is_case && !is_ctx) return(plotly_empty())
+
+  segs    <- list()
+  pts     <- list()
+  y_order <- character(0)
+
+  add_case_row <- function(case_id, y_lbl = case_id) {
+    cr <- cases_df[cases_df$case_id == case_id, ]
+    if (nrow(cr) == 0) return()
+    onset <- cr$onset_date[1]
+    segs[[paste0(case_id, "_exp")]] <<- data.frame(
+      y_label = y_lbl, x0 = onset - p$inc_max, x1 = onset - p$inc_min,
+      seg_type = "Exposure window", stringsAsFactors = FALSE)
+    segs[[paste0(case_id, "_inf")]] <<- data.frame(
+      y_label = y_lbl, x0 = onset - p$inf_before, x1 = onset + p$inf_after,
+      seg_type = "Infectious period", stringsAsFactors = FALSE)
+    pts[[paste0(case_id, "_onset")]] <<- data.frame(
+      y_label = y_lbl, x = onset, pt_type = "Onset date", stringsAsFactors = FALSE)
+    y_order <<- c(y_order, y_lbl)
+  }
+
+  add_visit_rows <- function(case_id, lbl_prefix = "") {
+    cvd <- vd[vd$case_id == case_id, ]
+    for (cid in unique(cvd$context_id)) {
+      cr2 <- ctx_df[ctx_df$context_id == cid, ]
+      if (nrow(cr2) == 0) next
+      y_lbl  <- paste0("  ", lbl_prefix, cr2$context_name[1])
+      vdates <- sort(unique(cvd$visit_date[cvd$context_id == cid]))
+      if (length(vdates) == 0) next
+      pts[[paste0(case_id, "_", cid, "_v")]] <<- data.frame(
+        y_label = y_lbl, x = vdates, pt_type = "Visit date", stringsAsFactors = FALSE)
+      y_order <<- c(y_order, y_lbl)
+    }
+  }
+
+  if (is_case) {
+    add_case_row(sel)
+    add_visit_rows(sel)
+  } else {
+    ctx_r  <- ctx_df[ctx_df$context_name == clean, ]
+    ctx_id <- ctx_r$context_id[1]
+    y_order <- c(y_order, clean)
+    linked  <- sort(unique(vd$case_id[vd$context_id == ctx_id]))
+    linked  <- linked[linked %in% cases_df$case_id]
+    for (cid in linked) {
+      add_case_row(cid)
+      add_visit_rows(cid, lbl_prefix = paste0(cid, " — "))
+    }
+  }
+
+  y_order  <- unique(y_order)
+  all_segs <- if (length(segs)) do.call(rbind, segs) else NULL
+  all_pts  <- if (length(pts))  do.call(rbind, pts)  else NULL
+  if (is.null(all_segs) && is.null(all_pts)) return(plotly_empty())
+
+  if (!is.null(all_segs)) {
+    all_segs$x0 <- as.Date(all_segs$x0, origin = "1970-01-01")
+    all_segs$x1 <- as.Date(all_segs$x1, origin = "1970-01-01")
+  }
+  if (!is.null(all_pts)) all_pts$x <- as.Date(all_pts$x, origin = "1970-01-01")
+
+  fig <- plot_ly()
+
+  if (!is.null(all_segs)) {
+    exp_d <- all_segs[all_segs$seg_type == "Exposure window", ]
+    if (nrow(exp_d) > 0)
+      fig <- add_segments(fig, data = exp_d,
+        x = ~x0, xend = ~x1, y = ~y_label, yend = ~y_label,
+        line = list(color = "#aec7e8", width = 14),
+        name = "Exposure window", legendgroup = "exp", showlegend = TRUE)
+    inf_d <- all_segs[all_segs$seg_type == "Infectious period", ]
+    if (nrow(inf_d) > 0)
+      fig <- add_segments(fig, data = inf_d,
+        x = ~x0, xend = ~x1, y = ~y_label, yend = ~y_label,
+        line = list(color = "#fc8d8d", width = 14),
+        name = "Infectious period", legendgroup = "inf", showlegend = TRUE)
+  }
+
+  if (!is.null(all_pts)) {
+    onset_d <- all_pts[all_pts$pt_type == "Onset date", ]
+    if (nrow(onset_d) > 0)
+      fig <- add_markers(fig, data = onset_d, x = ~x, y = ~y_label,
+        marker = list(symbol = "line-ns-open", size = 22, color = "#333",
+                      line = list(width = 2.5, color = "#333")),
+        name = "Onset date", legendgroup = "onset", showlegend = TRUE)
+    visit_d <- all_pts[all_pts$pt_type == "Visit date", ]
+    if (nrow(visit_d) > 0)
+      fig <- add_markers(fig, data = visit_d, x = ~x, y = ~y_label,
+        marker = list(symbol = "circle", size = 9, color = "#636363",
+                      line = list(width = 1, color = "#444")),
+        name = "Visit date", legendgroup = "visit", showlegend = TRUE)
+  }
+
+  fig %>% layout(
+    yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
+    xaxis  = list(type = "date", title = ""),
+    legend = list(orientation = "h", x = 0, y = -0.2),
+    margin = list(l = 200, b = 60))
+}
+
 # ---- UI ---------------------------------------------------------------------
 ui <- page_navbar(
   title = "Measles Outbreak Network Explorer",
-  theme = bs_theme(version = 5, bootswatch = "flatly"), id = "nav",
+  theme = bs_theme(version = 5, bootswatch = "flatly"), id = "nav", selected = "Home",
   header = tags$head(tags$style(HTML("
     .vis-tooltip {
       z-index: 99999 !important;
@@ -771,11 +894,25 @@ ui <- page_navbar(
     }
   "))),
 
+  nav_panel("Home",
+    div(style = "max-width:800px; margin:40px auto; padding:0 16px;",
+      card(
+        card_header(h4("Measles Outbreak Network Explorer", class = "mb-0")),
+        card_body(
+          p("This tool visualises a measles outbreak as an interactive network, showing how cases and places (contexts — such as schools, households, and healthcare settings) are connected. Use it to identify hub contexts, bridge cases, and potential transmission routes."),
+          p("Upload your outbreak data below, then navigate to the ", tags$strong("Dashboard"), " tab to explore the network. If no file is uploaded, the tool runs on built-in demo data so you can explore the features straight away."),
+          div(class = "alert alert-warning d-flex gap-2", role = "alert",
+            tags$strong("Important:"),
+            "Do not upload files containing personal identifiable information (PII). Use anonymised or pseudonymised data only — case IDs must not include names, dates of birth, addresses, or NHS numbers."),
+          hr(),
+          fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
+          helpText("The file must contain four sheets: cases, contexts, case_contexts, and visit_dates. A contacts sheet is optional."),
+          actionButton("go_dashboard", "Go to Dashboard →", class = "btn btn-primary mt-2"))))),
+
   nav_panel("Dashboard",
     layout_sidebar(
-      sidebar = sidebar(width = 340,
-        fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
-        helpText("Needs sheets: cases, contexts, case_contexts, visit_dates (and optional contacts). Leave empty to use demo data."),
+      sidebar = sidebar(width = 300,
+        helpText("Upload data on the ", tags$strong("Home"), " tab. Demo data is used if no file is loaded."),
         tags$label(class = "form-label mb-0",
           "Filter by onset date",
           info("Filters to cases whose symptom onset falls within this date range. Visit dates are filtered to the same window.")),
@@ -795,35 +932,44 @@ ui <- page_navbar(
         helpText("See ", strong("Definitions"), ", ", strong("How to use"), " and ",
                  strong("Assumptions & parameters"), " tabs at the top.")),
 
-      layout_columns(col_widths = c(8, 4),
-        card(class = "network-card",
-          card_header(class = "d-flex justify-content-between align-items-center",
-            span("Network"),
-            div(class = "d-flex align-items-center gap-2",
-              selectInput("view", NULL, width = "290px",
-                choices = c("Contexts network"  = "projection",
-                            "Who visited where" = "bipartite",
-                            "Who infected whom" = "contacts"),
-                selected = "bipartite"),
-              tags$button(id = "net-toggle-btn",
-                class = "btn btn-sm btn-outline-secondary",
-                onclick = "toggleNetwork()", "Maximise"),
-              info(paste0("Contexts network links places that share a case. ",
-                          "Who visited where shows cases and contexts together. ",
-                          "Who infected whom uses the contacts table or links derived from timing ",
-                          "(see Assumptions & parameters).")))),
-          uiOutput("bipartite_key"),
-          visNetworkOutput("net", height = "560px")),
-        card(hdr("Epidemic curve",
-                 "New cases per week by onset date. A rising curve means the outbreak is still growing."),
-             plotlyOutput("curve", height = "300px")),
-        card(hdr("Network metrics - most connected nodes",
+      card(class = "network-card",
+        card_header(class = "d-flex justify-content-between align-items-center",
+          span("Network"),
+          div(class = "d-flex align-items-center gap-2",
+            selectInput("view", NULL, width = "290px",
+              choices = c("Contexts network"  = "projection",
+                          "Who visited where" = "bipartite",
+                          "Who infected whom" = "contacts"),
+              selected = "bipartite"),
+            tags$button(id = "net-toggle-btn",
+              class = "btn btn-sm btn-outline-secondary",
+              onclick = "toggleNetwork()", "Maximise"),
+            info(paste0("Contexts network links places that share a case. ",
+                        "Who visited where shows cases and contexts together. ",
+                        "Who infected whom uses the contacts table or links derived from timing ",
+                        "(see Assumptions & parameters).")))),
+        uiOutput("bipartite_key"),
+        uiOutput("contacts_warning"),
+        visNetworkOutput("net", height = "500px")),
+
+      card(
+        hdr("Timeline",
+            "Select a node in the network above to see its timeline. For a case: shows the exposure window, infectious period, and visit dates per context. For a context: shows the same for each linked case."),
+        card_body(uiOutput("timeline_container")))
+    )),
+
+  nav_panel("Data",
+    div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
+      card(hdr("Epidemic curve",
+               "New cases per week by onset date. A rising curve means the outbreak is still growing."),
+           plotlyOutput("curve", height = "300px")),
+      layout_columns(col_widths = c(6, 6),
+        card(hdr("Network metrics — most connected nodes",
                  "Ranks nodes by how connected they are. Hover the column headings for definitions."),
              DTOutput("metrics")),
         card(hdr("Line list (filtered)",
                  "Case records currently shown, with how many contexts each visited. Hover headings for definitions."),
-             DTOutput("ll")))
-    )),
+             DTOutput("ll"))))),
 
   nav_panel("Source data",
     div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
@@ -1043,6 +1189,22 @@ server <- function(input, output, session) {
       tags$span(leg_arrow("#9aa0a6", dashed = TRUE), "Outside both windows"))
   })
 
+  output$contacts_warning <- renderUI({
+    req(input$view == "contacts")
+    f   <- filtered()
+    src <- if (!is.null(input$susp_source)) input$susp_source else "file"
+    if (nrow(f$contacts) == 0 && src == "file")
+      div(class = "alert alert-info mb-2", role = "alert",
+          tags$strong("No contacts information available."),
+          " No contacts sheet was found in the data. You can switch to ",
+          tags$em("'Derive from shared contexts + timing'"),
+          " on the ", tags$strong("Assumptions & parameters"), " tab.")
+  })
+
+  observeEvent(input$go_dashboard, {
+    nav_select("nav", "Dashboard")
+  })
+
   filtered <- reactive({
     d   <- raw()
     cs  <- d$cases |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
@@ -1128,6 +1290,23 @@ server <- function(input, output, session) {
     datatable(df, rownames = FALSE,
               options = list(pageLength = 6, scrollX = TRUE, dom = "tp",
                              headerCallback = header_tooltips(unname(tips))))
+  })
+
+  output$timeline_container <- renderUI({
+    sel <- input$net_selected
+    if (is.null(sel) || nchar(trimws(sel)) == 0)
+      return(div(style = "padding:32px; text-align:center; color:#888; font-size:0.9em;",
+                 "Click a node in the network above — or use the node selector — to see its timeline here."))
+    n_rows <- timeline_row_count(sel, filtered())
+    if (n_rows == 0)
+      return(div(style = "padding:20px; color:#888;", "No timeline data available for this node."))
+    plotlyOutput("timeline_plot", height = paste0(max(200L, 60L + n_rows * 44L), "px"))
+  })
+
+  output$timeline_plot <- renderPlotly({
+    sel <- input$net_selected
+    req(!is.null(sel) && nchar(trimws(sel)) > 0)
+    build_timeline_plot(sel, filtered(), params())
   })
 
   # ---- Reference tab outputs --------------------------------------------------
