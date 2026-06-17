@@ -3,14 +3,14 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-17 (session 3)
+**Last updated:** 2026-06-17 (session 4)
 
 ---
 
 ## Current focus
 
-**Phase 2 closed. Timeline panel redesigned and working. Next priorities are Phase 4 (Definitions & Tooltips) and the Stage 1 data entry guide.**
-Both can proceed in parallel. RStudio now correctly connected to the GitHub repo at `C:/Users/claude-dev/projects/network-diagram`.
+**Deployment approach decided: Shinylive + GitHub Pages (ADR-004). Next priorities are (1) convert main app to Shinylive, (2) Phase 4 (Definitions & Tooltips), (3) Stage 1 data entry guide.**
+Data collection remains Excel on OneDrive. GitHub repo must be made public before deployment.
 
 ---
 
@@ -68,7 +68,7 @@ Both can proceed in parallel. RStudio now correctly connected to the GitHub repo
 ### Phase 3 — Data Collection Interface
 **Status: Stage 1 mostly complete; Stage 2 blocked on IT decision**
 
-**Next action:** Write Stage 1 data entry guide (1–2 pages for field teams). Phase 2 is now decided so the guide can reference the views that will ship. Matt to raise Posit Connect availability with IT to unblock Stage 2.
+**Next action:** Write Stage 1 data entry guide (1–2 pages for field teams). Stage 2 (in-browser data entry) remains blocked on Posit Connect — Shinylive cannot support concurrent shared data entry, so the IT conversation is still needed for that.
 
 **Stage 1 — Excel template:**
 
@@ -95,6 +95,31 @@ Both can proceed in parallel. RStudio now correctly connected to the GitHub repo
 - 2026-06-16 — Cross-sheet FK dropdowns added (case_id and context_id lists)
 - 2026-06-16 — Upload validation error messages improved with corrective guidance
 - 2026-06-16 — docs/data-input.md closed; decision and requirements documented
+- 2026-06-17 — Shinylive PoC run (branch shinylive-poc): all 10 packages confirmed available in WebR including readxl
+- 2026-06-17 — Deployment approach decided: Shinylive + GitHub Pages; ADR-004 written
+
+---
+
+### Deployment — Shinylive + GitHub Pages
+**Status: In progress**
+
+**Next action:** Convert main app.R for Shinylive compatibility (primarily: replace commit-count version number with static fallback). Then export and deploy via GitHub Actions.
+
+**Checklist:**
+
+| Item | Done? |
+|---|---|
+| PoC: confirm all packages work in WebR | Yes |
+| ADR-004 written | Yes |
+| Version number fallback (no git in WebR) | **No** |
+| GitHub repo made public | **No** |
+| GitHub Pages enabled (source: GitHub Actions) | **No** |
+| Main app exported and deployed | **No** |
+| GitHub Actions workflow added for main app | **No** |
+
+**Log:**
+- 2026-06-17 — PoC deployed locally; all packages confirmed (shinylive-poc branch)
+- 2026-06-17 — ADR-004 written; Shinylive + GitHub Pages approach accepted
 
 ---
 
@@ -158,10 +183,9 @@ Matt reviews and clears entries at the start of the next session.
 
 | Date | Area | Assumption or question | Reviewed? |
 |---|---|---|---|
-| 2026-06-17 | Schema | Memory referred to `settings`/`case_settings` table names — current naming is `contexts`/`case_contexts`. Memory updated. | Yes |
-| 2026-06-17 | Versioning | Commit-count approach requires git in PATH when R starts. Works in RStudio local; may need fallback when deploying to Posit Connect. | No |
 | 2026-06-17 | RStudio | RStudio was running app from Documents/network-diagram (unmanaged copy). Fixed by cloning to projects/network-diagram. Ensure RStudio always opens from that location. | No |
-| 2026-06-17 | Phase 2 | ADR-003 written and phase closed. | Yes |
+| 2026-06-17 | Versioning | Commit-count version number requires git in PATH — will not work in WebR. Needs a static fallback before Shinylive deployment. Action: fix before exporting main app. | No |
+| 2026-06-17 | Deployment | Shinylive + GitHub Pages accepted (ADR-004). GitHub repo must be made public for free GitHub Pages. No patient data in repo — only app code and synthetic demo data. | No |
 
 ---
 
@@ -177,6 +201,7 @@ Matt reviews and clears entries at the start of the next session.
 | `docs/decisions/ADR-001` | Why visNetwork was chosen for rendering | Accepted |
 | `docs/decisions/ADR-002` | Bipartite link category definitions | Accepted |
 | `docs/decisions/ADR-003` | Network view selection and main page layout | Accepted |
+| `docs/decisions/ADR-004` | Shinylive + GitHub Pages deployment approach | Accepted |
 | `docs/data-model.md` | Phase 1 working notes | Closed |
 | `docs/data-input.md` | Phase 3 working notes and data entry decision | Closed |
 | `docs/network-types.md` | Phase 2 working notes | Closed — see ADR-003 |
