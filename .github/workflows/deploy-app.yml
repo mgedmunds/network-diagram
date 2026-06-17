@@ -36,9 +36,17 @@ jobs:
             "jsonlite", "DiagrammeR"
           ))
 
+      # Copy only the files the Shiny app needs into a clean directory.
+      # Prevents shinylive scanning tools/ and picking up unrelated packages.
+      - name: Prepare app directory
+        run: |
+          mkdir app_export
+          cp app.R app_export/
+          cp VERSION app_export/
+
       - name: Export app to static site
         shell: Rscript {0}
-        run: shinylive::export(".", "site")
+        run: shinylive::export("app_export", "site")
 
       - uses: actions/configure-pages@v4
 
