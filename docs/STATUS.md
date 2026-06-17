@@ -3,7 +3,7 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-17 (session 2)
+**Last updated:** 2026-06-17 (session 3)
 
 ---
 
@@ -134,6 +134,10 @@ Both can proceed in parallel. RStudio now correctly connected to the GitHub repo
 - 2026-06-17 — Expand/Collapse button added to timeline card header (position:fixed toggle, same pattern as network Maximise)
 - 2026-06-17 — Network legend replaced: visLegend side panel removed, replaced with floating HTML overlay so network uses full canvas width
 - 2026-06-17 — RStudio git issue resolved: cloned repo to C:/Users/claude-dev/projects/network-diagram; Documents/ copy was stale and unconnected
+- 2026-06-17 — Network legend merged with bipartite edge-direction key into single floating overlay (top-left, below node selector dropdown)
+- 2026-06-17 — visLegend side panel removed; network fills full card width
+- 2026-06-17 — Network height set to 60vh
+- 2026-06-17 — Timeline: cases sorted by onset date (ascending) in context-selected view
 
 ---
 
