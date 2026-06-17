@@ -913,7 +913,8 @@ build_timeline_plot <- function(sel, f, p) {
     fig |> layout(
       shapes = shapes,
       yaxis  = list(categoryorder = "array", categoryarray = rev(ctx_order), title = ""),
-      xaxis  = list(type = "date", title = "", dtick = 86400000, tickformat = "%d %b", tickangle = -45),
+      xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
+                   minor = list(dtick = 86400000, showgrid = TRUE, gridcolor = "rgba(0,0,0,0.12)")),
       legend = list(orientation = "h", x = 0, y = -0.25),
       margin = list(l = 160, b = 70))
 
@@ -983,7 +984,8 @@ build_timeline_plot <- function(sel, f, p) {
 
     fig |> layout(
       yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
-      xaxis  = list(type = "date", title = "", dtick = 86400000, tickformat = "%d %b", tickangle = -45),
+      xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
+                   minor = list(dtick = 86400000, showgrid = TRUE, gridcolor = "rgba(0,0,0,0.12)")),
       legend = list(orientation = "h", x = 0, y = -0.25),
       margin = list(l = 80, b = 70))
   }
