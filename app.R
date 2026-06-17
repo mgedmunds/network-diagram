@@ -1140,11 +1140,10 @@ ui <- page_navbar(
                         "Who visited where shows cases and contexts together. ",
                         "Who infected whom uses the contacts table or links derived from timing ",
                         "(see Assumptions & parameters).")))),
-        uiOutput("bipartite_key"),
         uiOutput("contacts_warning"),
         div(style = "position:relative;",
           uiOutput("network_legend"),
-          visNetworkOutput("net", height = "500px"))),
+          visNetworkOutput("net", height = "calc(100vh - 160px)"))),
 
       card(
         class = "timeline-card",
@@ -1407,14 +1406,7 @@ server <- function(input, output, session) {
                      lb, ub, p$inf_before, p$inf_after)))
   })
 
-  output$bipartite_key <- renderUI({
-    req(input$view == "bipartite")
-    div(style = "display:flex; flex-direction:column; gap:6px; font-size:0.82em; padding:4px 2px 6px 2px;",
-      tags$span(leg_arrow("#d62728", "right"), "Infectious period — may have spread infection here"),
-      tags$span(leg_arrow("#1f77b4", "left"),  "Exposure window — may have been infected here"),
-      tags$span(leg_arrow("#9467bd", "both"),  "Both windows overlap"),
-      tags$span(leg_arrow("#9aa0a6", dashed = TRUE), "Outside both windows"))
-  })
+  # bipartite_key merged into output$network_legend below
 
   output$contacts_warning <- renderUI({
     req(input$view == "contacts")
@@ -1500,27 +1492,43 @@ server <- function(input, output, session) {
     vn
   })
 
-  # Custom legend rendered as an HTML overlay on the network canvas.
-  # Replaces visLegend() so the legend floats over the canvas rather than
-  # occupying a fixed side panel that shrinks the network drawing area.
+  # Combined legend overlay: context type colours (all views) plus bipartite
+  # edge direction key (bipartite view only). Floats over the canvas so the
+  # network fills the full card width.
   output$network_legend <- renderUI({
     f <- filtered(); v <- input$view
-    cols <- colour_map(f$contexts$context_type)
+    cols  <- colour_map(f$contexts$context_type)
     is_bip <- v == "bipartite"
-    make_item <- function(label, colour, square = FALSE)
+
+    make_dot <- function(label, colour, square = FALSE)
       div(style = "display:flex; align-items:center; gap:6px; margin-bottom:3px;",
         tags$span(style = paste0(
           "width:12px; height:12px; flex-shrink:0; background:", colour, ";",
           "border-radius:", if (square) "2px" else "50%", ";")),
         tags$span(label, style = "font-size:0.78em; line-height:1.3;"))
-    items <- lapply(names(cols), function(s) make_item(s, unname(cols[[s]]), square = is_bip))
+
+    ctx_items <- lapply(names(cols), function(s) make_dot(s, unname(cols[[s]]), square = is_bip))
     if (is_bip)
-      items <- c(items, list(make_item("Case", CASE_COLOUR, square = FALSE)))
+      ctx_items <- c(ctx_items, list(make_dot("Case", CASE_COLOUR, square = FALSE)))
+
+    edge_items <- if (is_bip) list(
+      tags$hr(style = "margin:5px 0;"),
+      tags$span(leg_arrow("#d62728", "right"),
+        tags$span("Infectious period", style = "font-size:0.78em;")), tags$br(),
+      tags$span(leg_arrow("#1f77b4", "left"),
+        tags$span("Exposure window",  style = "font-size:0.78em;")), tags$br(),
+      tags$span(leg_arrow("#9467bd", "both"),
+        tags$span("Both windows",     style = "font-size:0.78em;")), tags$br(),
+      tags$span(leg_arrow("#9aa0a6", dashed = TRUE),
+        tags$span("Outside both",     style = "font-size:0.78em;"))
+    ) else NULL
+
     div(style = paste0(
           "position:absolute; top:8px; left:8px; z-index:100;",
           "background:rgba(255,255,255,0.92); border:1px solid #dee2e6;",
           "border-radius:4px; padding:6px 10px; pointer-events:none;"),
-      do.call(tagList, items))
+      do.call(tagList, ctx_items),
+      if (!is.null(edge_items)) do.call(tagList, edge_items))
   })
 
   output$curve   <- renderPlotly({ epi_curve(filtered()$cases) })
