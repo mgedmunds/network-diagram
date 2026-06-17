@@ -3,7 +3,7 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-17 (session 4)
+**Last updated:** 2026-06-18 (session 5)
 
 ---
 
@@ -101,9 +101,9 @@ Data collection remains Excel on OneDrive. GitHub repo must be made public befor
 ---
 
 ### Deployment — Shinylive + GitHub Pages
-**Status: In progress**
+**Status: App loads in browser — GitHub Actions deployment in progress**
 
-**Next action:** Convert main app.R for Shinylive compatibility (primarily: replace commit-count version number with static fallback). Then export and deploy via GitHub Actions.
+**Next action:** Confirm GitHub Actions build passes and app is live at mgedmunds.github.io/network-diagram. Then check for any runtime rendering issues (plotly deprecation warning on epi curve).
 
 **Checklist:**
 
@@ -111,15 +111,19 @@ Data collection remains Excel on OneDrive. GitHub repo must be made public befor
 |---|---|
 | PoC: confirm all packages work in WebR | Yes |
 | ADR-004 written | Yes |
-| Version number fallback (no git in WebR) | **No** |
-| GitHub repo made public | **No** |
-| GitHub Pages enabled (source: GitHub Actions) | **No** |
-| Main app exported and deployed | **No** |
-| GitHub Actions workflow added for main app | **No** |
+| Version number fallback (no git in WebR) | Yes |
+| GitHub repo made public / Pro account | Yes (Pro) |
+| GitHub Pages enabled (source: GitHub Actions) | Yes |
+| GitHub Actions workflow added for main app | Yes |
+| DiagrammeR removed (WebSocket crash in WebR) | Yes |
+| App loads locally in browser | Yes |
+| Main app live on GitHub Pages | Pending — check Actions tab |
 
 **Log:**
 - 2026-06-17 — PoC deployed locally; all packages confirmed (shinylive-poc branch)
 - 2026-06-17 — ADR-004 written; Shinylive + GitHub Pages approach accepted
+- 2026-06-18 — Multiple build failures resolved: openxlsx (clean export dir), ggplot2 (added explicitly), DiagrammeR (WebSocket crash, removed entirely), missing closing paren (bracket error from DiagrammeR removal)
+- 2026-06-18 — App confirmed loading locally at http://localhost:8085 with demo data
 
 ---
 
@@ -185,7 +189,9 @@ Matt reviews and clears entries at the start of the next session.
 |---|---|---|---|
 | 2026-06-17 | RStudio | RStudio was running app from Documents/network-diagram (unmanaged copy). Fixed by cloning to projects/network-diagram. Ensure RStudio always opens from that location. | No |
 | 2026-06-17 | Versioning | Commit-count version number requires git in PATH — will not work in WebR. Needs a static fallback before Shinylive deployment. Action: fix before exporting main app. | No |
-| 2026-06-17 | Deployment | Shinylive + GitHub Pages accepted (ADR-004). GitHub repo must be made public for free GitHub Pages. No patient data in repo — only app code and synthetic demo data. | No |
+| 2026-06-17 | Deployment | Shinylive + GitHub Pages accepted (ADR-004). GitHub repo must be made public for free GitHub Pages. No patient data in repo — only app code and synthetic demo data. | Yes — using Pro account, repo stays private |
+| 2026-06-18 | Deployment | plotly deprecation warning on startup: "Specifying width/height in layout() is now deprecated." Harmless but should be fixed — pass height to ggplotly() differently. | No |
+| 2026-06-18 | Deployment | DiagrammeR permanently removed from app. ERD reference diagram (docs/erd.svg) still exists in repo but is no longer auto-generated on app startup. If schema changes, erd.svg must be updated manually or via a separate script. | No |
 
 ---
 
