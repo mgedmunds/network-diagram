@@ -26,9 +26,15 @@ jobs:
           r-version: release
           use-public-rspm: true
 
-      - name: Install shinylive
+      - name: Install R packages
         shell: Rscript {0}
-        run: install.packages("shinylive")
+        run: |
+          install.packages(c(
+            "shinylive",
+            "shiny", "bslib", "visNetwork", "dplyr", "tidyr", "readxl",
+            "lubridate", "igraph", "plotly", "DT", "purrr", "tibble",
+            "jsonlite", "DiagrammeR"
+          ))
 
       - name: Export app to static site
         shell: Rscript {0}
