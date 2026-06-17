@@ -910,13 +910,15 @@ build_timeline_plot <- function(sel, f, p) {
                       line = list(width = 1, color = "#444")),
         name = "Visit date", legendgroup = "visit", showlegend = TRUE)
 
+    n_rows <- length(ctx_order)
     fig |> layout(
+      height = n_rows * 36L + 130L,
       shapes = shapes,
       yaxis  = list(categoryorder = "array", categoryarray = rev(ctx_order), title = ""),
       xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
                    minor = list(dtick = 86400000, showgrid = TRUE, gridcolor = "rgba(0,0,0,0.12)")),
       legend = list(orientation = "h", x = 0, y = -0.25),
-      margin = list(l = 160, b = 70))
+      margin = list(l = 160, b = 90))
 
   } else {
     # ---- Context selected ----------------------------------------------------
@@ -982,12 +984,14 @@ build_timeline_plot <- function(sel, f, p) {
                       line = list(width = 1, color = "#444")),
         name = "Visit date", legendgroup = "visit", showlegend = TRUE)
 
+    n_rows <- length(y_order)
     fig |> layout(
+      height = n_rows * 36L + 130L,
       yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
       xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
                    minor = list(dtick = 86400000, showgrid = TRUE, gridcolor = "rgba(0,0,0,0.12)")),
       legend = list(orientation = "h", x = 0, y = -0.25),
-      margin = list(l = 80, b = 70))
+      margin = list(l = 80, b = 90))
   }
 }
 
@@ -1507,7 +1511,7 @@ server <- function(input, output, session) {
     n_rows <- nrow_timeline(sel, filtered())
     if (n_rows == 0)
       return(div(style = "padding:20px; color:#888;", "No timeline data available for this node."))
-    plotlyOutput("timeline_plot", height = paste0(max(150L, n_rows * 30L + 90L), "px"))
+    plotlyOutput("timeline_plot", height = paste0(max(150L, n_rows * 36L + 130L), "px"))
   })
 
   output$timeline_plot <- renderPlotly({
