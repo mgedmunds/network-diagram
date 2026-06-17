@@ -924,8 +924,10 @@ build_timeline_plot <- function(sel, f, p) {
     # ---- Context selected ----------------------------------------------------
     ctx_r  <- ctx_df[ctx_df$context_name == clean, ]
     ctx_id <- ctx_r$context_id[1]
-    linked <- sort(unique(vd$case_id[vd$context_id == ctx_id]))
+    linked <- unique(vd$case_id[vd$context_id == ctx_id])
     linked <- linked[linked %in% cases_df$case_id]
+    # Sort by onset date so the chart reads chronologically top to bottom
+    linked <- linked[order(cases_df$onset_date[match(linked, cases_df$case_id)])]
     if (length(linked) == 0) return(plotly_empty())
 
     segs    <- list()
@@ -1524,7 +1526,7 @@ server <- function(input, output, session) {
     ) else NULL
 
     div(style = paste0(
-          "position:absolute; top:8px; right:8px; z-index:100;",
+          "position:absolute; top:48px; left:8px; z-index:100;",
           "background:rgba(255,255,255,0.92); border:1px solid #dee2e6;",
           "border-radius:4px; padding:6px 10px; pointer-events:none;"),
       do.call(tagList, ctx_items),
