@@ -21,16 +21,20 @@
 # =============================================================================
 
 # Version = major.minor from VERSION file + patch from git commit count.
-# Patch increments automatically on every commit/push with no manual steps.
-APP_VERSION <- tryCatch({
-  major_minor <- trimws(readLines("VERSION", n = 1))
-  patch <- trimws(system2("git", c("rev-list", "--count", "HEAD"),
-                           stdout = TRUE, stderr = FALSE))
-  # system2 returns character(0) in WebR (no git available) — fall through to fallback
-  if (length(patch) == 0 || !nzchar(patch)) stop("git unavailable")
-  paste0(major_minor, ".", patch)
-}, error = function(e) {
-  tryCatch(paste0(trimws(readLines("VERSION", n = 1)), ".0"), error = function(e) "0.1.0")
+# In Shinylive (WebR), system2() can throw a JavaScript-level error that bypasses
+# R's tryCatch, so we skip the git call entirely when running in the browser.
+APP_VERSION <- local({
+  major_minor <- tryCatch(trimws(readLines("VERSION", n = 1)), error = function(e) "0.1")
+  if (isTRUE(getOption("shinylive.running"))) {
+    paste0(major_minor, ".0")
+  } else {
+    patch <- tryCatch({
+      p <- trimws(system2("git", c("rev-list", "--count", "HEAD"),
+                          stdout = TRUE, stderr = FALSE))
+      if (length(p) == 0 || !nzchar(p)) NA_character_ else p
+    }, error = function(e) NA_character_)
+    if (is.na(patch)) paste0(major_minor, ".0") else paste0(major_minor, ".", patch)
+  }
 })
 
 # Core Shiny framework and Bootstrap 5 UI components (cards, layout, tooltips)
@@ -52,7 +56,9 @@ library(DT)          # Interactive data tables with column filtering
 library(purrr)
 library(tibble)
 library(jsonlite)
-library(DiagrammeR)  # Renders the schema ERD in the Reference tab
+# DiagrammeR is not available in all environments (e.g. WebR/Shinylive).
+# Made optional so a missing package doesn't crash the whole app on load.
+DIAGRAMMER_AVAILABLE <- tryCatch({ library(DiagrammeR); TRUE }, error = function(e) FALSE)
 
 # ---- Configuration ----------------------------------------------------------
 # 10 perceptually distinct colours (D3 category10). Assigned in order to whatever
@@ -1233,9 +1239,14 @@ ui <- page_navbar(
         hdr("Schema diagram",
             "Entity-relationship diagram. Underlined fields are primary keys. Italic visit_relevance is derived at runtime and not stored."),
         card_body(
-          grVizOutput("erd_plot", height = "500px"),
-          div(style = "margin-top:8px;",
-              downloadButton("download_erd", "Download SVG", class = "btn-outline-secondary btn-sm")))
+          if (DIAGRAMMER_AVAILABLE)
+            tagList(
+              grVizOutput("erd_plot", height = "500px"),
+              div(style = "margin-top:8px;",
+                  downloadButton("download_erd", "Download SVG", class = "btn-outline-secondary btn-sm")))
+          else
+            p(class = "text-muted",
+              "Schema diagram not available in the browser version. Open the app in RStudio to view.")
       ),
       card(
         hdr("Data dictionary", "Field-level definitions. visit_relevance in case_contexts is computed live from parameters and is never stored."),
@@ -1594,16 +1605,18 @@ server <- function(input, output, session) {
   })
 
   # ---- Reference tab outputs --------------------------------------------------
-  output$erd_plot <- renderGrViz({ grViz(ERD_GRAPHVIZ) })
+  if (DIAGRAMMER_AVAILABLE) {
+    output$erd_plot <- renderGrViz({ grViz(ERD_GRAPHVIZ) })
 
-  output$download_erd <- downloadHandler(
-    filename = "network-diagram-schema.svg",
-    content  = function(file) {
-      if (!requireNamespace("DiagrammeRsvg", quietly = TRUE))
-        stop("Install the DiagrammeRsvg package to enable SVG download.")
-      writeLines(DiagrammeRsvg::export_svg(grViz(ERD_GRAPHVIZ)), file)
-    }
-  )
+    output$download_erd <- downloadHandler(
+      filename = "network-diagram-schema.svg",
+      content  = function(file) {
+        if (!requireNamespace("DiagrammeRsvg", quietly = TRUE))
+          stop("Install the DiagrammeRsvg package to enable SVG download.")
+        writeLines(DiagrammeRsvg::export_svg(grViz(ERD_GRAPHVIZ)), file)
+      }
+    )
+  }
 
   dict_dt <- function(tbl)
     datatable(tbl, rownames = FALSE, escape = FALSE,
