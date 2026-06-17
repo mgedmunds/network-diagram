@@ -1163,6 +1163,7 @@ ui <- page_navbar(
         card_body(
           p(class = "text-muted",
             "Schema diagram available in ", tags$code("docs/erd.svg"), " in the project repository.")
+        )
       ),
       card(
         hdr("Data dictionary", "Field-level definitions. visit_relevance in case_contexts is computed live from parameters and is never stored."),
