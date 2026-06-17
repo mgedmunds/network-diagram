@@ -178,6 +178,24 @@ Derived rule for suspected transmission links (Who infected whom view): onset ga
 - Commit after each logical unit of work with a clear message
 - Push branches to GitHub; open a PR to merge into `main` when a phase is complete
 
+## Development workflow
+
+```mermaid
+flowchart TD
+    A[Claude Code\nWSL / Ubuntu] -->|edits code & docs| B[app.R / docs /\nCLAUDE.md]
+    B -->|git commit| C[Local git repo\nWSL]
+    C -->|git push| D[GitHub]
+    D -->|git fetch + merge| E[RStudio\nWindows]
+    E -->|run & test app| F[Shiny app\nin browser]
+    F -->|feedback / decisions| A
+
+    G[VS Code\nWSL workspace] -->|preview .md files| B
+```
+
+- All code and doc editing is done through Claude Code — not directly in RStudio or VS Code
+- RStudio is used only to pull from GitHub and run/test the app
+- VS Code is used only to preview `.md` files with formatting
+
 ## Project management
 
 - **GitHub Issues** — task tracking, bugs, decisions to make. One issue per task.
