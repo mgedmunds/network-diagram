@@ -1142,7 +1142,9 @@ ui <- page_navbar(
                         "(see Assumptions & parameters).")))),
         uiOutput("bipartite_key"),
         uiOutput("contacts_warning"),
-        visNetworkOutput("net", height = "500px")),
+        div(style = "position:relative;",
+          uiOutput("network_legend"),
+          visNetworkOutput("net", height = "500px"))),
 
       card(
         class = "timeline-card",
@@ -1495,14 +1497,30 @@ server <- function(input, output, session) {
     vn <- if (v == "contacts") visEdges(vn, arrows = "to", smooth = TRUE)
           else if (v == "bipartite") visEdges(vn, smooth = FALSE)
           else visEdges(vn, smooth = TRUE, color = list(color = "#9aa0a6", opacity = 0.7))
-    cols <- colour_map(filtered()$contexts$context_type)
-    leg <- lapply(names(cols), function(s)
-      list(label = s, shape = if (v == "bipartite") "square" else "dot",
-           color = unname(cols[[s]])))
-    # Add a "Case" entry to the legend only in the bipartite view,
-    # where case nodes are a distinct type from context nodes
-    if (v == "bipartite") leg <- c(leg, list(list(label = "Case", shape = "dot", color = CASE_COLOUR)))
-    vn |> visLegend(useGroups = FALSE, addNodes = leg, position = "left", width = 0.18)
+    vn
+  })
+
+  # Custom legend rendered as an HTML overlay on the network canvas.
+  # Replaces visLegend() so the legend floats over the canvas rather than
+  # occupying a fixed side panel that shrinks the network drawing area.
+  output$network_legend <- renderUI({
+    f <- filtered(); v <- input$view
+    cols <- colour_map(f$contexts$context_type)
+    is_bip <- v == "bipartite"
+    make_item <- function(label, colour, square = FALSE)
+      div(style = "display:flex; align-items:center; gap:6px; margin-bottom:3px;",
+        tags$span(style = paste0(
+          "width:12px; height:12px; flex-shrink:0; background:", colour, ";",
+          "border-radius:", if (square) "2px" else "50%", ";")),
+        tags$span(label, style = "font-size:0.78em; line-height:1.3;"))
+    items <- lapply(names(cols), function(s) make_item(s, unname(cols[[s]]), square = is_bip))
+    if (is_bip)
+      items <- c(items, list(make_item("Case", CASE_COLOUR, square = FALSE)))
+    div(style = paste0(
+          "position:absolute; top:8px; left:8px; z-index:100;",
+          "background:rgba(255,255,255,0.92); border:1px solid #dee2e6;",
+          "border-radius:4px; padding:6px 10px; pointer-events:none;"),
+      do.call(tagList, items))
   })
 
   output$curve   <- renderPlotly({ epi_curve(filtered()$cases) })
