@@ -20,6 +20,8 @@
 # shiny::runApp("app.R")
 # =============================================================================
 
+APP_VERSION <- tryCatch(trimws(readLines("VERSION", n = 1)), error = function(e) "0.1.0")
+
 library(shiny)
 library(bslib)
 library(visNetwork)
@@ -838,7 +840,7 @@ build_timeline_plot <- function(sel, f, p) {
 
 # ---- UI ---------------------------------------------------------------------
 ui <- page_navbar(
-  title = "Measles Outbreak Network Explorer",
+  title = paste0("Network explorer v", APP_VERSION),
   theme = bs_theme(version = 5, bootswatch = "flatly"), id = "nav", selected = "Home",
   header = tags$head(tags$style(HTML("
     .vis-tooltip {
@@ -897,7 +899,7 @@ ui <- page_navbar(
   nav_panel("Home",
     div(style = "max-width:800px; margin:40px auto; padding:0 16px;",
       card(
-        card_header(h4("Measles Outbreak Network Explorer", class = "mb-0")),
+        card_header(h4(paste0("Network explorer v", APP_VERSION), class = "mb-0")),
         card_body(
           p("This tool visualises a measles outbreak as an interactive network, showing how cases and places (contexts — such as schools, households, and healthcare settings) are connected. Use it to identify hub contexts, bridge cases, and potential transmission routes."),
           p("Upload your outbreak data below, then navigate to the ", tags$strong("Dashboard"), " tab to explore the network. If no file is uploaded, the tool runs on built-in demo data so you can explore the features straight away."),
@@ -1044,7 +1046,7 @@ ui <- page_navbar(
   ),
 
   nav_spacer(),
-  nav_item(tags$span(style = "color:#888; font-size:0.85em;", "Measles outbreak visualiser"))
+  nav_item(tags$span(style = "color:#888; font-size:0.85em;", paste0("Measles outbreak explorer v", APP_VERSION)))
 )
 
 # ---- Server -----------------------------------------------------------------
