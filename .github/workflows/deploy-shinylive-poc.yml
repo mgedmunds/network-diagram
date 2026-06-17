@@ -26,13 +26,15 @@ jobs:
           r-version: release
           use-public-rspm: true
 
-      - name: Install shinylive R package
+      - name: Install R packages
         shell: Rscript {0}
-        run: install.packages("shinylive")
+        run: |
+          install.packages(c(
+            "shinylive",
+            "shiny", "bslib", "visNetwork", "igraph", "plotly", "DT",
+            "dplyr", "lubridate", "jsonlite", "readxl"
+          ))
 
-      # shinylive::export() downloads WebAssembly binaries for each package
-      # directly from repo.r-wasm.org — no need to install app packages here.
-      # If a package is not in the WebR repo, this step will warn or error.
       - name: Export PoC app to static site
         shell: Rscript {0}
         run: shinylive::export("poc", "site")
