@@ -26,6 +26,8 @@ APP_VERSION <- tryCatch({
   major_minor <- trimws(readLines("VERSION", n = 1))
   patch <- trimws(system2("git", c("rev-list", "--count", "HEAD"),
                            stdout = TRUE, stderr = FALSE))
+  # system2 returns character(0) in WebR (no git available) — fall through to fallback
+  if (length(patch) == 0 || !nzchar(patch)) stop("git unavailable")
   paste0(major_minor, ".", patch)
 }, error = function(e) {
   tryCatch(paste0(trimws(readLines("VERSION", n = 1)), ".0"), error = function(e) "0.1.0")
