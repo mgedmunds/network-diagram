@@ -135,7 +135,6 @@ Derived rule for suspected transmission links (Who infected whom view): onset ga
 | `readxl` | Excel file import |
 | `lubridate` | Date handling |
 | `jsonlite` | Dev panel / action tracker JSON persistence |
-| `DiagrammeR` | ERD schema diagram in Reference tab |
 
 ---
 

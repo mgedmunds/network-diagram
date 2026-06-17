@@ -47,16 +47,6 @@ library(purrr)
 library(tibble)
 library(ggplot2)     # Epi curve chart (converted to plotly via ggplotly)
 library(jsonlite)
-# DiagrammeR opens a WebSocket connection (wss://get-ws-proxy.r-universe.dev/)
-# during load which crashes WebR at the JS level — bypasses R-level tryCatch.
-# We also can't guard with an if() check because Shinylive preloads all packages
-# found by its pre-parser (which scans for literal library() calls) before any
-# R code runs. Using character.only = TRUE with a variable hides the call from
-# the pre-parser, so DiagrammeR is never added to the WebR manifest.
-.diagrammer_pkg <- "DiagrammeR"
-DIAGRAMMER_AVAILABLE <- tryCatch({
-  library(.diagrammer_pkg, character.only = TRUE); TRUE
-}, error = function(e) FALSE)
 
 # ---- Configuration ----------------------------------------------------------
 # 10 perceptually distinct colours (D3 category10). Assigned in order to whatever
@@ -113,72 +103,6 @@ leg_arrow <- function(color, direction = "none", dashed = FALSE) {
 # GraphViz source for the entity-relationship diagram shown in the Reference tab.
 # Defines each table as a labelled node with its fields, and draws 1:N relationships
 # between them as directed edges.
-ERD_GRAPHVIZ <- '
-digraph erd {
-  graph [rankdir=TB fontname="Helvetica" fontsize=11 bgcolor="white"
-         pad="0.5" nodesep="1.0" ranksep="0.8"]
-  node  [fontname="Helvetica" fontsize=10 shape=plaintext]
-  edge  [fontname="Helvetica" fontsize=9 color="#555555"
-         arrowhead=crow arrowtail=tee dir=both]
-
-  { rank=same; CASES; CONTEXTS }
-  { rank=same; VISIT_DATES; CONTACTS }
-
-  CASES [label=<
-    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-      <TR><TD COLSPAN="3" BGCOLOR="#2c7fb8" ALIGN="CENTER"><FONT COLOR="white"><B> cases </B></FONT></TD></TR>
-      <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK</TD></TR>
-      <TR><TD ALIGN="LEFT">onset_date</TD><TD ALIGN="LEFT">date</TD><TD>required</TD></TR>
-      <TR><TD ALIGN="LEFT">age_group</TD><TD ALIGN="LEFT">character</TD><TD> </TD></TR>
-      <TR><TD ALIGN="LEFT">vaccination_status</TD><TD ALIGN="LEFT">character</TD><TD> </TD></TR>
-      <TR><TD ALIGN="LEFT">case_status</TD><TD ALIGN="LEFT">character</TD><TD> </TD></TR>
-    </TABLE>>]
-
-  CONTEXTS [label=<
-    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-      <TR><TD COLSPAN="3" BGCOLOR="#31a354" ALIGN="CENTER"><FONT COLOR="white"><B> contexts </B></FONT></TD></TR>
-      <TR><TD ALIGN="LEFT"><U>context_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK</TD></TR>
-      <TR><TD ALIGN="LEFT">context_name</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
-      <TR><TD ALIGN="LEFT">context_type</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
-    </TABLE>>]
-
-  CASE_CONTEXTS [label=<
-    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-      <TR><TD COLSPAN="3" BGCOLOR="#e6550d" ALIGN="CENTER"><FONT COLOR="white"><B> case_contexts </B></FONT></TD></TR>
-      <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
-      <TR><TD ALIGN="LEFT"><U>context_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK + FK</TD></TR>
-      <TR><TD ALIGN="LEFT"><I>visit_relevance</I></TD><TD ALIGN="LEFT"><I>character</I></TD><TD><I>derived</I></TD></TR>
-    </TABLE>>]
-
-  VISIT_DATES [label=<
-    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-      <TR><TD COLSPAN="3" BGCOLOR="#756bb1" ALIGN="CENTER"><FONT COLOR="white"><B> visit_dates </B></FONT></TD></TR>
-      <TR><TD ALIGN="LEFT"><U>case_id</U></TD><TD ALIGN="LEFT">character</TD><TD>PK + FK</TD></TR>
-      <TR><TD ALIGN="LEFT"><U>context_id</U></TD><TD ALIGN="LEFT">integer</TD><TD>PK + FK</TD></TR>
-      <TR><TD ALIGN="LEFT"><U>visit_date</U></TD><TD ALIGN="LEFT">date</TD><TD>PK</TD></TR>
-    </TABLE>>]
-
-  CONTACTS [label=<
-    <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-      <TR><TD COLSPAN="3" BGCOLOR="#de2d26" ALIGN="CENTER"><FONT COLOR="white"><B> contacts </B></FONT></TD></TR>
-      <TR><TD ALIGN="LEFT">from</TD><TD ALIGN="LEFT">character</TD><TD>FK</TD></TR>
-      <TR><TD ALIGN="LEFT">to</TD><TD ALIGN="LEFT">character</TD><TD>FK</TD></TR>
-      <TR><TD ALIGN="LEFT">link_type</TD><TD ALIGN="LEFT">character</TD><TD>required</TD></TR>
-    </TABLE>>]
-
-  CASES         -> CASE_CONTEXTS [label=" 1:N "]
-  CONTEXTS      -> CASE_CONTEXTS [label=" 1:N "]
-  CASE_CONTEXTS -> VISIT_DATES   [label=" 1:N "]
-  CASES         -> CONTACTS      [label=" 1:N\n(from + to) " style=dashed]
-}
-'
-
-# Auto-export ERD to docs/ whenever the app file is sourced (soft dep on DiagrammeRsvg)
-tryCatch({
-  if (requireNamespace("DiagrammeRsvg", quietly = TRUE))
-    writeLines(DiagrammeRsvg::export_svg(grViz(ERD_GRAPHVIZ)), "docs/erd.svg")
-}, error = function(e) NULL)
-
 # Field-level definitions for all five tables, displayed in the Reference tab.
 # Stored as a named list of data frames so the Reference tab can render each
 # table independently with its own DT output.
@@ -1237,14 +1161,8 @@ ui <- page_navbar(
         hdr("Schema diagram",
             "Entity-relationship diagram. Underlined fields are primary keys. Italic visit_relevance is derived at runtime and not stored."),
         card_body(
-          if (DIAGRAMMER_AVAILABLE)
-            tagList(
-              grVizOutput("erd_plot", height = "500px"),
-              div(style = "margin-top:8px;",
-                  downloadButton("download_erd", "Download SVG", class = "btn-outline-secondary btn-sm")))
-          else
-            p(class = "text-muted",
-              "Schema diagram not available in the browser version. Open the app in RStudio to view.")
+          p(class = "text-muted",
+            "Schema diagram available in ", tags$code("docs/erd.svg"), " in the project repository.")
       ),
       card(
         hdr("Data dictionary", "Field-level definitions. visit_relevance in case_contexts is computed live from parameters and is never stored."),
@@ -1603,19 +1521,6 @@ server <- function(input, output, session) {
   })
 
   # ---- Reference tab outputs --------------------------------------------------
-  if (DIAGRAMMER_AVAILABLE) {
-    output$erd_plot <- renderGrViz({ grViz(ERD_GRAPHVIZ) })
-
-    output$download_erd <- downloadHandler(
-      filename = "network-diagram-schema.svg",
-      content  = function(file) {
-        if (!requireNamespace("DiagrammeRsvg", quietly = TRUE))
-          stop("Install the DiagrammeRsvg package to enable SVG download.")
-        writeLines(DiagrammeRsvg::export_svg(grViz(ERD_GRAPHVIZ)), file)
-      }
-    )
-  }
-
   dict_dt <- function(tbl)
     datatable(tbl, rownames = FALSE, escape = FALSE,
               options = list(dom = "t", pageLength = 20, ordering = FALSE,
