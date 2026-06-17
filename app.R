@@ -1112,11 +1112,37 @@ ui <- page_navbar(
         visNetworkOutput("net", height = "500px")),
 
       card(
-        hdr("Timeline",
-            "Select a node in the network above to see its timeline. For a case: exposure and infectious windows span all visited contexts as a single block, with dots for each visit day. For a context: one row per linked case showing their individual epi windows and visit dots."),
+        card_header(class = "d-flex justify-content-between align-items-center",
+          span("Timeline"),
+          div(class = "d-flex align-items-center gap-2",
+            info("Select a node in the network above to see its timeline. For a case: exposure and infectious windows span all visited contexts as a single block, with dots for each visit day. For a context: one row per linked case showing their individual epi windows and visit dots."),
+            tags$button(
+              id = "timeline_expand_btn",
+              class = "btn btn-outline-secondary btn-sm py-0",
+              `data-expanded` = "false",
+              onclick = "
+                var d   = document.getElementById('timeline_body_div');
+                var btn = document.getElementById('timeline_expand_btn');
+                if (btn.dataset.expanded === 'true') {
+                  d.style.height   = '30vh';
+                  d.style.overflowY = 'auto';
+                  d.style.resize   = 'vertical';
+                  btn.textContent  = 'Expand';
+                  btn.dataset.expanded = 'false';
+                } else {
+                  d.style.height   = 'auto';
+                  d.style.overflowY = 'visible';
+                  d.style.resize   = 'none';
+                  btn.textContent  = 'Collapse';
+                  btn.dataset.expanded = 'true';
+                }
+              ",
+              "Expand"))),
         card_body(
-          style = "height: 30vh; min-height: 120px; overflow-y: auto; resize: vertical; padding: 4px;",
-          uiOutput("timeline_container")))
+          padding = 0,
+          div(id = "timeline_body_div",
+              style = "height: 30vh; min-height: 120px; overflow-y: auto; resize: vertical; padding: 4px;",
+              uiOutput("timeline_container"))))
     )),
 
   nav_panel("Data",
