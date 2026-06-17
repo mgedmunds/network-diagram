@@ -33,7 +33,7 @@ jobs:
             "shinylive",
             "shiny", "bslib", "visNetwork", "dplyr", "tidyr", "readxl",
             "lubridate", "igraph", "plotly", "DT", "purrr", "tibble",
-            "ggplot2", "jsonlite", "DiagrammeR"
+            "ggplot2", "jsonlite"
           ))
 
       # Copy only the files the Shiny app needs into a clean directory.

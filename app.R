@@ -48,13 +48,15 @@ library(tibble)
 library(ggplot2)     # Epi curve chart (converted to plotly via ggplotly)
 library(jsonlite)
 # DiagrammeR opens a WebSocket connection (wss://get-ws-proxy.r-universe.dev/)
-# during load which crashes WebR at the JavaScript level — bypasses tryCatch.
-# Skip it entirely in WebR; the ERD in the Reference tab shows a message instead.
-DIAGRAMMER_AVAILABLE <- if (isTRUE(grepl("wasm", R.version$arch))) {
-  FALSE
-} else {
-  tryCatch({ library(DiagrammeR); TRUE }, error = function(e) FALSE)
-}
+# during load which crashes WebR at the JS level — bypasses R-level tryCatch.
+# We also can't guard with an if() check because Shinylive preloads all packages
+# found by its pre-parser (which scans for literal library() calls) before any
+# R code runs. Using character.only = TRUE with a variable hides the call from
+# the pre-parser, so DiagrammeR is never added to the WebR manifest.
+.diagrammer_pkg <- "DiagrammeR"
+DIAGRAMMER_AVAILABLE <- tryCatch({
+  library(.diagrammer_pkg, character.only = TRUE); TRUE
+}, error = function(e) FALSE)
 
 # ---- Configuration ----------------------------------------------------------
 # 10 perceptually distinct colours (D3 category10). Assigned in order to whatever
