@@ -20,7 +20,16 @@
 # shiny::runApp("app.R")
 # =============================================================================
 
-APP_VERSION <- tryCatch(trimws(readLines("VERSION", n = 1)), error = function(e) "0.1.0")
+# Version = major.minor from VERSION file + patch from git commit count.
+# Patch increments automatically on every commit/push with no manual steps.
+APP_VERSION <- tryCatch({
+  major_minor <- trimws(readLines("VERSION", n = 1))
+  patch <- trimws(system2("git", c("rev-list", "--count", "HEAD"),
+                           stdout = TRUE, stderr = FALSE))
+  paste0(major_minor, ".", patch)
+}, error = function(e) {
+  tryCatch(paste0(trimws(readLines("VERSION", n = 1)), ".0"), error = function(e) "0.1.0")
+})
 
 library(shiny)
 library(bslib)
