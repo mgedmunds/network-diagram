@@ -9,8 +9,8 @@ Claude updates this at the end of every session. Read this first at the start of
 
 ## Current focus
 
-**Phase 2 decisions are made and implemented — ADR needed to close the phase.**
-All four open questions answered this session. Implementations are live. Write ADR-003 next session to close Phase 2, then start Phase 4 (Definitions & Tooltips) and the Stage 1 data entry guide.
+**Phase 2 is closed. Next priorities are Phase 4 (Definitions & Tooltips) and the Stage 1 data entry guide.**
+Both can now proceed in parallel.
 
 ---
 
@@ -37,9 +37,9 @@ All four open questions answered this session. Implementations are live. Write A
 ---
 
 ### Phase 2 — Network Diagram Types
-**Status: Decisions made and implemented — ADR-003 pending before phase closes**
+**Status: Complete**
 
-**Next action:** Write ADR-003 to record the four view decisions. Then close this phase.
+**Next action:** None. Phase closed.
 
 **Decisions made (2026-06-17):**
 - [x] Keep the Contexts network view (`projection`)
@@ -61,6 +61,7 @@ All four open questions answered this session. Implementations are live. Write A
 - 2026-06-17 — Dashboard restructured: network diagram + timeline panel; epi curve and tables moved to Data tab
 - 2026-06-17 — Interactive timeline panel added: Gantt-style chart responds to node selection; shows exposure window, infectious period, onset date, and visit dates
 - 2026-06-17 — "Who infected whom" now always shown; info alert displayed when no contacts data available
+- 2026-06-17 — ADR-003 written; phase closed
 
 ---
 
@@ -150,7 +151,7 @@ Matt reviews and clears entries at the start of the next session.
 |---|---|---|---|
 | 2026-06-17 | Schema | Memory referred to `settings`/`case_settings` table names — current naming is `contexts`/`case_contexts`. Memory updated. | Yes |
 | 2026-06-17 | Versioning | Commit-count approach requires git in PATH when R starts. Works in RStudio local; may need fallback when deploying to Posit Connect. | No |
-| 2026-06-17 | Phase 2 | ADR-003 not yet written — phase should not be marked closed until ADR is done. | No |
+| 2026-06-17 | Phase 2 | ADR-003 written and phase closed. | Yes |
 
 ---
 
@@ -165,7 +166,8 @@ Matt reviews and clears entries at the start of the next session.
 | `docs/erd.svg` | Schema entity-relationship diagram | Auto-generated |
 | `docs/decisions/ADR-001` | Why visNetwork was chosen for rendering | Accepted |
 | `docs/decisions/ADR-002` | Bipartite link category definitions | Accepted |
+| `docs/decisions/ADR-003` | Network view selection and main page layout | Accepted |
 | `docs/data-model.md` | Phase 1 working notes | Closed |
 | `docs/data-input.md` | Phase 3 working notes and data entry decision | Closed |
-| `docs/network-types.md` | Phase 2 working notes | Open |
+| `docs/network-types.md` | Phase 2 working notes | Closed — see ADR-003 |
 | `docs/additional-features.md` | Candidate future views | Open |
