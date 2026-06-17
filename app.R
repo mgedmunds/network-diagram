@@ -828,107 +828,134 @@ hypotheses, alongside your wider outbreak knowledge.
 
 # Returns the number of chart rows that will be drawn for a given selection,
 # so the container height can be set before the plot renders.
-timeline_row_count <- function(sel, f) {
-  cases_df <- f$cases; ctx_df <- f$contexts; vd <- f$visit_dates
-  is_case  <- sel %in% cases_df$case_id
-  if (is_case) {
-    return(1L + length(unique(vd$context_id[vd$case_id == sel])))
-  }
-  clean <- sub("^ctx::", "", sel)
-  ctx_r <- ctx_df[ctx_df$context_name == clean, ]
+nrow_timeline <- function(sel, f) {
+  # Returns the number of chart rows: contexts visited (case selected) or
+  # cases that attended (context selected). Used to size the plotlyOutput.
+  if (sel %in% f$cases$case_id)
+    return(length(unique(f$visit_dates$context_id[f$visit_dates$case_id == sel])))
+  clean  <- sub("^ctx::", "", sel)
+  ctx_r  <- f$contexts[f$contexts$context_name == clean, ]
   if (nrow(ctx_r) == 0) return(0L)
   ctx_id <- ctx_r$context_id[1]
-  linked <- unique(vd$case_id[vd$context_id == ctx_id])
-  linked <- linked[linked %in% cases_df$case_id]
-  n <- 1L
-  for (cid in linked) n <- n + 1L + length(unique(vd$context_id[vd$case_id == cid]))
-  n
+  linked <- unique(f$visit_dates$case_id[f$visit_dates$context_id == ctx_id])
+  length(linked[linked %in% f$cases$case_id])
 }
 
-# Builds the plotly Gantt chart for the selected node.
-# For a case: one row showing exposure window and infectious period, then one
-#   sub-row per context visited showing individual visit dates.
-# For a context: one header row, then the same case-level and visit rows for
-#   every case linked to that context.
-# Segments (bars) and point markers are accumulated in lists then combined
-# into data frames for efficient plotly rendering.
+# Builds the plotly timeline chart for the selected node.
+#
+# Case selected: one row per context visited. Epi windows (exposure, infectious)
+#   and onset line are drawn as full-height background shapes spanning all rows,
+#   so they read as single blocks. Visit dots show attendance days per context.
+#
+# Context selected: one row per case linked to that context. Each case gets its
+#   own epi window segments and onset marker (dates differ per case). Visit dots
+#   show only days that case attended the selected context.
 build_timeline_plot <- function(sel, f, p) {
   cases_df <- f$cases; ctx_df <- f$contexts; vd <- f$visit_dates
   is_case  <- sel %in% cases_df$case_id
-  # Strip the "ctx::" prefix added by the bipartite view builder
   clean    <- sub("^ctx::", "", sel)
   is_ctx   <- !is_case && clean %in% ctx_df$context_name
   if (!is_case && !is_ctx) return(plotly_empty())
 
-  segs    <- list()   # horizontal bar segments: exposure window and infectious period
-  pts     <- list()   # point markers: onset dates and individual visit dates
-  y_order <- character(0)
-
-  # Adds one row to the chart for a case, showing their epi windows and onset marker
-  add_case_row <- function(case_id, y_lbl = case_id) {
-    cr <- cases_df[cases_df$case_id == case_id, ]
-    if (nrow(cr) == 0) return()
-    onset <- cr$onset_date[1]
-    segs[[paste0(case_id, "_exp")]] <<- data.frame(
-      y_label = y_lbl, x0 = onset - p$inc_max, x1 = onset - p$inc_min,
-      seg_type = "Exposure window", stringsAsFactors = FALSE)
-    segs[[paste0(case_id, "_inf")]] <<- data.frame(
-      y_label = y_lbl, x0 = onset - p$inf_before, x1 = onset + p$inf_after,
-      seg_type = "Infectious period", stringsAsFactors = FALSE)
-    pts[[paste0(case_id, "_onset")]] <<- data.frame(
-      y_label = y_lbl, x = onset, pt_type = "Onset date", stringsAsFactors = FALSE)
-    y_order <<- c(y_order, y_lbl)
-  }
-
-  # Adds one sub-row per context visited by a case, with visit dates as point markers.
-  # lbl_prefix is used in context-selected mode to prefix rows with the case ID,
-  # preventing duplicate y-axis labels when multiple cases visited the same context.
-  add_visit_rows <- function(case_id, lbl_prefix = "") {
-    cvd <- vd[vd$case_id == case_id, ]
-    for (cid in unique(cvd$context_id)) {
-      cr2 <- ctx_df[ctx_df$context_id == cid, ]
-      if (nrow(cr2) == 0) next
-      y_lbl  <- paste0("  ", lbl_prefix, cr2$context_name[1])
-      vdates <- sort(unique(cvd$visit_date[cvd$context_id == cid]))
-      if (length(vdates) == 0) next
-      pts[[paste0(case_id, "_", cid, "_v")]] <<- data.frame(
-        y_label = y_lbl, x = vdates, pt_type = "Visit date", stringsAsFactors = FALSE)
-      y_order <<- c(y_order, y_lbl)
-    }
-  }
-
   if (is_case) {
-    add_case_row(sel)
-    add_visit_rows(sel)
+    # ---- Case selected -------------------------------------------------------
+    cr    <- cases_df[cases_df$case_id == sel, ]
+    onset <- cr$onset_date[1]
+
+    # Visit dates for this case, joined to context names
+    cv <- vd[vd$case_id == sel, ]
+    if (nrow(cv) == 0) return(plotly_empty())
+    cv <- merge(cv, ctx_df[, c("context_id", "context_name")], by = "context_id")
+    # as.Date recovers the Date class lost when merge strips it to numeric
+    cv$visit_date <- as.Date(cv$visit_date, origin = "1970-01-01")
+    ctx_order <- unique(cv$context_name)
+
+    # Full-height background rectangles for epi windows; vertical dashed line for onset.
+    # format() converts Date to ISO string required by plotly shape x coordinates.
+    shapes <- list(
+      list(type = "rect", xref = "x", yref = "paper",
+           x0 = format(onset - p$inc_max,    "%Y-%m-%d"),
+           x1 = format(onset - p$inc_min,    "%Y-%m-%d"),
+           y0 = 0, y1 = 1, layer = "below",
+           fillcolor = "rgba(174,199,232,0.45)", line = list(width = 0)),
+      list(type = "rect", xref = "x", yref = "paper",
+           x0 = format(onset - p$inf_before, "%Y-%m-%d"),
+           x1 = format(onset + p$inf_after,  "%Y-%m-%d"),
+           y0 = 0, y1 = 1, layer = "below",
+           fillcolor = "rgba(252,141,141,0.45)", line = list(width = 0)),
+      list(type = "line", xref = "x", yref = "paper",
+           x0 = format(onset, "%Y-%m-%d"), x1 = format(onset, "%Y-%m-%d"),
+           y0 = 0, y1 = 1,
+           line = list(color = "#333", width = 2, dash = "dash"))
+    )
+
+    # Background shapes do not appear in the plotly legend automatically.
+    # Empty-data traces (x = numeric(0)) add legend entries without drawing anything.
+    fig <- plot_ly() |>
+      add_trace(type = "scatter", mode = "markers",
+        x = numeric(0), y = character(0),
+        marker = list(color = "rgba(174,199,232,0.85)", size = 14, symbol = "square"),
+        name = "Exposure window", legendgroup = "exp", showlegend = TRUE) |>
+      add_trace(type = "scatter", mode = "markers",
+        x = numeric(0), y = character(0),
+        marker = list(color = "rgba(252,141,141,0.85)", size = 14, symbol = "square"),
+        name = "Infectious period", legendgroup = "inf", showlegend = TRUE) |>
+      add_trace(type = "scatter", mode = "markers",
+        x = numeric(0), y = character(0),
+        marker = list(color = "#333", size = 14, symbol = "line-ns-open",
+                      line = list(color = "#333", width = 2)),
+        name = "Onset date", legendgroup = "onset", showlegend = TRUE) |>
+      add_markers(data = cv, x = ~visit_date, y = ~context_name,
+        marker = list(symbol = "circle", size = 9, color = "#636363",
+                      line = list(width = 1, color = "#444")),
+        name = "Visit date", legendgroup = "visit", showlegend = TRUE)
+
+    fig |> layout(
+      shapes = shapes,
+      yaxis  = list(categoryorder = "array", categoryarray = rev(ctx_order), title = ""),
+      xaxis  = list(type = "date", title = ""),
+      legend = list(orientation = "h", x = 0, y = -0.25),
+      margin = list(l = 160, b = 70))
+
   } else {
+    # ---- Context selected ----------------------------------------------------
     ctx_r  <- ctx_df[ctx_df$context_name == clean, ]
     ctx_id <- ctx_r$context_id[1]
-    y_order <- c(y_order, clean)
-    linked  <- sort(unique(vd$case_id[vd$context_id == ctx_id]))
-    linked  <- linked[linked %in% cases_df$case_id]
+    linked <- sort(unique(vd$case_id[vd$context_id == ctx_id]))
+    linked <- linked[linked %in% cases_df$case_id]
+    if (length(linked) == 0) return(plotly_empty())
+
+    segs    <- list()
+    pts     <- list()
+    y_order <- character(0)
+
     for (cid in linked) {
-      add_case_row(cid)
-      add_visit_rows(cid, lbl_prefix = paste0(cid, " — "))
+      cr    <- cases_df[cases_df$case_id == cid, ]
+      onset <- cr$onset_date[1]
+      segs[[paste0(cid, "_exp")]] <- data.frame(
+        y_label = cid, x0 = onset - p$inc_max, x1 = onset - p$inc_min,
+        seg_type = "Exposure window", stringsAsFactors = FALSE)
+      segs[[paste0(cid, "_inf")]] <- data.frame(
+        y_label = cid, x0 = onset - p$inf_before, x1 = onset + p$inf_after,
+        seg_type = "Infectious period", stringsAsFactors = FALSE)
+      pts[[paste0(cid, "_onset")]] <- data.frame(
+        y_label = cid, x = onset, pt_type = "Onset date", stringsAsFactors = FALSE)
+      # Visit dots only for this context, not all contexts the case visited
+      vdates <- sort(unique(vd$visit_date[vd$case_id == cid & vd$context_id == ctx_id]))
+      if (length(vdates) > 0)
+        pts[[paste0(cid, "_v")]] <- data.frame(
+          y_label = cid, x = vdates, pt_type = "Visit date", stringsAsFactors = FALSE)
+      y_order <- c(y_order, cid)
     }
-  }
 
-  y_order  <- unique(y_order)
-  # Combine all accumulated rows into data frames.
-  # as.Date with origin converts numeric dates that can result from rbind
-  # stripping the Date class back to proper Date objects.
-  all_segs <- if (length(segs)) do.call(rbind, segs) else NULL
-  all_pts  <- if (length(pts))  do.call(rbind, pts)  else NULL
-  if (is.null(all_segs) && is.null(all_pts)) return(plotly_empty())
-
-  if (!is.null(all_segs)) {
+    all_segs <- do.call(rbind, segs)
+    all_pts  <- do.call(rbind, pts)
+    # rbind strips the Date class to numeric; restore with as.Date
     all_segs$x0 <- as.Date(all_segs$x0, origin = "1970-01-01")
     all_segs$x1 <- as.Date(all_segs$x1, origin = "1970-01-01")
-  }
-  if (!is.null(all_pts)) all_pts$x <- as.Date(all_pts$x, origin = "1970-01-01")
+    all_pts$x   <- as.Date(all_pts$x,   origin = "1970-01-01")
 
-  fig <- plot_ly()
-
-  if (!is.null(all_segs)) {
+    fig <- plot_ly()
     exp_d <- all_segs[all_segs$seg_type == "Exposure window", ]
     if (nrow(exp_d) > 0)
       fig <- add_segments(fig, data = exp_d,
@@ -941,9 +968,6 @@ build_timeline_plot <- function(sel, f, p) {
         x = ~x0, xend = ~x1, y = ~y_label, yend = ~y_label,
         line = list(color = "#fc8d8d", width = 14),
         name = "Infectious period", legendgroup = "inf", showlegend = TRUE)
-  }
-
-  if (!is.null(all_pts)) {
     onset_d <- all_pts[all_pts$pt_type == "Onset date", ]
     if (nrow(onset_d) > 0)
       fig <- add_markers(fig, data = onset_d, x = ~x, y = ~y_label,
@@ -956,13 +980,13 @@ build_timeline_plot <- function(sel, f, p) {
         marker = list(symbol = "circle", size = 9, color = "#636363",
                       line = list(width = 1, color = "#444")),
         name = "Visit date", legendgroup = "visit", showlegend = TRUE)
-  }
 
-  fig %>% layout(
-    yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
-    xaxis  = list(type = "date", title = ""),
-    legend = list(orientation = "h", x = 0, y = -0.2),
-    margin = list(l = 200, b = 60))
+    fig |> layout(
+      yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
+      xaxis  = list(type = "date", title = ""),
+      legend = list(orientation = "h", x = 0, y = -0.25),
+      margin = list(l = 80, b = 70))
+  }
 }
 
 # ---- UI ---------------------------------------------------------------------
@@ -1083,8 +1107,10 @@ ui <- page_navbar(
 
       card(
         hdr("Timeline",
-            "Select a node in the network above to see its timeline. For a case: shows the exposure window, infectious period, and visit dates per context. For a context: shows the same for each linked case."),
-        card_body(uiOutput("timeline_container")))
+            "Select a node in the network above to see its timeline. For a case: exposure and infectious windows span all visited contexts as a single block, with dots for each visit day. For a context: one row per linked case showing their individual epi windows and visit dots."),
+        card_body(
+          style = "height: 25vh; min-height: 120px; overflow-y: auto; resize: vertical; padding: 4px;",
+          uiOutput("timeline_container")))
     )),
 
   nav_panel("Data",
@@ -1468,16 +1494,15 @@ server <- function(input, output, session) {
                              headerCallback = header_tooltips(unname(tips))))
   })
 
-  # Timeline panel: renders a placeholder message when nothing is selected,
-  # or a dynamically-sized plotlyOutput when a node is clicked.
-  # Height is computed from the expected row count before the plot renders,
-  # so the card expands to fit the content rather than clipping it.
+  # Timeline panel: placeholder when nothing selected, otherwise a plotlyOutput
+  # sized to fit its content. The card body is fixed at 25vh and scrolls if
+  # the chart is taller (many rows); the user can drag the card bottom to resize.
   output$timeline_container <- renderUI({
     sel <- input$net_selected
     if (is.null(sel) || nchar(trimws(sel)) == 0)
       return(div(style = "padding:32px; text-align:center; color:#888; font-size:0.9em;",
                  "Click a node in the network above — or use the node selector — to see its timeline here."))
-    n_rows <- timeline_row_count(sel, filtered())
+    n_rows <- nrow_timeline(sel, filtered())
     if (n_rows == 0)
       return(div(style = "padding:20px; color:#888;", "No timeline data available for this node."))
     plotlyOutput("timeline_plot", height = paste0(max(200L, 60L + n_rows * 44L), "px"))
