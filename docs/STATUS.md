@@ -9,9 +9,8 @@ Claude updates this at the end of every session. Read this first at the start of
 
 ## Current focus
 
-**Phase 2 network view decisions are the active bottleneck.**
-Four questions need answers before Phase 2 can close and Phase 4 can start.
-Matt needs to open the running app, try each view, and answer them (see Phase 2 below).
+**Phase 2 decisions are made and implemented — ADR needed to close the phase.**
+All four open questions answered this session. Implementations are live. Write ADR-003 next session to close Phase 2, then start Phase 4 (Definitions & Tooltips) and the Stage 1 data entry guide.
 
 ---
 
@@ -38,15 +37,15 @@ Matt needs to open the running app, try each view, and answer them (see Phase 2 
 ---
 
 ### Phase 2 — Network Diagram Types
-**Status: In progress — decisions needed from Matt**
+**Status: Decisions made and implemented — ADR-003 pending before phase closes**
 
-**Next action:** Matt to open the running app, review each view, and answer the four open questions below. Once answered, Claude writes the ADR and closes the phase.
+**Next action:** Write ADR-003 to record the four view decisions. Then close this phase.
 
-**Open questions:**
-- [ ] Keep or cut the Contexts network view (`projection`)? Is it adding value over the bipartite view?
-- [ ] Show "Who infected whom" always, or only when contacts data is present?
-- [ ] Add a temporal view? If so, does it replace the time slider or sit alongside it?
-- [ ] What should the default view be when the app first loads?
+**Decisions made (2026-06-17):**
+- [x] Keep the Contexts network view (`projection`)
+- [x] "Who infected whom" always visible; info alert shown when no contacts data is present
+- [x] No temporal view — replaced by an interactive timeline panel below the network diagram
+- [x] Default landing page (Home tab) shown on first load, with upload widget and PII warning
 
 **Log:**
 - 2026-06-12 — Three network views present in initial app
@@ -57,14 +56,18 @@ Matt needs to open the running app, try each view, and answer them (see Phase 2 
 - 2026-06-15 — Bipartite legend updated to SVG arrows; "both" category detection fixed
 - 2026-06-15 — Onset date slider changed to a date range (start + end)
 - 2026-06-15 — Richer hover tooltips added to Who infected whom view
-- 2026-06-17 — Keep/cut decisions identified as active bottleneck; added to STATUS.md
+- 2026-06-17 — Four view decisions made (see above)
+- 2026-06-17 — Home landing page added as default tab; upload widget and PII warning included
+- 2026-06-17 — Dashboard restructured: network diagram + timeline panel; epi curve and tables moved to Data tab
+- 2026-06-17 — Interactive timeline panel added: Gantt-style chart responds to node selection; shows exposure window, infectious period, onset date, and visit dates
+- 2026-06-17 — "Who infected whom" now always shown; info alert displayed when no contacts data available
 
 ---
 
 ### Phase 3 — Data Collection Interface
 **Status: Stage 1 mostly complete; Stage 2 blocked on IT decision**
 
-**Next action:** Write Stage 1 data entry guide (1–2 pages for field teams). Waiting until Phase 2 closes so the guide references only the views that will ship. Matt to raise Posit Connect availability with IT to unblock Stage 2.
+**Next action:** Write Stage 1 data entry guide (1–2 pages for field teams). Phase 2 is now decided so the guide can reference the views that will ship. Matt to raise Posit Connect availability with IT to unblock Stage 2.
 
 **Stage 1 — Excel template:**
 
@@ -95,9 +98,9 @@ Matt needs to open the running app, try each view, and answer them (see Phase 2 
 ---
 
 ### Phase 4 — Definitions, Tooltips & Help
-**Status: Not started — blocked on Phase 2**
+**Status: Not started — unblocked now Phase 2 decisions are made**
 
-**Next action:** Start once Phase 2 closes. Cannot finalise tooltips for views that may be cut.
+**Next action:** Start once ADR-003 is written and Phase 2 is formally closed.
 
 **Log:**
 - 2026-06-13 — Definitions page added to app; infectious period wording clarified across tooltips
@@ -115,7 +118,7 @@ Matt needs to open the running app, try each view, and answer them (see Phase 2 
 ---
 
 ### Phase 6 — UI & UX Polish
-**Status: Not started**
+**Status: Not started (some Phase 2-driven changes already applied)**
 
 **Next action:** Not yet scoped. Begin after Phase 4.
 
@@ -123,6 +126,8 @@ Matt needs to open the running app, try each view, and answer them (see Phase 2 
 - 2026-06-12 — Maximise/Minimise button added to network card
 - 2026-06-12 — Network view selector moved from sidebar to card header dropdown
 - 2026-06-12 — Tooltip clipping fix; word wrap added
+- 2026-06-17 — App title changed to "Network explorer"; version number added (commit-count based, auto-increments on push)
+- 2026-06-17 — Explanatory comments added throughout app.R for readability
 
 ---
 
@@ -144,6 +149,8 @@ Matt reviews and clears entries at the start of the next session.
 | Date | Area | Assumption or question | Reviewed? |
 |---|---|---|---|
 | 2026-06-17 | Schema | Memory referred to `settings`/`case_settings` table names — current naming is `contexts`/`case_contexts`. Memory updated. | Yes |
+| 2026-06-17 | Versioning | Commit-count approach requires git in PATH when R starts. Works in RStudio local; may need fallback when deploying to Posit Connect. | No |
+| 2026-06-17 | Phase 2 | ADR-003 not yet written — phase should not be marked closed until ADR is done. | No |
 
 ---
 
