@@ -31,20 +31,26 @@ APP_VERSION <- tryCatch({
   tryCatch(paste0(trimws(readLines("VERSION", n = 1)), ".0"), error = function(e) "0.1.0")
 })
 
+# Core Shiny framework and Bootstrap 5 UI components (cards, layout, tooltips)
 library(shiny)
 library(bslib)
+# Interactive network diagram renderer (wraps the vis.js JavaScript library)
 library(visNetwork)
+# Data wrangling
 library(dplyr)
 library(tidyr)
-library(readxl)
-library(lubridate)
+library(readxl)      # Reading .xlsx files uploaded by the user
+library(lubridate)   # Date arithmetic (floor_date for weekly epi curve)
+# Network analysis: calculates degree and betweenness metrics from the graph
 library(igraph)
+# Charts and tables
 library(plotly)
-library(DT)
+library(DT)          # Interactive data tables with column filtering
+# Utility
 library(purrr)
 library(tibble)
 library(jsonlite)
-library(DiagrammeR)   # ERD diagram in Reference tab (new dependency)
+library(DiagrammeR)  # Renders the schema ERD in the Reference tab
 
 # ---- Configuration ----------------------------------------------------------
 # 10 perceptually distinct colours (D3 category10). Assigned in order to whatever
@@ -55,6 +61,9 @@ CONTEXT_PALETTE <- c(
 )
 CASE_COLOUR <- "#444444"
 
+# Assigns a colour from CONTEXT_PALETTE to each context type found in the data.
+# Uses modular indexing so it cycles gracefully if there are more than 10 types.
+# Returns a named character vector: names are context type strings, values are hex colours.
 colour_map <- function(types) {
   types <- unique(types[!is.na(types)])
   setNames(CONTEXT_PALETTE[(seq_along(types) - 1L) %% length(CONTEXT_PALETTE) + 1L], types)
@@ -67,15 +76,20 @@ DEF_INF_BEFORE <- 4  # infectious period: days before onset
 DEF_INF_AFTER  <- 4  # infectious period: days after onset
 
 # ---- UI helpers -------------------------------------------------------------
+# Renders a blue ⓘ icon with a hover tooltip. Used throughout the UI
+# to attach plain-language explanations to labels and card headers.
 info <- function(msg) {
   tooltip(span(style = "cursor:help; color:#2c7fb8; font-weight:bold; margin-left:4px;", "ⓘ"),
           msg, placement = "right")
 }
+# Convenience wrapper: creates a card header with a title and an info tooltip
+# aligned to opposite ends of the header bar.
 hdr <- function(title, msg) {
   card_header(class = "d-flex justify-content-between align-items-center",
               span(title), info(msg))
 }
-# Inline SVG arrow for the bipartite legend. direction: "right", "left", "both", or "none".
+# Draws a small inline SVG arrow used in the bipartite view legend.
+# direction controls which arrowheads appear; dashed draws a dashed line.
 leg_arrow <- function(color, direction = "none", dashed = FALSE) {
   dash  <- if (dashed) ' stroke-dasharray="5,3"' else ''
   x1    <- if (direction %in% c("left",  "both")) 11L else 3L
@@ -90,6 +104,9 @@ leg_arrow <- function(color, direction = "none", dashed = FALSE) {
 }
 
 # ---- Schema diagram & data dictionary --------------------------------------
+# GraphViz source for the entity-relationship diagram shown in the Reference tab.
+# Defines each table as a labelled node with its fields, and draws 1:N relationships
+# between them as directed edges.
 ERD_GRAPHVIZ <- '
 digraph erd {
   graph [rankdir=TB fontname="Helvetica" fontsize=11 bgcolor="white"
@@ -156,6 +173,9 @@ tryCatch({
     writeLines(DiagrammeRsvg::export_svg(grViz(ERD_GRAPHVIZ)), "docs/erd.svg")
 }, error = function(e) NULL)
 
+# Field-level definitions for all five tables, displayed in the Reference tab.
+# Stored as a named list of data frames so the Reference tab can render each
+# table independently with its own DT output.
 DICT_TABLES <- list(
   cases = tibble::tribble(
     ~Field,                ~Type,       ~Key,  ~Required, ~Description,
@@ -192,7 +212,11 @@ DICT_TABLES <- list(
 )
 
 # ---- Demo data --------------------------------------------------------------
+# Generates a realistic synthetic outbreak dataset used when no file is uploaded.
+# Produces all five tables (cases, contexts, case_contexts, visit_dates, contacts)
+# with plausible visit patterns and transmission links.
 make_demo_data <- function() {
+  # Fixed seed so the demo is reproducible each time the app starts
   set.seed(42)
   all_contexts <- tibble::tribble(
     ~context_id, ~context_name,              ~context_type,
@@ -204,10 +228,14 @@ make_demo_data <- function() {
     6L,          "Birch Close Household",    "Household",
     7L,          "Riverside GP Surgery",     "Healthcare",
     8L,          "Central Hospital ED",      "Healthcare")
+  # Split contexts into community (where primary exposure happens) and healthcare
+  # (where cases are seen after onset). comm_w gives unequal sampling weights
+  # so schools are over-represented, matching typical measles outbreak patterns.
   community  <- all_contexts |> filter(context_type != "Healthcare")
   healthcare <- all_contexts |> filter(context_type == "Healthcare")
   comm_w     <- c(.24, .20, .16, .14, .13, .13)
   n <- 15
+  # Generate the cases table: 15 cases with random onset dates over an 8-week period
   cases <- tibble::tibble(
     case_id            = sprintf("C%03d", seq_len(n)),
     onset_date         = as.Date("2026-04-01") + sample(0:56, n, replace = TRUE),
@@ -218,11 +246,15 @@ make_demo_data <- function() {
     case_status        = sample(c("Confirmed","Probable","Possible"),
                                 n, TRUE, c(.6,.3,.1))) |> arrange(onset_date)
 
+  # Assign each case a primary community context (weighted towards schools)
   prim <- sample(seq_len(nrow(community)), n, replace = TRUE, prob = comm_w)
 
   # Helper: pick n_dates distinct dates from a window vector
   pick_dates <- function(window, n_dates) sort(sample(window, min(n_dates, length(window))))
 
+  # Build visit_dates rows for each case.
+  # Each case gets visits to their primary context, and with some probability
+  # also visits to a healthcare setting and a secondary exposure context.
   visit_rows <- purrr::map_dfr(seq_len(n), function(i) {
     onset     <- cases$onset_date[i]
     inf_win   <- seq(onset - DEF_INF_BEFORE, onset + DEF_INF_AFTER)
@@ -239,12 +271,14 @@ make_demo_data <- function() {
                            context_id = community$context_id[prim[i]],
                            visit_date = prim_dates)
 
+    # 70% chance the case visited a healthcare setting shortly after onset
     if (runif(1) < 0.70) {
       h <- healthcare[sample(nrow(healthcare), 1), ]
       rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
                           context_id = h$context_id,
                           visit_date = onset + sample(1:3, 1))) }
 
+    # 65% chance the case also attended a second community context during their exposure window
     if (runif(1) < 0.65) {
       s_exp      <- community[sample(seq_len(nrow(community))[-prim[i]], 1), ]
       exp_dates  <- if (s_exp$context_type == "Household") onset - sample(DEF_INC_MIN:DEF_INC_MAX, 1)
@@ -253,6 +287,7 @@ make_demo_data <- function() {
                           context_id = s_exp$context_id,
                           visit_date = exp_dates)) }
 
+    # 35% chance of a historically recorded visit well outside the epi windows (noise)
     if (runif(1) < 0.35) {
       s_hist <- community[sample(seq_len(nrow(community)), 1), ]
       rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
@@ -261,10 +296,15 @@ make_demo_data <- function() {
     rows
   }) |> arrange(case_id, visit_date)
 
+  # Derive the three relational tables from the visit rows
   visit_dates   <- visit_rows |> distinct(case_id, context_id, visit_date)
   case_contexts <- visit_rows |> distinct(case_id, context_id)
+  # Keep only contexts that at least one case actually visited
   contexts <- all_contexts |> semi_join(case_contexts, by = "context_id")
 
+  # Build a contacts table: each case is linked to one earlier case.
+  # Cases sharing a primary context are 5x more likely to be linked,
+  # giving a plausible cluster structure.
   prim_id <- community$context_id[prim]
   contacts <- purrr::map_dfr(seq_len(n)[-1], function(i) {
     cand <- cases[seq_len(i - 1), ]
@@ -277,12 +317,25 @@ make_demo_data <- function() {
        visit_dates = visit_dates, contacts = contacts)
 }
 
+# Joins case_contexts, contexts, and visit_dates into a single flat table.
+# This denormalised view is what the network view builders consume — one row
+# per case × context × visit_date combination, with context name and type included.
 flat_visits <- function(d) {
   d$case_contexts |>
     left_join(d$contexts, by = "context_id") |>
     left_join(d$visit_dates, by = c("case_id", "context_id"))
 }
 
+# Classifies each case-context combination by when the case was present,
+# relative to their infectious period and exposure window.
+# For each case × context pair, checks whether any recorded visit date falls
+# within the infectious window (onset ± inf days) or the exposure window
+# (onset - inc_max to onset - inc_min). Returns one of four categories:
+#   "Infectious period" — case was infectious here (may have spread infection)
+#   "Exposure window"   — case may have acquired infection here
+#   "Both"              — dates span both windows (e.g. household resident)
+#   "Neither"           — visits recorded but outside both windows
+# Recalculates live whenever the user changes the epi parameters.
 derive_visit_relevance <- function(case_contexts, visit_dates, cases,
                                    inf_before, inf_after, inc_min, inc_max) {
   vd <- visit_dates |>
@@ -308,12 +361,20 @@ derive_visit_relevance <- function(case_contexts, visit_dates, cases,
       )
     ) |>
     select(case_id, context_id, visit_relevance)
+  # Left join back to case_contexts so pairs with no visit dates still appear,
+  # defaulting to "Neither"
   case_contexts |>
     left_join(vd, by = c("case_id", "context_id")) |>
     mutate(visit_relevance = coalesce(visit_relevance, "Neither"))
 }
 
 # ---- View builders ----------------------------------------------------------
+# Each build_* function takes the flat visits table (from flat_visits()), the
+# filtered linelist, and the colour map, and returns a list(nodes, edges) ready
+# for visNetwork. The three functions correspond to the three network views.
+
+# Contexts network view: one node per context, edges between contexts that share
+# a case. Edge weight = number of shared cases. Node size = number of linked cases.
 build_context_projection <- function(visits, ll, colours) {
   if (nrow(visits) == 0)
     return(list(nodes = tibble(id = character(), label = character()),
@@ -324,6 +385,8 @@ build_context_projection <- function(visits, ll, colours) {
               value = cases, color = unname(colours[context_type]), shape = "dot",
               title = paste0("<b>", context_name, "</b><br>", context_type,
                              "<br>Cases linked here: ", cases))
+  # For each case that visited multiple contexts, generate all pairwise context combinations.
+  # These become the edges (one edge per shared-case pair, then counted for weight).
   per_case <- visits |> distinct(case_id, context_name) |> group_by(case_id) |>
     summarise(s = list(sort(unique(context_name))), .groups = "drop") |>
     filter(lengths(s) >= 2)
@@ -338,12 +401,18 @@ build_context_projection <- function(visits, ll, colours) {
   list(nodes = nodes, edges = edges)
 }
 
+# Who visited where view: a bipartite graph with two node types.
+# Case nodes (dark dots, unlabelled) connect to context nodes (coloured squares).
+# Edge colour and arrow direction encode the visit_relevance category, showing
+# whether the case was infectious here, may have been exposed here, or both.
 build_bipartite <- function(visits, ll, colours) {
   if (nrow(visits) == 0)
     return(list(nodes = tibble(id = character(), label = character()),
                 edges = tibble(from = character(), to = character())))
+  # Check whether visit_date data is available — affects tooltip date display
   has_dates <- "visit_date" %in% names(visits) && any(!is.na(visits$visit_date))
 
+  # Context nodes use "ctx::" prefix on their IDs to avoid collisions with case IDs
   context_nodes <- visits |> distinct(context_name, context_type, case_id) |>
     count(context_name, context_type, name = "cases") |>
     transmute(id = paste0("ctx::", context_name), label = context_name,
@@ -361,6 +430,9 @@ build_bipartite <- function(visits, ll, colours) {
               title = paste0("<b>", case_id, "</b><br>Onset: ", onset_date,
                              "<br>Contexts visited: ", ns))
 
+  # Collapse multiple visit dates per case-context pair into a single label
+  # for the edge tooltip. If only one date, show it directly; multiple dates
+  # are listed as "Dates: 01 Apr, 03 Apr, …"
   edges_agg <- visits |>
     group_by(case_id, context_name, context_type, visit_relevance) |>
     summarise(
@@ -373,6 +445,11 @@ build_bipartite <- function(visits, ll, colours) {
       .groups = "drop"
     )
 
+  # Set edge colour, arrow direction, and dash style based on visit_relevance:
+  #   Infectious period → red arrow pointing TO the context (case spread here)
+  #   Exposure window   → blue arrow pointing FROM the context (case caught it here)
+  #   Both              → purple bidirectional arrow
+  #   Neither           → grey dashed line (present but not relevant)
   edges <- edges_agg |>
     transmute(
       from             = case_id,
@@ -429,14 +506,21 @@ derive_suspected_links <- function(ll, visits, inc_min, inc_max, inf_before, inf
     distinct(from, to) |> mutate(link_type = "Suspected")
 }
 
+# Who infected whom view: one node per case, edges are transmission links.
+# Links come from the contacts table (Confirmed or Suspected) or from
+# derive_suspected_links() if the user selects the "derive" option.
+# Node colour reflects the case's primary context type.
 build_contacts_network <- function(ll, contacts, visits, colours) {
+  # Use the earliest recorded visit to assign each case a "primary" context type
+  # for colouring — gives a visual clue about which cluster each case belongs to
   primary <- if (nrow(visits))
     visits |> arrange(visit_date) |> group_by(case_id) |> slice(1) |> ungroup() |>
       select(case_id, context_type)
   else tibble(case_id = character(), context_type = character())
 
-  n_contexts  <- visits |> distinct(case_id, context_name) |> count(case_id, name = "n_contexts")
+  n_contexts    <- visits |> distinct(case_id, context_name) |> count(case_id, name = "n_contexts")
   case_contexts <- visits |> distinct(case_id, context_name, context_type)
+  # Named vector of onset dates keyed by case_id, for fast lookup in the edge loop
   onset <- setNames(ll$onset_date, ll$case_id)
 
   nodes <- ll |>
@@ -449,6 +533,8 @@ build_contacts_network <- function(ll, contacts, visits, colours) {
               title = paste0("<b>", htmltools::htmlEscape(case_id), "</b><br>Onset: ", onset_date,
                              "<br>Contexts visited: ", n_contexts))
 
+  # For each contact edge, calculate the onset gap and find shared contexts
+  # to show in the hover tooltip
   edges <- contacts |> filter(from %in% nodes$id, to %in% nodes$id) |>
     mutate(
       gap = purrr::map2_int(from, to, function(f, t) {
@@ -473,6 +559,10 @@ build_contacts_network <- function(ll, contacts, visits, colours) {
   list(nodes = nodes, edges = edges)
 }
 
+# Calculates degree and betweenness for every node in the current network view.
+# Uses igraph to build the graph, then maps results back to display labels.
+# The "Kind" column (Case / Context) is included only for the bipartite view,
+# where nodes represent two different entity types.
 network_metrics <- function(nodes, edges) {
   if (nrow(nodes) == 0)
     return(data.frame(Node = character(), Degree = integer(), Betweenness = numeric()))
@@ -490,6 +580,9 @@ network_metrics <- function(nodes, edges) {
   out[order(-out$Degree), ]
 }
 
+# Draws a weekly bar chart of new cases by onset date.
+# week_start = 1 means weeks run Monday–Sunday (ISO standard).
+# Built with ggplot2 then converted to an interactive plotly chart.
 epi_curve <- function(ll) {
   if (nrow(ll) == 0) return(plotly_empty())
   d <- ll |> mutate(week = floor_date(onset_date, "week", week_start = 1)) |> count(week)
@@ -499,11 +592,14 @@ epi_curve <- function(ll) {
   ggplotly(p)
 }
 
+# Generates a JavaScript callback for DT that attaches tooltip text to each
+# column heading. The tips vector must align positionally with the table columns.
 header_tooltips <- function(tips) {
   JS(sprintf(
     "function(thead){ var tips=%s; $(thead).find('th').each(function(i){ if(tips[i]){ $(this).attr('title', tips[i]); $(this).css('text-decoration','underline dotted'); $(this).css('cursor','help'); } }); }",
     jsonlite::toJSON(tips)))
 }
+# Tooltip text for the network metrics and line list tables, keyed by column name
 metric_tips_lookup <- c(
   Node        = "The individual case or the context this row describes.",
   Kind        = "Whether this node is a Case or a Context (Who visited where view only).",
@@ -725,6 +821,13 @@ hypotheses, alongside your wider outbreak knowledge.
 '
 
 # ---- Timeline helpers -------------------------------------------------------
+# The timeline panel shows a Gantt-style chart below the network diagram.
+# When the user clicks a node, it renders epi windows and visit dates for
+# that case or context. These two helpers are used by the server's renderUI
+# to size the panel dynamically before rendering the plotly chart.
+
+# Returns the number of chart rows that will be drawn for a given selection,
+# so the container height can be set before the plot renders.
 timeline_row_count <- function(sel, f) {
   cases_df <- f$cases; ctx_df <- f$contexts; vd <- f$visit_dates
   is_case  <- sel %in% cases_df$case_id
@@ -742,17 +845,26 @@ timeline_row_count <- function(sel, f) {
   n
 }
 
+# Builds the plotly Gantt chart for the selected node.
+# For a case: one row showing exposure window and infectious period, then one
+#   sub-row per context visited showing individual visit dates.
+# For a context: one header row, then the same case-level and visit rows for
+#   every case linked to that context.
+# Segments (bars) and point markers are accumulated in lists then combined
+# into data frames for efficient plotly rendering.
 build_timeline_plot <- function(sel, f, p) {
   cases_df <- f$cases; ctx_df <- f$contexts; vd <- f$visit_dates
   is_case  <- sel %in% cases_df$case_id
+  # Strip the "ctx::" prefix added by the bipartite view builder
   clean    <- sub("^ctx::", "", sel)
   is_ctx   <- !is_case && clean %in% ctx_df$context_name
   if (!is_case && !is_ctx) return(plotly_empty())
 
-  segs    <- list()
-  pts     <- list()
+  segs    <- list()   # horizontal bar segments: exposure window and infectious period
+  pts     <- list()   # point markers: onset dates and individual visit dates
   y_order <- character(0)
 
+  # Adds one row to the chart for a case, showing their epi windows and onset marker
   add_case_row <- function(case_id, y_lbl = case_id) {
     cr <- cases_df[cases_df$case_id == case_id, ]
     if (nrow(cr) == 0) return()
@@ -768,6 +880,9 @@ build_timeline_plot <- function(sel, f, p) {
     y_order <<- c(y_order, y_lbl)
   }
 
+  # Adds one sub-row per context visited by a case, with visit dates as point markers.
+  # lbl_prefix is used in context-selected mode to prefix rows with the case ID,
+  # preventing duplicate y-axis labels when multiple cases visited the same context.
   add_visit_rows <- function(case_id, lbl_prefix = "") {
     cvd <- vd[vd$case_id == case_id, ]
     for (cid in unique(cvd$context_id)) {
@@ -798,6 +913,9 @@ build_timeline_plot <- function(sel, f, p) {
   }
 
   y_order  <- unique(y_order)
+  # Combine all accumulated rows into data frames.
+  # as.Date with origin converts numeric dates that can result from rbind
+  # stripping the Date class back to proper Date objects.
   all_segs <- if (length(segs)) do.call(rbind, segs) else NULL
   all_pts  <- if (length(pts))  do.call(rbind, pts)  else NULL
   if (is.null(all_segs) && is.null(all_pts)) return(plotly_empty())
@@ -1061,6 +1179,16 @@ ui <- page_navbar(
 # ---- Server -----------------------------------------------------------------
 server <- function(input, output, session) {
 
+  # ---- Reactive data chain --------------------------------------------------
+  # Data flows through three chained reactives:
+  #   raw()      — loads once from file or demo data; invalidates only when a new file is uploaded
+  #   filtered() — applies the sidebar filters (date range, context types, case status)
+  #   netdata()  — builds the nodes/edges for the currently selected network view
+  # Keeping these separate means parameter changes (inc_min etc.) only re-run
+  # netdata(), not the file read or filtering.
+
+  # raw(): reads and validates the uploaded Excel file, or returns demo data.
+  # validate() stops execution and shows a user-facing error message if checks fail.
   raw <- reactive({
     if (is.null(input$file)) return(make_demo_data())
 
@@ -1083,12 +1211,15 @@ server <- function(input, output, session) {
                   "(contacts is optional). Re-download the template if unsure."))
     )
 
+    # Read the four required sheets; convert date columns that Excel may have
+    # stored as numeric serial numbers rather than formatted dates
     cs  <- readxl::read_excel(input$file$datapath, sheet = "cases")
     st  <- readxl::read_excel(input$file$datapath, sheet = "contexts")
     cst <- readxl::read_excel(input$file$datapath, sheet = "case_contexts")
     vd  <- readxl::read_excel(input$file$datapath, sheet = "visit_dates")
     cs$onset_date <- as.Date(cs$onset_date)
     vd$visit_date <- as.Date(vd$visit_date)
+    # contacts is optional; use an empty table if the sheet is absent
     ct <- if ("contacts" %in% sheets)
       readxl::read_excel(input$file$datapath, sheet = "contacts")
       else tibble(from = character(), to = character(), link_type = character())
@@ -1152,12 +1283,15 @@ server <- function(input, output, session) {
     list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd, contacts = ct)
   })
 
+  # When new data loads, reset the date slider to span the full dataset date range
+  # and rebuild the context type and case status filter checkboxes from the data.
   observeEvent(raw(), {
     d    <- raw()
     rng  <- range(c(d$cases$onset_date, d$visit_dates$visit_date), na.rm = TRUE)
     updateSliderInput(session, "asof", min = rng[1], max = rng[2], value = c(rng[1], rng[2]))
     types <- unique(d$contexts$context_type)
     updateCheckboxGroupInput(session, "types", choices = types, selected = types)
+    # Only show case statuses that actually appear in this dataset
     statuses <- if ("case_status" %in% names(d$cases))
       intersect(c("Confirmed","Probable","Possible"), unique(d$cases$case_status))
     else c("Confirmed","Probable","Possible")
@@ -1165,6 +1299,8 @@ server <- function(input, output, session) {
       choices = statuses, selected = intersect(statuses, c("Confirmed","Probable")))
   })
 
+  # params(): collects the four epi parameter inputs into a named list.
+  # Falls back to defaults if any input is NULL or NA (e.g. cleared by user).
   params <- reactive({
     g <- function(x, d) if (is.null(x) || is.na(x)) d else x
     list(inc_min    = g(input$inc_min,    DEF_INC_MIN),
@@ -1173,6 +1309,7 @@ server <- function(input, output, session) {
          inf_after  = g(input$inf_after,  DEF_INF_AFTER))
   })
 
+  # Restores all four parameter inputs and the suspected-link source to their defaults
   observeEvent(input$reset_params, {
     updateNumericInput(session, "inc_min",    value = DEF_INC_MIN)
     updateNumericInput(session, "inc_max",    value = DEF_INC_MAX)
@@ -1181,6 +1318,8 @@ server <- function(input, output, session) {
     updateRadioButtons(session, "susp_source", selected = "file")
   })
 
+  # Renders a plain-language summary of the derived-link rule with the current
+  # parameter values, shown on the Assumptions & parameters tab
   output$susp_readout <- renderUI({
     p  <- params(); lb <- p$inc_min - p$inf_before; ub <- p$inc_max + p$inf_after
     div(style = "background:#eef6fb; border-left:4px solid #2c7fb8; padding:8px 12px; margin:8px 0; border-radius:4px;",
@@ -1216,6 +1355,11 @@ server <- function(input, output, session) {
     nav_select("nav", "Dashboard")
   })
 
+  # filtered(): applies the sidebar controls to all five tables.
+  # Filter order matters: cases are filtered first by date and status, then
+  # case_contexts is filtered to those cases and selected context types,
+  # then contexts is trimmed to only those still in case_contexts. This cascade
+  # ensures no orphaned nodes appear in the network.
   filtered <- reactive({
     d   <- raw()
     cs  <- d$cases |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
@@ -1229,6 +1373,15 @@ server <- function(input, output, session) {
     list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd, contacts = ct)
   })
 
+  # filtered(): applies the three sidebar filters to all five tables in sequence.
+  # Context filtering cascades: filter cases → filter case_contexts to those cases
+  # → filter contexts to those that still have linked cases.
+  # This ensures the network only shows contexts with at least one visible case.
+
+  # netdata(): computes visit_relevance (which depends on params), flattens the
+  # tables, assigns colours, then calls the appropriate view builder.
+  # The contacts view either uses the uploaded contacts table or derives links
+  # from shared contexts + timing, depending on the user's radio button choice.
   netdata <- reactive({
     f    <- filtered()
     p    <- params()
@@ -1248,6 +1401,10 @@ server <- function(input, output, session) {
       })
   })
 
+  # Renders the network diagram. visit_relevance is dropped from edges before
+  # passing to visNetwork (it was only needed for colour/arrow assignment).
+  # nodesIdSelection = TRUE adds a dropdown above the canvas and sets
+  # input$net_selected when a node is clicked — used by the timeline panel.
   output$net <- renderVisNetwork({
     nd <- netdata(); v <- input$view
     vis_edges <- if ("visit_relevance" %in% names(nd$edges))
@@ -1257,6 +1414,9 @@ server <- function(input, output, session) {
                  nodesIdSelection = TRUE) |>
       visPhysics(stabilization = TRUE,
                  barnesHut = list(gravitationalConstant = -3500, springLength = 130))
+    # Edge style differs by view: contacts uses directional arrows; bipartite
+    # uses straight lines (arrows already encoded per-edge); projection uses
+    # grey semi-transparent curves
     vn <- if (v == "contacts") visEdges(vn, arrows = "to", smooth = TRUE)
           else if (v == "bipartite") visEdges(vn, smooth = FALSE)
           else visEdges(vn, smooth = TRUE, color = list(color = "#9aa0a6", opacity = 0.7))
@@ -1264,6 +1424,8 @@ server <- function(input, output, session) {
     leg <- lapply(names(cols), function(s)
       list(label = s, shape = if (v == "bipartite") "square" else "dot",
            color = unname(cols[[s]])))
+    # Add a "Case" entry to the legend only in the bipartite view,
+    # where case nodes are a distinct type from context nodes
     if (v == "bipartite") leg <- c(leg, list(list(label = "Case", shape = "dot", color = CASE_COLOUR)))
     vn |> visLegend(useGroups = FALSE, addNodes = leg, position = "left", width = 0.18)
   })
@@ -1272,12 +1434,14 @@ server <- function(input, output, session) {
 
   output$metrics <- renderDT({
     mt   <- network_metrics(netdata()$nodes, netdata()$edges)
+    # Map column names to tooltip text using the lookup defined above
     tips <- vapply(names(mt),
                    function(n) if (n %in% names(metric_tips_lookup)) metric_tips_lookup[[n]] else "", character(1))
     datatable(mt, rownames = FALSE,
               options = list(pageLength = 8, dom = "tp", headerCallback = header_tooltips(unname(tips))))
   })
 
+  # Shared DT options for the Source data tab tables: filterable, paginated, scrollable
   src_dt <- function(df) datatable(df, rownames = FALSE, filter = "top",
     options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
 
@@ -1291,6 +1455,7 @@ server <- function(input, output, session) {
     else src_dt(ct)
   })
 
+  # Line list: filtered cases with a count of how many contexts each case visited
   output$ll <- renderDT({
     f  <- filtered()
     nv <- f$case_contexts |> distinct(case_id, context_id) |> count(case_id, name = "contexts_visited")
@@ -1303,6 +1468,10 @@ server <- function(input, output, session) {
                              headerCallback = header_tooltips(unname(tips))))
   })
 
+  # Timeline panel: renders a placeholder message when nothing is selected,
+  # or a dynamically-sized plotlyOutput when a node is clicked.
+  # Height is computed from the expected row count before the plot renders,
+  # so the card expands to fit the content rather than clipping it.
   output$timeline_container <- renderUI({
     sel <- input$net_selected
     if (is.null(sel) || nchar(trimws(sel)) == 0)
