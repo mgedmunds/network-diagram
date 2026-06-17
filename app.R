@@ -45,6 +45,7 @@ library(DT)          # Interactive data tables with column filtering
 # Utility
 library(purrr)
 library(tibble)
+library(ggplot2)     # Epi curve chart (converted to plotly via ggplotly)
 library(jsonlite)
 # DiagrammeR is not available in all environments (e.g. WebR/Shinylive).
 # Made optional so a missing package doesn't crash the whole app on load.
