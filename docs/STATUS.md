@@ -3,14 +3,14 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-17
+**Last updated:** 2026-06-17 (session 2)
 
 ---
 
 ## Current focus
 
-**Phase 2 is closed. Next priorities are Phase 4 (Definitions & Tooltips) and the Stage 1 data entry guide.**
-Both can now proceed in parallel.
+**Phase 2 closed. Timeline panel redesigned and working. Next priorities are Phase 4 (Definitions & Tooltips) and the Stage 1 data entry guide.**
+Both can proceed in parallel. RStudio now correctly connected to the GitHub repo at `C:/Users/claude-dev/projects/network-diagram`.
 
 ---
 
@@ -99,9 +99,9 @@ Both can now proceed in parallel.
 ---
 
 ### Phase 4 — Definitions, Tooltips & Help
-**Status: Not started — unblocked now Phase 2 decisions are made**
+**Status: Not started — unblocked**
 
-**Next action:** Start once ADR-003 is written and Phase 2 is formally closed.
+**Next action:** Begin next session. Phase 2 is closed and ADR-003 is written.
 
 **Log:**
 - 2026-06-13 — Definitions page added to app; infectious period wording clarified across tooltips
@@ -129,6 +129,11 @@ Both can now proceed in parallel.
 - 2026-06-12 — Tooltip clipping fix; word wrap added
 - 2026-06-17 — App title changed to "Network explorer"; version number added (commit-count based, auto-increments on push)
 - 2026-06-17 — Explanatory comments added throughout app.R for readability
+- 2026-06-17 — Timeline panel redesigned: case-selected shows epi windows as full-height background shapes; context-selected shows per-case segments; visit dots only for selected context
+- 2026-06-17 — Timeline fixed at 30vh with scroll; row height fixed at 36px via layout(height); daily gridlines with weekly labels
+- 2026-06-17 — Expand/Collapse button added to timeline card header (position:fixed toggle, same pattern as network Maximise)
+- 2026-06-17 — Network legend replaced: visLegend side panel removed, replaced with floating HTML overlay so network uses full canvas width
+- 2026-06-17 — RStudio git issue resolved: cloned repo to C:/Users/claude-dev/projects/network-diagram; Documents/ copy was stale and unconnected
 
 ---
 
@@ -151,6 +156,7 @@ Matt reviews and clears entries at the start of the next session.
 |---|---|---|---|
 | 2026-06-17 | Schema | Memory referred to `settings`/`case_settings` table names — current naming is `contexts`/`case_contexts`. Memory updated. | Yes |
 | 2026-06-17 | Versioning | Commit-count approach requires git in PATH when R starts. Works in RStudio local; may need fallback when deploying to Posit Connect. | No |
+| 2026-06-17 | RStudio | RStudio was running app from Documents/network-diagram (unmanaged copy). Fixed by cloning to projects/network-diagram. Ensure RStudio always opens from that location. | No |
 | 2026-06-17 | Phase 2 | ADR-003 written and phase closed. | Yes |
 
 ---
