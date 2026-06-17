@@ -20,24 +20,12 @@
 # shiny::runApp("app.R")
 # =============================================================================
 
-# Version = major.minor from VERSION file + patch from git commit count.
-# In Shinylive (WebR), system2() can throw a JavaScript-level error that bypasses
-# R's tryCatch, so we skip the git call entirely when running in the browser.
-APP_VERSION <- local({
-  major_minor <- tryCatch(trimws(readLines("VERSION", n = 1)), error = function(e) "0.1")
-  # R.version$arch is "wasm32" in WebR/Shinylive. system2() throws a JS-level
-  # error there that bypasses R's tryCatch, so skip the git call entirely.
-  if (isTRUE(grepl("wasm", R.version$arch))) {
-    paste0(major_minor, ".0")
-  } else {
-    patch <- tryCatch({
-      p <- trimws(system2("git", c("rev-list", "--count", "HEAD"),
-                          stdout = TRUE, stderr = FALSE))
-      if (length(p) == 0 || !nzchar(p)) NA_character_ else p
-    }, error = function(e) NA_character_)
-    if (is.na(patch)) paste0(major_minor, ".0") else paste0(major_minor, ".", patch)
-  }
-})
+# Version read from VERSION file. Patch auto-increment via git removed —
+# system2() is not safe in WebR (Shinylive) across all runtime versions.
+APP_VERSION <- tryCatch(
+  trimws(readLines("VERSION", n = 1)),
+  error = function(e) "0.1"
+)
 
 # Core Shiny framework and Bootstrap 5 UI components (cards, layout, tooltips)
 library(shiny)
