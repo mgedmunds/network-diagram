@@ -1143,7 +1143,7 @@ ui <- page_navbar(
         uiOutput("contacts_warning"),
         div(style = "position:relative;",
           uiOutput("network_legend"),
-          visNetworkOutput("net", height = "calc(100vh - 160px)"))),
+          visNetworkOutput("net", height = "60vh"))),
 
       card(
         class = "timeline-card",
@@ -1524,7 +1524,7 @@ server <- function(input, output, session) {
     ) else NULL
 
     div(style = paste0(
-          "position:absolute; top:8px; left:8px; z-index:100;",
+          "position:absolute; top:8px; right:8px; z-index:100;",
           "background:rgba(255,255,255,0.92); border:1px solid #dee2e6;",
           "border-radius:4px; padding:6px 10px; pointer-events:none;"),
       do.call(tagList, ctx_items),
