@@ -913,7 +913,7 @@ build_timeline_plot <- function(sel, f, p) {
     fig |> layout(
       shapes = shapes,
       yaxis  = list(categoryorder = "array", categoryarray = rev(ctx_order), title = ""),
-      xaxis  = list(type = "date", title = ""),
+      xaxis  = list(type = "date", title = "", dtick = 86400000, tickformat = "%d %b", tickangle = -45),
       legend = list(orientation = "h", x = 0, y = -0.25),
       margin = list(l = 160, b = 70))
 
@@ -983,7 +983,7 @@ build_timeline_plot <- function(sel, f, p) {
 
     fig |> layout(
       yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
-      xaxis  = list(type = "date", title = ""),
+      xaxis  = list(type = "date", title = "", dtick = 86400000, tickformat = "%d %b", tickangle = -45),
       legend = list(orientation = "h", x = 0, y = -0.25),
       margin = list(l = 80, b = 70))
   }
@@ -1109,7 +1109,7 @@ ui <- page_navbar(
         hdr("Timeline",
             "Select a node in the network above to see its timeline. For a case: exposure and infectious windows span all visited contexts as a single block, with dots for each visit day. For a context: one row per linked case showing their individual epi windows and visit dots."),
         card_body(
-          style = "height: 25vh; min-height: 120px; overflow-y: auto; resize: vertical; padding: 4px;",
+          style = "height: 30vh; min-height: 120px; overflow-y: auto; resize: vertical; padding: 4px;",
           uiOutput("timeline_container")))
     )),
 
@@ -1505,7 +1505,7 @@ server <- function(input, output, session) {
     n_rows <- nrow_timeline(sel, filtered())
     if (n_rows == 0)
       return(div(style = "padding:20px; color:#888;", "No timeline data available for this node."))
-    plotlyOutput("timeline_plot", height = paste0(max(200L, 60L + n_rows * 44L), "px"))
+    plotlyOutput("timeline_plot", height = paste0(max(150L, n_rows * 30L + 90L), "px"))
   })
 
   output$timeline_plot <- renderPlotly({
