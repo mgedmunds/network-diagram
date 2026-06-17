@@ -47,9 +47,14 @@ library(purrr)
 library(tibble)
 library(ggplot2)     # Epi curve chart (converted to plotly via ggplotly)
 library(jsonlite)
-# DiagrammeR is not available in all environments (e.g. WebR/Shinylive).
-# Made optional so a missing package doesn't crash the whole app on load.
-DIAGRAMMER_AVAILABLE <- tryCatch({ library(DiagrammeR); TRUE }, error = function(e) FALSE)
+# DiagrammeR opens a WebSocket connection (wss://get-ws-proxy.r-universe.dev/)
+# during load which crashes WebR at the JavaScript level — bypasses tryCatch.
+# Skip it entirely in WebR; the ERD in the Reference tab shows a message instead.
+DIAGRAMMER_AVAILABLE <- if (isTRUE(grepl("wasm", R.version$arch))) {
+  FALSE
+} else {
+  tryCatch({ library(DiagrammeR); TRUE }, error = function(e) FALSE)
+}
 
 # ---- Configuration ----------------------------------------------------------
 # 10 perceptually distinct colours (D3 category10). Assigned in order to whatever
