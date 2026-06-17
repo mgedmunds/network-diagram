@@ -1038,6 +1038,28 @@ ui <- page_navbar(
     .network-expanded #net {
       height: 100% !important;
     }
+    .timeline-expanded {
+      position: fixed !important;
+      inset: 0 !important;
+      z-index: 9998 !important;
+      border-radius: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
+    .timeline-expanded .card-body {
+      flex: 1 !important;
+      min-height: 0 !important;
+      overflow-y: auto !important;
+      padding: 4px !important;
+    }
+    .timeline-expanded #timeline_body_div {
+      height: auto !important;
+      overflow-y: visible !important;
+      resize: none !important;
+    }
   ")),
   tags$script(HTML("
     function toggleNetwork() {
@@ -1048,6 +1070,17 @@ ui <- page_navbar(
         document.body.style.overflow = 'hidden';
       } else {
         btn.textContent = 'Maximise';
+        document.body.style.overflow = '';
+      }
+    }
+    function toggleTimeline() {
+      var card = document.querySelector('.timeline-card');
+      var btn  = document.getElementById('timeline_expand_btn');
+      if (card.classList.toggle('timeline-expanded')) {
+        btn.textContent = 'Collapse';
+        document.body.style.overflow = 'hidden';
+      } else {
+        btn.textContent = 'Expand';
         document.body.style.overflow = '';
       }
     }
@@ -1112,6 +1145,7 @@ ui <- page_navbar(
         visNetworkOutput("net", height = "500px")),
 
       card(
+        class = "timeline-card",
         card_header(class = "d-flex justify-content-between align-items-center",
           span("Timeline"),
           div(class = "d-flex align-items-center gap-2",
@@ -1119,24 +1153,7 @@ ui <- page_navbar(
             tags$button(
               id = "timeline_expand_btn",
               class = "btn btn-outline-secondary btn-sm py-0",
-              `data-expanded` = "false",
-              onclick = "
-                var d   = document.getElementById('timeline_body_div');
-                var btn = document.getElementById('timeline_expand_btn');
-                if (btn.dataset.expanded === 'true') {
-                  d.style.height   = '30vh';
-                  d.style.overflowY = 'auto';
-                  d.style.resize   = 'vertical';
-                  btn.textContent  = 'Expand';
-                  btn.dataset.expanded = 'false';
-                } else {
-                  d.style.height   = 'auto';
-                  d.style.overflowY = 'visible';
-                  d.style.resize   = 'none';
-                  btn.textContent  = 'Collapse';
-                  btn.dataset.expanded = 'true';
-                }
-              ",
+              onclick = "toggleTimeline()",
               "Expand"))),
         card_body(
           padding = 0,
