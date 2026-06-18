@@ -88,10 +88,19 @@ wb <- createWorkbook()
 
 add_sheet <- function(wb, name, headers, example, col_widths = NULL,
                       date_cols = NULL, dropdowns = list(),
-                      validations = list()) {
+                      validations = list(), nrows = 1) {
   addWorksheet(wb, name, tabColour = "#2980B9")
 
+  # Build data frame: 1 example row + (nrows-1) blank rows.
+  # Pre-sizing the table to nrows means the Excel Table covers all rows from
+  # the start and does not need to auto-expand as data is entered.
   eg_df <- as.data.frame(example, stringsAsFactors = FALSE)
+  if (nrows > 1) {
+    blank <- lapply(example, function(x) if (inherits(x, "Date")) as.Date(NA) else "")
+    blank_df <- as.data.frame(blank, stringsAsFactors = FALSE)
+    eg_df <- rbind(eg_df, blank_df[rep(1L, nrows - 1L), ])
+    rownames(eg_df) <- NULL
+  }
   names(eg_df) <- headers
   writeDataTable(wb, name, eg_df,
                  startRow    = 1,
@@ -282,13 +291,14 @@ add_sheet(
                     "Female", "SW1A 1AA", "Confirmed", "Unvaccinated",
                     "", ""),
   col_widths = c(10, 14, 14, 14, 16, 16, 8, 12, 14, 14, 20, 16, 45),
+  nrows      = 1000,
   date_cols  = c(5, 6),
   dropdowns  = list(
     list(col = 8,  formula = '"Male,Female,Other,Unknown"'),
     list(col = 10, formula = '"Confirmed,Probable,Possible"'),
     list(col = 11, formula = '"Unvaccinated,1 dose,2 doses,Unknown"'),
     # likely_index_case: dropdown showing all case_ids already in this table
-    list(col = 12, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$B$2:$B$1001),1)")
+    list(col = 12, formula = "cases!$A$2:$A$1001")
   ),
   validations = list(
     list(col = 5, type = "date", operator = "between",
@@ -315,13 +325,13 @@ writeFormula(wb, "cases", age_formulas, startRow = 2, startCol = 7)
 # the formula. Instructions and the formula text are in the README tab.
 # The user pastes the formula into M2 and copies down once after setup.
 
-# Locked (blue): case_id (1), age (7), contexts (13)
+# Locked (blue): case_id (1) and age (7) — auto-generated, never edited
 addStyle(wb, "cases", locked_style,
-         rows = 2:1001, cols = c(1, 7, 13), gridExpand = TRUE, stack = TRUE)
+         rows = 2:1001, cols = c(1, 7), gridExpand = TRUE, stack = TRUE)
 
-# Unlocked: all editable columns
+# Unlocked: all editable columns including contexts (13) — user pastes formula here
 addStyle(wb, "cases", unlocked_style,
-         rows = 2:1001, cols = c(2:6, 8:12), gridExpand = TRUE, stack = TRUE)
+         rows = 2:1001, cols = c(2:6, 8:13), gridExpand = TRUE, stack = TRUE)
 
 # Amber highlight on CIMS_id (col B) if the value appears more than once
 conditionalFormatting(wb, "cases",
@@ -354,8 +364,8 @@ add_sheet(
   headers    = c("context_id", "context_name", "context_type"),
   example    = list("", "Oakfield Primary School", "School"),
   col_widths = c(12, 35, 20),
+  nrows      = 1000,
   dropdowns  = list(
-    # ContextTypes is the named range created from the Lookups tab
     list(col = 3, formula = "OFFSET(Lookups!$A$2,0,0,COUNTA(Lookups!$A$2:$A$100),1)")
   )
 )
@@ -380,8 +390,8 @@ add_sheet(
   example    = list("C-001", "Ctxt-001"),
   col_widths = c(12, 14),
   dropdowns  = list(
-    list(col = 1, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$B$2:$B$1001),1)"),
-    list(col = 2, formula = "OFFSET(contexts!$A$2,0,0,COUNTA(contexts!$B$2:$B$1001),1)")
+    list(col = 1, formula = "cases!$A$2:$A$1001"),
+    list(col = 2, formula = "contexts!$A$2:$A$1001")
   )
 )
 
@@ -395,8 +405,8 @@ add_sheet(
   col_widths = c(12, 14, 15),
   date_cols  = 3,
   dropdowns  = list(
-    list(col = 1, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$B$2:$B$1001),1)"),
-    list(col = 2, formula = "OFFSET(contexts!$A$2,0,0,COUNTA(contexts!$B$2:$B$1001),1)")
+    list(col = 1, formula = "cases!$A$2:$A$1001"),
+    list(col = 2, formula = "contexts!$A$2:$A$1001")
   ),
   validations = list(
     list(col = 3, type = "date", operator = "between",
@@ -413,8 +423,8 @@ add_sheet(
   example    = list("C-001", "C-002", "Possible"),
   col_widths = c(12, 12, 14),
   dropdowns  = list(
-    list(col = 1, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$B$2:$B$1001),1)"),
-    list(col = 2, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$B$2:$B$1001),1)"),
+    list(col = 1, formula = "cases!$A$2:$A$1001"),
+    list(col = 2, formula = "cases!$A$2:$A$1001"),
     list(col = 3, formula = '"Probable,Possible"')
   )
 )
@@ -453,10 +463,10 @@ addStyle(wb, "Date Helper", date_style,  rows = 8:9, cols = 2, gridExpand = TRUE
 
 dataValidation(wb, "Date Helper", col = 2, rows = 6,
                type  = "list",
-               value = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$B$2:$B$1001),1)")
+               value = "cases!$A$2:$A$1001")
 dataValidation(wb, "Date Helper", col = 2, rows = 7,
                type  = "list",
-               value = "OFFSET(contexts!$A$2,0,0,COUNTA(contexts!$B$2:$B$1001),1)")
+               value = "contexts!$A$2:$A$1001")
 dataValidation(wb, "Date Helper", col = 2, rows = 8:9,
                type = "date", operator = "between",
                value = as.Date(c("2000-01-01", "2100-01-01")))
