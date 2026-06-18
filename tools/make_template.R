@@ -183,6 +183,18 @@ readme_rows <- list(
   list(style = note_style,    text = "•  Dates must be entered as Excel dates (DD/MM/YYYY) — not plain text."),
   list(style = note_style,    text = "•  Do not rename or reorder sheet tabs or column headers."),
   list(style = note_style,    text = ""),
+  list(style = section_style, text = "CONTEXTS COLUMN — one-time formula setup (do this once after filling the sheet)"),
+  list(style = note_style,    text = "The 'contexts' column (M) in the cases sheet is blank when the template first opens."),
+  list(style = note_style,    text = "After filling in cases, contexts, and case_contexts, add the formula:"),
+  list(style = note_style,    text = "  1. Click cell M2 in the cases sheet (unprotect the sheet first if prompted)."),
+  list(style = note_style,    text = "  2. Type = then copy and paste the text below into the formula bar:"),
+  list(style = note_style,    text = ""),
+  list(style = note_style,    text = '     IF(A2="","",IFERROR(TEXTJOIN("; ",TRUE,IFERROR(VLOOKUP(IF(case_contexts!$A$2:$A$2001=A2,case_contexts!$B$2:$B$2001,""),contexts!$A$2:$B$1001,2,0),"")),""))'),
+  list(style = note_style,    text = ""),
+  list(style = note_style,    text = "  3. Press Ctrl+Shift+Enter (NOT plain Enter) — this is an array formula."),
+  list(style = note_style,    text = "  4. Copy M2, select M3:M1001, paste."),
+  list(style = note_style,    text = "  Requires Excel 2019 or Microsoft 365. Shows all context names for each case, semi-colon separated."),
+  list(style = note_style,    text = ""),
   list(style = section_style, text = "VALIDATION — what the cells will check as you type"),
   list(style = note_style,    text = "•  date_of_birth, onset_date, visit_date: must be a valid date. Text is rejected."),
   list(style = note_style,    text = "•  CIMS_id: turns amber if the same value appears more than once."),
@@ -298,20 +310,10 @@ age_formulas <- paste0(
 )
 writeFormula(wb, "cases", age_formulas, startRow = 2, startCol = 7)
 
-# contexts: semi-colon list of context names linked to this case.
-# Uses the classic Ctrl+Shift+Enter array formula pattern (array = TRUE) so
-# Excel evaluates the full 2000-row range comparison as an array rather than
-# applying implicit intersection (which would only check the first row).
-# The IF inside VLOOKUP maps matching case_contexts rows to their context_id;
-# non-matching rows return "" which VLOOKUP then fails on (caught by inner
-# IFERROR). TEXTJOIN ignores the resulting empty strings (ignore_empty = TRUE).
-# TEXTJOIN requires Excel 2019 or 365.
-ctx_formulas <- paste0(
-  'IF(A', 2:1001, '="","",IFERROR(TEXTJOIN("; ",TRUE,',
-  'IFERROR(VLOOKUP(IF(case_contexts!$A$2:$A$2001=A', 2:1001, ',',
-  'case_contexts!$B$2:$B$2001,""),contexts!$A$2:$B$1001,2,0),"")),""))'
-)
-writeFormula(wb, "cases", ctx_formulas, startRow = 2, startCol = 13, array = TRUE)
+# contexts (col M): NOT pre-populated — openxlsx cannot reliably write complex
+# cross-sheet formulas to OOXML. Column is styled and locked ready to receive
+# the formula. Instructions and the formula text are in the README tab.
+# The user pastes the formula into M2 and copies down once after setup.
 
 # Locked (blue): case_id (1), age (7), contexts (13)
 addStyle(wb, "cases", locked_style,
