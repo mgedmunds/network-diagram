@@ -207,7 +207,7 @@ readme_rows <- list(
   list(style = note_style,    text = "  4. Copy M2 (Ctrl+C), select M3:M1001, paste (Ctrl+V)."),
   list(style = note_style,    text = "     Check a few of the pasted cells — they should also show {=...} with curly braces."),
   list(style = note_style,    text = ""),
-  list(style = note_style,    text = '     IF(A2="","",IFERROR(TEXTJOIN("; ",TRUE,IFERROR(VLOOKUP(IF(case_contexts!$A$2:$A$2001=A2,case_contexts!$B$2:$B$2001,""),contexts!$A$2:$B$1001,2,0),"")),""))'),
+  list(style = note_style,    text = '     IF(A2="","",IFERROR(TEXTJOIN("; ",TRUE,IF(ISNUMBER(MATCH(A2&contexts!$A$2:$A$1001,case_contexts!$A$2:$A$2001&case_contexts!$B$2:$B$2001,0)),contexts!$B$2:$B$1001,"")),""))'),
   list(style = note_style,    text = ""),
   list(style = note_style,    text = "  Shows all context names linked to each case, semi-colon separated. Requires Excel 2019 or 365."),
   list(style = note_style,    text = ""),
