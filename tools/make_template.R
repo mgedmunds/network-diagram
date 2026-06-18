@@ -182,9 +182,8 @@ readme_rows <- list(
   list(style = note_style,    text = "    Once filled, the 'contexts' column in the cases sheet will populate automatically."),
   list(style = note_style,    text = "4.  Fill in 'visit_dates' — one row per date a case visited a context."),
   list(style = note_style,    text = "    Use the 'Date Helper' tab to generate blocks of dates efficiently (see below)."),
-  list(style = note_style,    text = "5.  Fill in 'contacts' (optional) — one row per known transmission link."),
-  list(style = note_style,    text = "6.  Delete the example rows (shaded grey, italic) before uploading."),
-  list(style = note_style,    text = "7.  Save as .xlsx and upload using the Upload button in the network tool."),
+  list(style = note_style,    text = "5.  Delete the example rows (shaded grey, italic) before uploading."),
+  list(style = note_style,    text = "6.  Save as .xlsx and upload using the Upload button in the network tool."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "RULES"),
   list(style = note_style,    text = "•  case_id, context_id, age, and contexts are AUTO-GENERATED — do not type in these columns (locked, blue shading)."),
@@ -456,21 +455,6 @@ add_sheet(
 )
 
 
-# ---- contacts ---------------------------------------------------------------
-
-add_sheet(
-  wb, "contacts",
-  headers    = c("from", "to", "link_type"),
-  example    = list("C-001", "C-002", "Possible"),
-  col_widths = c(12, 12, 14),
-  dropdowns  = list(
-    list(col = 1, formula = "cases!$A$2:$A$1001"),
-    list(col = 2, formula = "cases!$A$2:$A$1001"),
-    list(col = 3, formula = '"Probable,Possible"')
-  )
-)
-
-
 # ---- Date Helper ------------------------------------------------------------
 
 addWorksheet(wb, "Date Helper", tabColour = "#27AE60")
@@ -559,9 +543,8 @@ conditionalFormatting(wb, "Date Helper",
 
 createNamedRegion(wb, sheet = "cases",         rows = 1:1001, cols = 1:13, name = "CasesRange")
 createNamedRegion(wb, sheet = "contexts",      rows = 1:1001, cols = 1:3,  name = "ContextsRange")
-createNamedRegion(wb, sheet = "case_contexts", rows = 1:2001, cols = 1:2,  name = "CaseContextsRange")
+createNamedRegion(wb, sheet = "case_contexts", rows = 1:2001, cols = 1:3,  name = "CaseContextsRange")
 createNamedRegion(wb, sheet = "visit_dates",   rows = 1:2001, cols = 1:3,  name = "VisitDatesRange")
-createNamedRegion(wb, sheet = "contacts",      rows = 1:2001, cols = 1:3,  name = "ContactsRange")
 createNamedRegion(wb, sheet = "Lookups",       rows = 2:100,  cols = 1,    name = "ContextTypes")
 
 

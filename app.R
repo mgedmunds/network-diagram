@@ -10,7 +10,7 @@
 # Views:
 # 1. Contexts <-> contexts (shared cases) -- bipartite projection onto contexts
 # 2. Cases x contexts (bipartite) -- shows multi-context cases directly
-# 3. Case-to-case (transmission links) -- from the contacts sheet OR derived
+# 3. Case-to-case (transmission links) -- from likely_index_case field in cases
 #    from shared contexts + timing
 #
 # TO RUN:
@@ -133,18 +133,12 @@ DICT_TABLES <- list(
     "context_id",     "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to case_contexts.context_id.",
     "visit_date",     "date",      "PK",        "Yes",     "Date of an epi-relevant visit. One row per calendar day per case-context pair.",
   ),
-  contacts = tibble::tribble(
-    ~Field,       ~Type,       ~Key,  ~Required, ~Description,
-    "from",       "character", "FK",  "Yes",     "Source case. FK to cases.case_id.",
-    "to",         "character", "FK",  "Yes",     "Recipient case. FK to cases.case_id.",
-    "link_type",  "character", "—",   "Yes",     "Strength of evidence for the transmission link: <b>Probable</b> (epidemiologically established) or <b>Possible</b> (plausible based on timing and shared context)."
-  )
 )
 
 # ---- Demo data --------------------------------------------------------------
 # Generates a realistic synthetic outbreak dataset used when no file is uploaded.
-# Produces all five tables (cases, contexts, case_contexts, visit_dates, contacts)
-# with plausible visit patterns and transmission links.
+# Produces four tables (cases, contexts, case_contexts, visit_dates) with
+# plausible visit patterns. likely_index_case is populated directly on cases.
 make_demo_data <- function() {
   # Fixed seed so the demo is reproducible each time the app starts
   set.seed(42)
@@ -252,19 +246,19 @@ make_demo_data <- function() {
   # Keep only contexts that at least one case actually visited
   contexts <- all_contexts |> semi_join(case_contexts, by = "context_id")
 
-  # Build a contacts table: each case is linked to one earlier case.
-  # Cases sharing a primary context are 5x more likely to be linked,
-  # giving a plausible cluster structure.
+  # Assign likely_index_case for each case (except the first).
+  # Cases sharing a primary context are 5x more likely to be linked.
   prim_id <- community$context_id[prim]
-  contacts <- purrr::map_dfr(seq_len(n)[-1], function(i) {
+  index_cases <- c(NA_character_, purrr::map_chr(seq_len(n)[-1], function(i) {
     cand <- cases[seq_len(i - 1), ]
     w    <- ifelse(prim_id[seq_len(i - 1)] == prim_id[i], 5, 1)
     j    <- sample(seq_len(nrow(cand)), 1, prob = w)
-    tibble::tibble(from = cand$case_id[j], to = cases$case_id[i],
-                   link_type = sample(c("Probable","Possible"), 1, prob = c(.7,.3)))
-  })
+    cand$case_id[j]
+  }))
+  cases <- cases |> mutate(likely_index_case = index_cases)
+
   list(cases = cases, contexts = contexts, case_contexts = case_contexts,
-       visit_dates = visit_dates, contacts = contacts)
+       visit_dates = visit_dates)
 }
 
 # Joins case_contexts, contexts, and visit_dates into a single flat table.
@@ -416,63 +410,91 @@ derive_possible_links <- function(ll, visits, inc_min, inc_max, inf_before, inf_
     distinct(from, to) |> mutate(link_type = "Possible")
 }
 
-# Who infected whom view: one node per case, edges are transmission links.
-# Links come from the contacts table (Probable or Possible) or from
-# derive_possible_links() if the user selects the "derive" option.
+# Who infected whom view: one node per case, edges from likely_index_case field.
 # Node colour reflects the case's primary context type.
-build_contacts_network <- function(ll, contacts, visits, colours) {
-  # Use the earliest recorded visit to assign each case a "primary" context type
-  # for colouring — gives a visual clue about which cluster each case belongs to
-  primary <- if (nrow(visits))
+build_transmission_network <- function(ll, visits, colours) {
+  if (!("likely_index_case" %in% names(ll)))
+    ll <- ll |> mutate(likely_index_case = NA_character_)
+
+  edges_raw <- ll |>
+    filter(!is.na(likely_index_case) & nchar(likely_index_case) > 0) |>
+    select(from = likely_index_case, to = case_id)
+
+  primary <- if (nrow(visits) > 0)
     visits |> arrange(visit_date) |> group_by(case_id) |> slice(1) |> ungroup() |>
       select(case_id, context_type)
   else tibble(case_id = character(), context_type = character())
 
-  n_contexts    <- visits |> distinct(case_id, context_name) |> count(case_id, name = "n_contexts")
-  case_contexts <- visits |> distinct(case_id, context_name, context_type)
-  # Named vector of onset dates keyed by case_id, for fast lookup in the edge loop
-  onset <- setNames(ll$onset_date, ll$case_id)
+  n_contexts   <- visits |> distinct(case_id, context_name) |> count(case_id, name = "n_contexts")
+  ctx_tbl      <- visits |> distinct(case_id, context_name, context_type)
+  onset        <- setNames(ll$onset_date, ll$case_id)
 
   nodes <- ll |>
-    left_join(primary,     by = "case_id") |>
-    left_join(n_contexts,  by = "case_id") |>
-    mutate(context_type = ifelse(is.na(context_type), "Other", context_type),
+    left_join(primary,    by = "case_id") |>
+    left_join(n_contexts, by = "case_id") |>
+    mutate(context_type = coalesce(context_type, "Other"),
            n_contexts   = coalesce(n_contexts, 0L)) |>
     transmute(id = case_id, label = case_id, group = context_type,
               color = coalesce(unname(colours[context_type]), "#7f7f7f"),
               title = paste0("<b>", htmltools::htmlEscape(case_id), "</b><br>Onset: ", onset_date,
                              "<br>Contexts visited: ", n_contexts))
 
-  # For each contact edge, calculate the onset gap and find shared contexts
-  # to show in the hover tooltip
-  edges <- contacts |> filter(from %in% nodes$id, to %in% nodes$id) |>
-    # Support both old and new transmission labels so legacy files still render correctly.
-    mutate(
-      link_type_std = dplyr::case_when(
-        link_type %in% c("Possible", "Suspected") ~ "Possible",
-        link_type %in% c("Probable", "Confirmed") ~ "Probable",
-        TRUE ~ as.character(link_type)
-      )
-    ) |>
+  if (nrow(edges_raw) == 0)
+    return(list(nodes = nodes, edges = tibble(from = character(), to = character())))
+
+  edges <- edges_raw |> filter(from %in% nodes$id, to %in% nodes$id) |>
     mutate(
       gap = purrr::map2_int(from, to, function(f, t) {
         d1 <- onset[[f]]; d2 <- onset[[t]]
         if (is.na(d1) || is.na(d2)) NA_integer_ else as.integer(abs(as.Date(d2) - as.Date(d1)))
       }),
       common_text = purrr::map2_chr(from, to, function(f, t) {
-        shared <- intersect(
-          case_contexts$context_name[case_contexts$case_id == f],
-          case_contexts$context_name[case_contexts$case_id == t])
-        if (length(shared) == 0) return("None recorded")
-        rows <- case_contexts[case_contexts$case_id == f & case_contexts$context_name %in% shared, ]
-        paste(paste0(htmltools::htmlEscape(rows$context_name), " (", htmltools::htmlEscape(rows$context_type), ")"), collapse = "<br>")
+        shared <- intersect(ctx_tbl$context_name[ctx_tbl$case_id == f],
+                            ctx_tbl$context_name[ctx_tbl$case_id == t])
+        if (length(shared) == 0) "None recorded"
+        else paste(paste0(htmltools::htmlEscape(shared)), collapse = "<br>")
       }),
       title = paste0(
-        htmltools::htmlEscape(link_type_std), " link",
+        "<b>", htmltools::htmlEscape(from), "</b> → <b>", htmltools::htmlEscape(to), "</b>",
         ifelse(!is.na(gap), paste0("<br>Onset gap: ", gap, ifelse(gap == 1, " day", " days")), ""),
-        "<br>Common contexts: ", common_text)
+        "<br>Shared contexts: ", common_text)
     ) |>
-    transmute(from, to, dashes = link_type_std == "Possible", title)
+    transmute(from, to, title)
+
+  list(nodes = nodes, edges = edges)
+}
+
+# Possible links network: nodes and edges for the Possible links page.
+# Candidate pairs already captured by likely_index_case are excluded.
+build_possible_net <- function(ll, candidates, visits, colours) {
+  if (nrow(candidates) == 0)
+    return(list(nodes = tibble(id=character(), label=character()),
+                edges = tibble(from=character(), to=character())))
+
+  primary <- if (nrow(visits) > 0)
+    visits |> arrange(visit_date) |> group_by(case_id) |> slice(1) |> ungroup() |>
+      select(case_id, context_type)
+  else tibble(case_id = character(), context_type = character())
+
+  onset <- setNames(ll$onset_date, ll$case_id)
+  involved <- unique(c(candidates$from, candidates$to))
+
+  nodes <- ll |> filter(case_id %in% involved) |>
+    left_join(primary, by = "case_id") |>
+    mutate(context_type = coalesce(context_type, "Other")) |>
+    transmute(id = case_id, label = case_id, group = context_type,
+              color = coalesce(unname(colours[context_type]), "#7f7f7f"),
+              title = paste0("<b>", htmltools::htmlEscape(case_id), "</b><br>Onset: ", onset_date))
+
+  edges <- candidates |>
+    mutate(
+      title = paste0("<b>", htmltools::htmlEscape(from), "</b> → <b>",
+                     htmltools::htmlEscape(to), "</b><br>Onset gap: ",
+                     as.integer(as.Date(onset[to]) - as.Date(onset[from])), " days"),
+      color = "#e67e22",
+      dashes = TRUE
+    ) |>
+    select(from, to, title, color, dashes)
 
   list(nodes = nodes, edges = edges)
 }
@@ -521,7 +543,7 @@ header_tooltips <- function(tips) {
 metric_tips_lookup <- c(
   Node        = "The individual case or the context this row describes.",
   Kind        = "Whether this node is a Case or a Context (Who visited where view only).",
-  Degree      = "Number of direct links. For a context: how many case-visits it has. For a case: how many contexts it visited (Who visited where) or contacts it has.",
+  Degree      = "Number of direct links. For a context: how many case-visits it has. For a case: how many contexts it visited (Who visited where) or transmission links it has (Who infected whom).",
   Betweenness = "How often this node lies on the connecting path between others. A high value flags a 'bridge' joining otherwise separate parts of the outbreak.")
 ll_tips_lookup <- c(
   case_id            = "Unique identifier for each case.",
@@ -539,23 +561,19 @@ Terms used in this tool and what they mean in the context of outbreak investigat
 
 ---
 
-### Probable source
+### Likely index case
 
-A case that has been identified through investigation as the likely origin of
-transmission to another case. A probable link is one where an epidemiological
-connection has been established — for example a named household contact, a
-documented exposure event, or otherwise verified contact — and is recorded as
-such in the contacts data. Shown as a **solid line** in the Who infected whom view.
+The case identified by the investigating practitioner as the probable source of
+infection for another case. Recorded in the **likely_index_case** field of the
+cases table. Shown as a directed arrow in the **Who infected whom** view.
 
-### Possible source
+### Possible undetected link
 
-A case with a plausible but unverified link to a later case. A possible link
-may be recorded as "Possible" in the contacts data, or derived automatically
-by this tool when two cases attended the same context and the gap between their
-onset dates falls within the range expected given the incubation and infectious
-periods. Shown as a **dashed line** in the Who infected whom view. See the
-**Assumptions & parameters** tab for how the derived rule is defined and how to
-adjust the parameters.
+A pair of cases flagged by the tool as a plausible transmission pair based on
+shared context attendance and onset timing — but not yet captured in the
+likely_index_case field. Shown on the **Possible links** page with supporting
+data to help the practitioner assess whether to record the link. See
+**Assumptions & parameters** for the timing rule and parameters.
 
 ---
 
@@ -632,10 +650,13 @@ are connected.
 **Who visited where** - shows cases (dark dots) and contexts (coloured squares);
 each line is a visit. A multi-context case appears joined to several squares.
 
-**Who infected whom** - transmission links between cases, either taken
-from the contacts sheet or derived from shared contexts and timing. How
-possible links are defined, and the parameters behind it, are on the
-**Assumptions & parameters** tab.
+**Who infected whom** - transmission links between cases, taken from the
+likely_index_case field in the cases data. Each arrow points from the
+recorded source to the recipient.
+
+**Possible links** (separate tab) - candidate pairs not yet recorded in
+likely_index_case, derived from shared contexts and onset timing. Includes
+a table of supporting data to help judge each candidate.
 
 ## Reading the network
 
@@ -700,17 +721,16 @@ acquired infection there). Measles is commonly treated as infectious from about
 4 days before to 4 days after rash onset; this is the default and can be changed
 below.
 
-### When is a transmission link "probable" vs "possible"?
+### Who infected whom — and the Possible links page
 
-- **Probable** - a link established during investigation (for example a named
-  household or close contact, or an otherwise verified epidemiological link), as
-  recorded in the contacts sheet. Shown as a solid line.
-- **Possible** - a plausible but unverified link. Shown as a dashed line. A
-  possible link can come from either:
-  1. a row marked "Possible" in the contacts sheet, or
-  2. **derivation by the tool** (if you select that option below): two cases
-     attended the **same context**, and the later case onset falls a plausible
-     interval after the earlier one, given the incubation and infectious periods.
+The **Who infected whom** view shows links recorded in the **likely_index_case**
+field of the cases table. Each case can name one source — the practitioner's
+judgement based on the investigation.
+
+The **Possible links** page shows candidate pairs not yet captured by
+likely_index_case: cases who shared a context and whose onset gap falls within
+the plausible transmission window (defined below). Use it to identify links that
+may have been missed.
 
 ### The derived-link rule
 
@@ -1018,7 +1038,7 @@ ui <- page_navbar(
             "Do not upload files containing personal identifiable information (PII). Use anonymised or pseudonymised data only — case IDs must not include names, dates of birth, addresses, or NHS numbers."),
           hr(),
           fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
-          helpText("The file must contain four sheets: cases, contexts, case_contexts, and visit_dates. A contacts sheet is optional."),
+          helpText("The file must contain four sheets: cases, contexts, case_contexts, and visit_dates."),
           actionButton("go_dashboard", "Go to Dashboard →", class = "btn btn-primary mt-2"))))),
 
   nav_panel("Dashboard",
@@ -1058,9 +1078,7 @@ ui <- page_navbar(
               onclick = "toggleNetwork()", "Maximise"),
             info(paste0("Contexts network links places that share a case. ",
                         "Who visited where shows cases and contexts together. ",
-                        "Who infected whom uses the contacts table or links derived from timing ",
-                        "(see Assumptions & parameters).")))),
-        uiOutput("contacts_warning"),
+                        "Who infected whom shows transmission links from the likely_index_case field in the cases table.")))),
         div(style = "position:relative;",
           uiOutput("network_legend"),
           visNetworkOutput("net", height = "60vh"))),
@@ -1107,9 +1125,7 @@ ui <- page_navbar(
       card(hdr("Visit dates",
                "One row per epidemiologically relevant visit date. A single case × context pair can appear on multiple rows here, one per date."),
            DTOutput("src_visit_dates")),
-      card(hdr("Contacts",
-               "One row per recorded transmission link. Optional — if not supplied, case-to-case links can be derived from shared contexts and timing instead."),
-           DTOutput("src_contacts")))),
+    )),
 
   nav_panel("Definitions",
     div(style = "max-width:860px; margin:0 auto; padding:8px 4px;",
@@ -1133,12 +1149,6 @@ ui <- page_navbar(
                          DEF_INF_BEFORE, min = 0, max = 14, step = 1),
             numericInput("inf_after",  "Infectious period – days after onset",
                          DEF_INF_AFTER,  min = 0, max = 14, step = 1)),
-          radioButtons("poss_source",
-            "How should POSSIBLE case-to-case links be defined?",
-            c("As recorded in the contacts sheet"                                    = "file",
-              "Derive from shared contexts + timing (uses the parameters above)"     = "derive"),
-            selected = "file"),
-          uiOutput("poss_readout"),
           actionButton("reset_params", "Reset to defaults",
                        class = "btn-outline-secondary btn-sm"))))),
 
@@ -1160,13 +1170,28 @@ ui <- page_navbar(
             nav_panel("cases",         DTOutput("dict_cases")),
             nav_panel("contexts",      DTOutput("dict_contexts")),
             nav_panel("case_contexts", DTOutput("dict_case_contexts")),
-            nav_panel("visit_dates",   DTOutput("dict_visit_dates")),
-            nav_panel("contacts",      DTOutput("dict_contacts"))
+            nav_panel("visit_dates",   DTOutput("dict_visit_dates"))
           )
         )
       )
     )
   ),
+
+  nav_panel("Possible links",
+    div(style = "max-width:1200px; margin:0 auto; padding:8px 4px;",
+      card(card_body(
+        p("Candidate case-to-case links derived from shared contexts and onset timing, using the epi parameters on the ",
+          tags$strong("Assumptions & parameters"), " tab. Only pairs ",
+          tags$strong("not already captured by the likely_index_case field"), " are shown."),
+        p(class = "text-muted mb-0",
+          "Use the table below to assess each candidate. Recording an accepted link is done by updating ",
+          tags$code("likely_index_case"), " in your data."))),
+      card(hdr("Candidate network",
+               "Possible undetected links shown as orange dashed arrows. Node colour = primary context type."),
+           visNetworkOutput("possible_links_net", height = "40vh")),
+      card(hdr("Assessment table",
+               "One row per candidate pair. Sortable and filterable. Use exposure_relevance to judge plausibility — pairs where neither case has a relevant classification at the shared context are weaker candidates."),
+           DTOutput("possible_links_table")))),
 
   nav_spacer(),
   nav_item(tags$span(style = "color:#888; font-size:0.85em;", paste0("Measles outbreak explorer v", APP_VERSION)))
@@ -1204,7 +1229,7 @@ server <- function(input, output, session) {
                   paste(missing_sheets, collapse = ", "), ". ",
                   "The sheet tab names must match exactly (they are case-sensitive). ",
                   "Expected tabs: cases, contexts, case_contexts, visit_dates ",
-                  "(contacts is optional). Re-download the template if unsure."))
+                  "Re-download the template if unsure."))
     )
 
     # Read the four required sheets; convert date columns that Excel may have
@@ -1215,11 +1240,6 @@ server <- function(input, output, session) {
     vd  <- readxl::read_excel(input$file$datapath, sheet = "visit_dates")
     cs$onset_date <- as.Date(cs$onset_date)
     vd$visit_date <- as.Date(vd$visit_date)
-    # contacts is optional; use an empty table if the sheet is absent
-    ct <- if ("contacts" %in% sheets)
-      readxl::read_excel(input$file$datapath, sheet = "contacts")
-      else tibble(from = character(), to = character(), link_type = character())
-
     # Check required columns in each sheet
     miss_cs  <- setdiff(c("case_id", "onset_date"), names(cs))
     miss_st  <- setdiff(c("context_id", "context_name", "context_type"), names(st))
@@ -1276,7 +1296,7 @@ server <- function(input, output, session) {
                   "Check for typos, or add the missing contexts to the contexts sheet first."))
     )
 
-    list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd, contacts = ct)
+    list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd)
   })
 
   # When new data loads, reset the date slider to span the full dataset date range
@@ -1311,33 +1331,6 @@ server <- function(input, output, session) {
     updateNumericInput(session, "inc_max",    value = DEF_INC_MAX)
     updateNumericInput(session, "inf_before", value = DEF_INF_BEFORE)
     updateNumericInput(session, "inf_after",  value = DEF_INF_AFTER)
-    updateRadioButtons(session, "poss_source", selected = "file")
-  })
-
-  # Renders a plain-language summary of the derived-link rule with the current
-  # parameter values, shown on the Assumptions & parameters tab
-  output$poss_readout <- renderUI({
-    p  <- params(); lb <- p$inc_min - p$inf_before; ub <- p$inc_max + p$inf_after
-    div(style = "background:#eef6fb; border-left:4px solid #2c7fb8; padding:8px 12px; margin:8px 0; border-radius:4px;",
-        HTML(sprintf(paste0("With the current values, a <b>possible</b> link is drawn from an ",
-                            "earlier case to a later case who shared a context when the later onset is between ",
-                            "<b>%g</b> and <b>%g days</b> after the earlier one. The bipartite view marks a visit ",
-                            "as infectious when it falls from <b>%g days before</b> to <b>%g days after</b> onset."),
-                     lb, ub, p$inf_before, p$inf_after)))
-  })
-
-  # bipartite_key merged into output$network_legend below
-
-  output$contacts_warning <- renderUI({
-    req(input$view == "contacts")
-    f   <- filtered()
-    src <- if (!is.null(input$poss_source)) input$poss_source else "file"
-    if (nrow(f$contacts) == 0 && src == "file")
-      div(class = "alert alert-info mb-2", role = "alert",
-          tags$strong("No contacts information available."),
-          " No contacts sheet was found in the data. You can switch to ",
-          tags$em("'Derive from shared contexts + timing'"),
-          " on the ", tags$strong("Assumptions & parameters"), " tab.")
   })
 
   observeEvent(input$go_dashboard, {
@@ -1358,8 +1351,7 @@ server <- function(input, output, session) {
     cst <- d$case_contexts |> filter(case_id %in% cs$case_id, context_id %in% st$context_id)
     st  <- st |> filter(context_id %in% cst$context_id)
     vd  <- d$visit_dates |> filter(case_id %in% cs$case_id, context_id %in% cst$context_id)
-    ct  <- d$contacts |> filter(from %in% cs$case_id, to %in% cs$case_id)
-    list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd, contacts = ct)
+    list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd)
   })
 
   # filtered(): applies the three sidebar filters to all five tables in sequence.
@@ -1369,7 +1361,7 @@ server <- function(input, output, session) {
 
   # netdata(): flattens the tables, assigns colours, then calls the appropriate
   # view builder. exposure_relevance is read directly from case_contexts.
-  # The contacts view either uses the uploaded contacts table or derives links
+  # The contacts view reads likely_index_case from cases; possible links page
   # from shared contexts + timing, depending on the user's radio button choice.
   netdata <- reactive({
     f    <- filtered()
@@ -1379,12 +1371,7 @@ server <- function(input, output, session) {
     switch(input$view,
       projection = build_context_projection(fv, f$cases, cols),
       bipartite  = build_bipartite(fv, f$cases, cols),
-      contacts   = {
-        ct <- if (input$poss_source == "derive")
-          derive_possible_links(f$cases, fv, p$inc_min, p$inc_max, p$inf_before, p$inf_after)
-        else f$contacts
-        build_contacts_network(f$cases, ct, fv, cols)
-      })
+      contacts   = build_transmission_network(f$cases, fv, cols))
   })
 
   # Renders the network diagram. exposure_relevance is dropped from edges before
@@ -1466,11 +1453,103 @@ server <- function(input, output, session) {
   output$src_cases         <- renderDT({ src_dt(raw()$cases) })
   output$src_case_contexts <- renderDT({ src_dt(raw()$case_contexts) })
   output$src_visit_dates   <- renderDT({ src_dt(raw()$visit_dates) })
-  output$src_contacts      <- renderDT({
-    ct <- raw()$contacts
-    if (nrow(ct) == 0)
-      src_dt(tibble::tibble(message = "No contacts sheet supplied — using demo data or file has no contacts tab."))
-    else src_dt(ct)
+
+  # ---- Possible links page --------------------------------------------------
+  # Derives candidate pairs from shared contexts + timing, excludes pairs
+  # already captured by likely_index_case, and enriches with case/context data.
+  possible_links_data <- reactive({
+    f  <- filtered()
+    p  <- params()
+    fv <- flat_visits(f)
+    ll <- f$cases
+    if (!("likely_index_case" %in% names(ll)))
+      ll <- ll |> mutate(likely_index_case = NA_character_)
+
+    known_keys <- ll |>
+      filter(!is.na(likely_index_case) & nchar(likely_index_case) > 0) |>
+      mutate(key = paste(likely_index_case, case_id)) |>
+      pull(key)
+
+    candidates <- derive_possible_links(ll, fv, p$inc_min, p$inc_max, p$inf_before, p$inf_after)
+    if (nrow(candidates) == 0) return(tibble())
+
+    candidates <- candidates |>
+      filter(!paste(from, to) %in% known_keys)
+    if (nrow(candidates) == 0) return(tibble())
+
+    onset <- setNames(ll$onset_date, ll$case_id)
+    case_info <- ll |> select(case_id, onset_date, age_group, vaccination_status, case_status)
+    ctx_tbl   <- fv |> select(case_id, context_name, context_type, exposure_relevance) |> distinct()
+
+    ctx_rows <- purrr::map2_dfr(candidates$from, candidates$to, function(f_id, t_id) {
+      fc <- ctx_tbl |> filter(case_id == f_id)
+      tc <- ctx_tbl |> filter(case_id == t_id)
+      shared <- inner_join(fc, tc, by = c("context_name", "context_type"), suffix = c("_from", "_to"))
+      if (nrow(shared) == 0)
+        tibble(from = f_id, to = t_id, shared_contexts = "—",
+               context_types = "—", source_relevance = "—", case_relevance = "—")
+      else
+        tibble(from = f_id, to = t_id,
+               shared_contexts  = paste(shared$context_name,         collapse = "; "),
+               context_types    = paste(shared$context_type,         collapse = "; "),
+               source_relevance = paste(shared$exposure_relevance_from, collapse = "; "),
+               case_relevance   = paste(shared$exposure_relevance_to,   collapse = "; "))
+    })
+
+    candidates |>
+      mutate(gap_days = as.integer(as.Date(onset[to]) - as.Date(onset[from]))) |>
+      left_join(case_info, by = c("from" = "case_id")) |>
+      rename(source_onset = onset_date, source_age    = age_group,
+             source_vacc  = vaccination_status, source_status = case_status) |>
+      left_join(case_info, by = c("to" = "case_id")) |>
+      rename(case_onset = onset_date, case_age    = age_group,
+             case_vacc  = vaccination_status, case_status = case_status) |>
+      left_join(ctx_rows, by = c("from", "to")) |>
+      select(-link_type)
+  })
+
+  output$possible_links_table <- renderDT({
+    d <- possible_links_data()
+    if (nrow(d) == 0)
+      return(datatable(
+        data.frame(Message = "No undetected possible links with current filters and parameters."),
+        rownames = FALSE, options = list(dom = "t")))
+    display <- d |> transmute(
+      `Possible source`    = from,
+      `Possible case`      = to,
+      `Source onset`       = source_onset,
+      `Case onset`         = case_onset,
+      `Gap (days)`         = gap_days,
+      `Shared context(s)`  = shared_contexts,
+      `Context type(s)`    = context_types,
+      `Source relevance`   = source_relevance,
+      `Case relevance`     = case_relevance,
+      `Source age group`   = source_age,
+      `Case age group`     = case_age,
+      `Source vaccination` = source_vacc,
+      `Case vaccination`   = case_vacc,
+      `Source status`      = source_status,
+      `Case status`        = case_status)
+    datatable(display, rownames = FALSE, filter = "top",
+              options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
+  })
+
+  output$possible_links_net <- renderVisNetwork({
+    d    <- possible_links_data()
+    f    <- filtered()
+    fv   <- flat_visits(f)
+    cols <- colour_map(f$contexts$context_type)
+    nd   <- build_possible_net(f$cases, d, fv, cols)
+    if (nrow(nd$nodes) == 0)
+      return(visNetwork(
+        tibble(id = "x", label = "No possible links found"),
+        tibble(from = character(), to = character())) |>
+        visOptions(nodesIdSelection = FALSE))
+    visNetwork(nd$nodes, nd$edges) |>
+      visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE)) |>
+      visEdges(arrows = "to", smooth = TRUE) |>
+      visPhysics(stabilization = TRUE,
+                 barnesHut = list(gravitationalConstant = -3500, springLength = 130))
   })
 
   # Line list: filtered cases with a count of how many contexts each case visited
@@ -1516,7 +1595,6 @@ server <- function(input, output, session) {
   output$dict_contexts      <- renderDT({ dict_dt(DICT_TABLES$contexts) })
   output$dict_case_contexts <- renderDT({ dict_dt(DICT_TABLES$case_contexts) })
   output$dict_visit_dates   <- renderDT({ dict_dt(DICT_TABLES$visit_dates) })
-  output$dict_contacts      <- renderDT({ dict_dt(DICT_TABLES$contacts) })
 
 }
 
