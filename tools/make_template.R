@@ -56,7 +56,8 @@ section_style <- createStyle(
   textDecoration = "bold"
 )
 
-dup_style <- createStyle(bgFill = "#FFD700", fontColour = "#000000")
+dup_style      <- createStyle(bgFill = "#FFD700", fontColour = "#000000")
+self_ref_style <- createStyle(bgFill = "#FFCCCC", fontColour = "#CC0000")
 
 input_style <- createStyle(fgFill = "#FFF9C4", border = "Bottom", borderColour = "#CCCCCC")
 
@@ -196,7 +197,7 @@ readme_rows <- list(
   list(style = note_style,    text = "•  case_status:         Confirmed | Probable | Possible"),
   list(style = note_style,    text = "•  vaccination_status:  Unvaccinated | 1 dose | 2 doses | Unknown"),
   list(style = note_style,    text = "•  context_type:        Values from the Lookups tab (editable)"),
-  list(style = note_style,    text = "•  likely_index_case:   Any case_id already in the cases sheet"),
+  list(style = note_style,    text = "•  likely_index_case:   Any case_id already in the cases sheet (turns red if set to the case's own ID)"),
   list(style = note_style,    text = "•  link_type:           Probable | Possible"),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "LOOKUPS TAB — managing context types"),
@@ -323,6 +324,14 @@ conditionalFormatting(wb, "cases",
                       type  = "expression",
                       rule  = "COUNTIF($B$2:$B$1001,B2)>1",
                       style = dup_style)
+
+# Red highlight on likely_index_case (col L) if it matches the case's own case_id
+conditionalFormatting(wb, "cases",
+                      cols  = 12,
+                      rows  = 2:1001,
+                      type  = "expression",
+                      rule  = "AND($L2<>\"\",$L2=$A2)",
+                      style = self_ref_style)
 
 protectWorksheet(wb, "cases", protect = TRUE,
                  lockSelectingLockedCells = FALSE,
