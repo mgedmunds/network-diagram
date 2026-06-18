@@ -305,7 +305,7 @@ writeFormula(wb, "cases", age_formulas, startRow = 2, startCol = 7)
 ctx_formulas <- paste0(
   'IF(A', 2:1001, '="","",IFERROR(TEXTJOIN("; ",TRUE,',
   'IF(case_contexts!$A$2:$A$2001=A', 2:1001, ',',
-  'VLOOKUP(case_contexts!$B$2:$B$2001,contexts!$A$2:$B$1001,2,0),"")),"")'
+  'VLOOKUP(case_contexts!$B$2:$B$2001,contexts!$A$2:$B$1001,2,0),"")),""))'
 )
 writeFormula(wb, "cases", ctx_formulas, startRow = 2, startCol = 13)
 
