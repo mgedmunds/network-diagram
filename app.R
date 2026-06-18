@@ -724,7 +724,7 @@ below.
 ### Who infected whom — and the Possible links page
 
 The **Who infected whom** view shows links recorded in the **likely_index_case**
-field of the cases table. Each case can name one source — the practitioner's
+field of the cases table. Each case can name one source — the practitioner\'s
 judgement based on the investigation.
 
 The **Possible links** page shows candidate pairs not yet captured by
