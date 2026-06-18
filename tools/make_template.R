@@ -260,15 +260,36 @@ for (i in seq_along(readme_rows)) {
 # Users can add, remove, or edit values freely; no sheet protection applied.
 
 addWorksheet(wb, "Lookups", tabColour = "#E67E22")
-setColWidths(wb, "Lookups", cols = 1, widths = 28)
+setColWidths(wb, "Lookups", cols = 1:2, widths = c(28, 62))
 
-writeData(wb, "Lookups", "Setting Types", startRow = 1, colNames = FALSE)
+writeData(wb, "Lookups", "Setting Types", startRow = 1, startCol = 1, colNames = FALSE)
 addStyle(wb, "Lookups", hdr_style, rows = 1, cols = 1)
 
 default_types <- c("School", "Household", "Healthcare", "Community",
                    "Workplace", "Childcare", "Place of worship", "Transport")
-writeData(wb, "Lookups", default_types, startRow = 2, colNames = FALSE)
+writeData(wb, "Lookups", default_types, startRow = 2, startCol = 1, colNames = FALSE)
 addStyle(wb, "Lookups", note_style, rows = 2:(1 + length(default_types)), cols = 1)
+
+# Instructions in column B
+writeData(wb, "Lookups", "About this tab", startRow = 1, startCol = 2, colNames = FALSE)
+addStyle(wb, "Lookups", hdr_style, rows = 1, cols = 2)
+
+lookup_instructions <- c(
+  "This tab holds reference lists used by dropdown menus in the workbook.",
+  "It is not protected — edit it freely to suit your outbreak.",
+  "",
+  "Setting Types (column A)",
+  "  The list of valid values for the context_type field on the contexts sheet.",
+  "  • Add new types by typing in the next empty cell below the last entry.",
+  "  • Remove a type by deleting the cell content.",
+  "  • Leave no blank rows between entries — the dropdown reads up to the first gap.",
+  "  • The context_type dropdown on the contexts sheet updates automatically.",
+  "",
+  "Do not rename or delete the 'Setting Types' header in cell A1."
+)
+writeData(wb, "Lookups", lookup_instructions, startRow = 2, startCol = 2, colNames = FALSE)
+addStyle(wb, "Lookups", note_style,
+         rows = 2:(1 + length(lookup_instructions)), cols = 2)
 
 
 # ---- cases ------------------------------------------------------------------
@@ -399,15 +420,19 @@ protectWorksheet(wb, "contexts", protect = TRUE,
 
 
 # ---- case_contexts ----------------------------------------------------------
+# visit_relevance: manually recorded classification matching the four categories
+# the app derives automatically from visit_dates. Stored here as a user-entered
+# field; the app will need updating to prefer this over the derived value when present.
 
 add_sheet(
   wb, "case_contexts",
-  headers    = c("case_id", "context_id"),
-  example    = list("C-001", "Ctxt-001"),
-  col_widths = c(12, 14),
+  headers    = c("case_id", "context_id", "visit_relevance"),
+  example    = list("C-001", "Ctxt-001", ""),
+  col_widths = c(12, 14, 20),
   dropdowns  = list(
     list(col = 1, formula = "cases!$A$2:$A$1001"),
-    list(col = 2, formula = "contexts!$A$2:$A$1001")
+    list(col = 2, formula = "contexts!$A$2:$A$1001"),
+    list(col = 3, formula = '"Infectious period,Exposure window,Both,Neither"')
   )
 )
 
