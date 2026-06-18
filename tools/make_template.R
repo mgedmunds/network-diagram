@@ -420,13 +420,13 @@ protectWorksheet(wb, "contexts", protect = TRUE,
 
 
 # ---- case_contexts ----------------------------------------------------------
-# visit_relevance: manually recorded classification matching the four categories
-# the app derives automatically from visit_dates. Stored here as a user-entered
-# field; the app will need updating to prefer this over the derived value when present.
+# exposure_relevance: practitioner judgement on each case-context link —
+# Infectious period, Exposure window, Both, or Neither.
+# Replaces the previously derived visit_relevance; the app reads this directly.
 
 add_sheet(
   wb, "case_contexts",
-  headers    = c("case_id", "context_id", "visit_relevance"),
+  headers    = c("case_id", "context_id", "exposure_relevance"),
   example    = list("C-001", "Ctxt-001", ""),
   col_widths = c(12, 14, 20),
   dropdowns  = list(

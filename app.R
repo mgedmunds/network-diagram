@@ -125,7 +125,7 @@ DICT_TABLES <- list(
     ~Field,             ~Type,       ~Key,        ~Required, ~Description,
     "case_id",          "character", "PK + FK",   "Yes",     "Composite primary key. FK to cases.case_id.",
     "context_id",       "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to contexts.context_id.",
-    "visit_relevance",  "character", "(derived)", "—",       "<i>Not stored. Computed at runtime.</i> Summary of when the case was present at this context relative to their epi windows. Values: <b>Infectious period</b> (case may have spread infection here), <b>Exposure window</b> (case may have acquired infection here), <b>Both</b> (present across both windows, e.g. household resident), <b>Neither</b> (visits recorded but outside both windows). Recalculates automatically when parameters change."
+    "exposure_relevance", "character", "—",       "No",      "Practitioner judgement on the epi relevance of this case-context link. Values: <b>Infectious period</b> (case may have spread infection here), <b>Exposure window</b> (case may have acquired infection here), <b>Both</b> (relevant to both windows, e.g. household resident), <b>Neither</b> (link recorded but not considered transmission-relevant). Stored in the workbook; not derived from visit dates."
   ),
   visit_dates = tibble::tribble(
     ~Field,           ~Type,       ~Key,        ~Required, ~Description,
@@ -228,7 +228,27 @@ make_demo_data <- function() {
 
   # Derive the three relational tables from the visit rows
   visit_dates   <- visit_rows |> distinct(case_id, context_id, visit_date)
-  case_contexts <- visit_rows |> distinct(case_id, context_id)
+  # Compute exposure_relevance for demo data using the default epi windows,
+  # mirroring the practitioner judgement that real users would enter in the workbook.
+  er <- visit_dates |>
+    left_join(cases |> select(case_id, onset_date), by = "case_id") |>
+    mutate(
+      in_infectious = visit_date >= onset_date - DEF_INF_BEFORE & visit_date <= onset_date + DEF_INF_AFTER,
+      in_exposure   = visit_date >= onset_date - DEF_INC_MAX    & visit_date <= onset_date - DEF_INC_MIN
+    ) |>
+    group_by(case_id, context_id) |>
+    summarise(any_infectious = any(in_infectious, na.rm = TRUE),
+              any_exposure   = any(in_exposure,   na.rm = TRUE),
+              .groups = "drop") |>
+    mutate(exposure_relevance = dplyr::case_when(
+      any_infectious & any_exposure ~ "Both",
+      any_infectious                ~ "Infectious period",
+      any_exposure                  ~ "Exposure window",
+      TRUE                          ~ "Neither")) |>
+    select(case_id, context_id, exposure_relevance)
+  case_contexts <- visit_rows |> distinct(case_id, context_id) |>
+    left_join(er, by = c("case_id", "context_id")) |>
+    mutate(exposure_relevance = coalesce(exposure_relevance, "Neither"))
   # Keep only contexts that at least one case actually visited
   contexts <- all_contexts |> semi_join(case_contexts, by = "context_id")
 
@@ -257,46 +277,6 @@ flat_visits <- function(d) {
 }
 
 # Classifies each case-context combination by when the case was present,
-# relative to their infectious period and exposure window.
-# For each case × context pair, checks whether any recorded visit date falls
-# within the infectious window (onset ± inf days) or the exposure window
-# (onset - inc_max to onset - inc_min). Returns one of four categories:
-#   "Infectious period" — case was infectious here (may have spread infection)
-#   "Exposure window"   — case may have acquired infection here
-#   "Both"              — dates span both windows (e.g. household resident)
-#   "Neither"           — visits recorded but outside both windows
-# Recalculates live whenever the user changes the epi parameters.
-derive_visit_relevance <- function(case_contexts, visit_dates, cases,
-                                   inf_before, inf_after, inc_min, inc_max) {
-  vd <- visit_dates |>
-    left_join(cases |> select(case_id, onset_date), by = "case_id") |>
-    mutate(
-      in_infectious = !is.na(onset_date) & !is.na(visit_date) &
-        visit_date >= onset_date - inf_before & visit_date <= onset_date + inf_after,
-      in_exposure   = !is.na(onset_date) & !is.na(visit_date) &
-        visit_date >= onset_date - inc_max   & visit_date <= onset_date - inc_min
-    ) |>
-    group_by(case_id, context_id) |>
-    summarise(
-      any_infectious = any(in_infectious, na.rm = TRUE),
-      any_exposure   = any(in_exposure,   na.rm = TRUE),
-      .groups = "drop"
-    ) |>
-    mutate(
-      visit_relevance = dplyr::case_when(
-        any_infectious & any_exposure ~ "Both",
-        any_infectious                ~ "Infectious period",
-        any_exposure                  ~ "Exposure window",
-        TRUE                          ~ "Neither"
-      )
-    ) |>
-    select(case_id, context_id, visit_relevance)
-  # Left join back to case_contexts so pairs with no visit dates still appear,
-  # defaulting to "Neither"
-  case_contexts |>
-    left_join(vd, by = c("case_id", "context_id")) |>
-    mutate(visit_relevance = coalesce(visit_relevance, "Neither"))
-}
 
 # ---- View builders ----------------------------------------------------------
 # Each build_* function takes the flat visits table (from flat_visits()), the
@@ -333,7 +313,7 @@ build_context_projection <- function(visits, ll, colours) {
 
 # Who visited where view: a bipartite graph with two node types.
 # Case nodes (dark dots, unlabelled) connect to context nodes (coloured squares).
-# Edge colour and arrow direction encode the visit_relevance category, showing
+# Edge colour and arrow direction encode the exposure_relevance category, showing
 # whether the case was infectious here, may have been exposed here, or both.
 build_bipartite <- function(visits, ll, colours) {
   if (nrow(visits) == 0)
@@ -364,7 +344,7 @@ build_bipartite <- function(visits, ll, colours) {
   # for the edge tooltip. If only one date, show it directly; multiple dates
   # are listed as "Dates: 01 Apr, 03 Apr, …"
   edges_agg <- visits |>
-    group_by(case_id, context_name, context_type, visit_relevance) |>
+    group_by(case_id, context_name, context_type, exposure_relevance) |>
     summarise(
       date_label = {
         ds <- sort(unique(visit_date[!is.na(visit_date)]))
@@ -375,40 +355,40 @@ build_bipartite <- function(visits, ll, colours) {
       .groups = "drop"
     )
 
-  # Set edge colour, arrow direction, and dash style based on visit_relevance:
+  # Set edge colour, arrow direction, and dash style based on exposure_relevance:
   #   Infectious period → red arrow pointing TO the context (case spread here)
   #   Exposure window   → blue arrow pointing FROM the context (case caught it here)
   #   Both              → purple bidirectional arrow
   #   Neither           → grey dashed line (present but not relevant)
   edges <- edges_agg |>
     transmute(
-      from             = case_id,
-      to               = paste0("ctx::", context_name),
-      visit_relevance  = visit_relevance,
-      dashes           = visit_relevance == "Neither",
-      arrows           = dplyr::case_when(
-                           visit_relevance == "Infectious period" ~ "to",
-                           visit_relevance == "Exposure window"   ~ "from",
-                           visit_relevance == "Both"              ~ "to;from",
-                           TRUE                                   ~ ""),
-      color            = dplyr::case_when(
-                           visit_relevance == "Infectious period" ~ "#d62728",
-                           visit_relevance == "Exposure window"   ~ "#1f77b4",
-                           visit_relevance == "Both"              ~ "#9467bd",
-                           TRUE                                   ~ "#9aa0a6"),
-      title            = paste0(
-                           "<b>", htmltools::htmlEscape(case_id), "</b> visited <b>",
-                           htmltools::htmlEscape(context_name), "</b>",
-                           date_label,
-                           dplyr::case_when(
-                             visit_relevance == "Both"              ~
-                               "<br>Present — during both windows<br><i>Falls within both the infectious period and exposure window</i>",
-                             visit_relevance == "Infectious period" ~
-                               "<br>Present — during infectious period<br><i>Case may have transmitted infection here</i>",
-                             visit_relevance == "Exposure window"   ~
-                               "<br>Present — during exposure window<br><i>Case may have acquired infection here</i>",
-                             TRUE ~
-                               "<br>Present — outside both windows<br><i>Not considered relevant to transmission</i>")))
+      from               = case_id,
+      to                 = paste0("ctx::", context_name),
+      exposure_relevance = exposure_relevance,
+      dashes             = exposure_relevance == "Neither",
+      arrows             = dplyr::case_when(
+                             exposure_relevance == "Infectious period" ~ "to",
+                             exposure_relevance == "Exposure window"   ~ "from",
+                             exposure_relevance == "Both"              ~ "to;from",
+                             TRUE                                      ~ ""),
+      color              = dplyr::case_when(
+                             exposure_relevance == "Infectious period" ~ "#d62728",
+                             exposure_relevance == "Exposure window"   ~ "#1f77b4",
+                             exposure_relevance == "Both"              ~ "#9467bd",
+                             TRUE                                      ~ "#9aa0a6"),
+      title              = paste0(
+                             "<b>", htmltools::htmlEscape(case_id), "</b> visited <b>",
+                             htmltools::htmlEscape(context_name), "</b>",
+                             date_label,
+                             dplyr::case_when(
+                               exposure_relevance == "Both"              ~
+                                 "<br>Present — during both windows<br><i>Falls within both the infectious period and exposure window</i>",
+                               exposure_relevance == "Infectious period" ~
+                                 "<br>Present — during infectious period<br><i>Case may have transmitted infection here</i>",
+                               exposure_relevance == "Exposure window"   ~
+                                 "<br>Present — during exposure window<br><i>Case may have acquired infection here</i>",
+                               TRUE ~
+                                 "<br>Present — outside both windows<br><i>Not considered relevant to transmission</i>")))
   list(nodes = bind_rows(context_nodes, case_nodes), edges = edges)
 }
 
@@ -1122,7 +1102,7 @@ ui <- page_navbar(
                "One row per case. The primary case record — onset date drives the time slider, epidemic curve and infectious-period logic."),
            DTOutput("src_cases")),
       card(hdr("Case contexts",
-               "One row per case × context combination. visit_relevance summarises when the case was present relative to their infectious period and exposure window."),
+               "One row per case × context combination. exposure_relevance records the practitioner's judgement on the epi relevance of each link."),
            DTOutput("src_case_contexts")),
       card(hdr("Visit dates",
                "One row per epidemiologically relevant visit date. A single case × context pair can appear on multiple rows here, one per date."),
@@ -1167,14 +1147,14 @@ ui <- page_navbar(
     div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
       card(
         hdr("Schema diagram",
-            "Entity-relationship diagram. Underlined fields are primary keys. Italic visit_relevance is derived at runtime and not stored."),
+            "Entity-relationship diagram. Underlined fields are primary keys."),
         card_body(
           p(class = "text-muted",
             "Schema diagram available in ", tags$code("docs/erd.svg"), " in the project repository.")
         )
       ),
       card(
-        hdr("Data dictionary", "Field-level definitions. visit_relevance in case_contexts is computed live from parameters and is never stored."),
+        hdr("Data dictionary", "Field-level definitions for all tables in the workbook."),
         card_body(
           navset_tab(
             nav_panel("cases",         DTOutput("dict_cases")),
@@ -1387,16 +1367,13 @@ server <- function(input, output, session) {
   # → filter contexts to those that still have linked cases.
   # This ensures the network only shows contexts with at least one visible case.
 
-  # netdata(): computes visit_relevance (which depends on params), flattens the
-  # tables, assigns colours, then calls the appropriate view builder.
+  # netdata(): flattens the tables, assigns colours, then calls the appropriate
+  # view builder. exposure_relevance is read directly from case_contexts.
   # The contacts view either uses the uploaded contacts table or derives links
   # from shared contexts + timing, depending on the user's radio button choice.
   netdata <- reactive({
     f    <- filtered()
     p    <- params()
-    f$case_contexts <- derive_visit_relevance(
-      f$case_contexts, f$visit_dates, f$cases,
-      p$inf_before, p$inf_after, p$inc_min, p$inc_max)
     fv   <- flat_visits(f)
     cols <- colour_map(f$contexts$context_type)
     switch(input$view,
@@ -1410,14 +1387,14 @@ server <- function(input, output, session) {
       })
   })
 
-  # Renders the network diagram. visit_relevance is dropped from edges before
+  # Renders the network diagram. exposure_relevance is dropped from edges before
   # passing to visNetwork (it was only needed for colour/arrow assignment).
   # nodesIdSelection = TRUE adds a dropdown above the canvas and sets
   # input$net_selected when a node is clicked — used by the timeline panel.
   output$net <- renderVisNetwork({
     nd <- netdata(); v <- input$view
-    vis_edges <- if ("visit_relevance" %in% names(nd$edges))
-      nd$edges |> select(-visit_relevance) else nd$edges
+    vis_edges <- if ("exposure_relevance" %in% names(nd$edges))
+      nd$edges |> select(-exposure_relevance) else nd$edges
     vn <- visNetwork(nd$nodes, vis_edges) |>
       visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE),
                  nodesIdSelection = TRUE) |>
