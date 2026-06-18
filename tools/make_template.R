@@ -218,7 +218,7 @@ readme_rows <- list(
   list(style = note_style,    text = "•  CIMS_id: turns amber if the same value appears more than once."),
   list(style = note_style,    text = "•  context_type: must match a value in the 'Lookups' tab (Setting Types list)."),
   list(style = note_style,    text = "   To add a new type, go to the Lookups tab and add it to the Setting Types column."),
-  list(style = note_style,    text = "•  case_id in 'case_contexts', 'visit_dates', 'contacts': dropdown shows only IDs from the cases sheet."),
+  list(style = note_style,    text = "•  case_id in 'case_contexts' and 'visit_dates': dropdown shows only IDs from the cases sheet."),
   list(style = note_style,    text = "•  context_id in 'case_contexts', 'visit_dates': dropdown shows only IDs from the contexts sheet."),
   list(style = note_style,    text = "   Fill 'cases' and 'contexts' first — their IDs will then appear in the dropdowns."),
   list(style = note_style,    text = ""),
@@ -228,7 +228,7 @@ readme_rows <- list(
   list(style = note_style,    text = "•  vaccination_status:  Unvaccinated | 1 dose | 2 doses | Unknown"),
   list(style = note_style,    text = "•  context_type:        Values from the Lookups tab (editable)"),
   list(style = note_style,    text = "•  likely_index_case:   Any case_id already in the cases sheet (turns red if set to the case's own ID)"),
-  list(style = note_style,    text = "•  link_type:           Probable | Possible"),
+  list(style = note_style,    text = "•  exposure_relevance:  Infectious period | Exposure window | Both | Neither"),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "LOOKUPS TAB — managing context types"),
   list(style = note_style,    text = "•  The 'Lookups' tab contains the Setting Types list used to validate context_type entries."),
@@ -236,11 +236,7 @@ readme_rows <- list(
   list(style = note_style,    text = "•  To remove a type: delete the cell contents (do not leave blank rows in the middle of the list)."),
   list(style = note_style,    text = "•  To edit a type: overtype the existing value."),
   list(style = note_style,    text = "•  Changes take effect immediately in the context_type dropdown."),
-  list(style = note_style,    text = ""),
-  list(style = section_style, text = "CONTACTS SHEET"),
-  list(style = note_style,    text = "•  Optional. Leave blank if transmission links are not known."),
-  list(style = note_style,    text = "•  'from' is the source case; 'to' is the case who was infected."),
-  list(style = note_style,    text = "•  The app can derive Possible links automatically from shared contexts and timing.")
+  list(style = note_style,    text = "")
 )
 
 for (i in seq_along(readme_rows)) {
