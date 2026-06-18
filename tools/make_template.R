@@ -298,21 +298,20 @@ age_formulas <- paste0(
 )
 writeFormula(wb, "cases", age_formulas, startRow = 2, startCol = 7)
 
-# contexts: semi-colon separated list of context names for this case.
-# Uses FILTER (Excel 365 native dynamic array function) to extract matching
-# context_ids, then VLOOKUP to resolve names. FILTER is used instead of
-# IF(range=scalar,...) because openxlsx writes regular (non-array) formulas,
-# and Excel applies implicit intersection to range comparisons in that mode —
-# only evaluating the first row. FILTER explicitly returns an array, forcing
-# correct multi-row evaluation without needing Ctrl+Shift+Enter.
-# Inner IFERROR handles any unresolved context_ids in the VLOOKUP.
-# Outer IFERROR handles the no-match case (FILTER returns "" → VLOOKUP → #N/A).
+# contexts: semi-colon list of context names linked to this case.
+# Uses the classic Ctrl+Shift+Enter array formula pattern (array = TRUE) so
+# Excel evaluates the full 2000-row range comparison as an array rather than
+# applying implicit intersection (which would only check the first row).
+# The IF inside VLOOKUP maps matching case_contexts rows to their context_id;
+# non-matching rows return "" which VLOOKUP then fails on (caught by inner
+# IFERROR). TEXTJOIN ignores the resulting empty strings (ignore_empty = TRUE).
+# TEXTJOIN requires Excel 2019 or 365.
 ctx_formulas <- paste0(
-  'IF(A', 2:1001, '="","",IFERROR(TEXTJOIN("; ",TRUE,IFERROR(VLOOKUP(',
-  'FILTER(case_contexts!$B$2:$B$2001,case_contexts!$A$2:$A$2001=A', 2:1001, ',""),',
-  'contexts!$A$2:$B$1001,2,0),"")),""))'
+  'IF(A', 2:1001, '="","",IFERROR(TEXTJOIN("; ",TRUE,',
+  'IFERROR(VLOOKUP(IF(case_contexts!$A$2:$A$2001=A', 2:1001, ',',
+  'case_contexts!$B$2:$B$2001,""),contexts!$A$2:$B$1001,2,0),"")),""))'
 )
-writeFormula(wb, "cases", ctx_formulas, startRow = 2, startCol = 13)
+writeFormula(wb, "cases", ctx_formulas, startRow = 2, startCol = 13, array = TRUE)
 
 # Locked (blue): case_id (1), age (7), contexts (13)
 addStyle(wb, "cases", locked_style,
@@ -330,12 +329,13 @@ conditionalFormatting(wb, "cases",
                       rule  = "COUNTIF($B$2:$B$1001,B2)>1",
                       style = dup_style)
 
-# Red highlight on likely_index_case (col L) if it matches the case's own case_id
+# Red highlight on likely_index_case (col L) if it matches the case's own case_id.
+# LEN()>0 used instead of <>"" because openxlsx may not XML-escape <> in CF rules.
 conditionalFormatting(wb, "cases",
                       cols  = 12,
                       rows  = 2:1001,
                       type  = "expression",
-                      rule  = "AND($L2<>\"\",$L2=$A2)",
+                      rule  = "AND(LEN($L2)>0,$L2=$A2)",
                       style = self_ref_style)
 
 protectWorksheet(wb, "cases", protect = TRUE,
