@@ -94,14 +94,19 @@ add_sheet <- function(wb, name, headers, example, col_widths = NULL,
   # Build data frame: 1 example row + (nrows-1) blank rows.
   # Pre-sizing the table to nrows means the Excel Table covers all rows from
   # the start and does not need to auto-expand as data is entered.
+  # Names must be set on both frames before rbind — R auto-names from cell
+  # values so the two frames would otherwise have mismatched column names.
   eg_df <- as.data.frame(example, stringsAsFactors = FALSE)
+  names(eg_df) <- headers
   if (nrows > 1) {
     blank <- lapply(example, function(x) if (inherits(x, "Date")) as.Date(NA) else "")
     blank_df <- as.data.frame(blank, stringsAsFactors = FALSE)
-    eg_df <- rbind(eg_df, blank_df[rep(1L, nrows - 1L), ])
+    names(blank_df) <- headers
+    extra_rows <- blank_df[rep(1L, nrows - 1L), ]
+    rownames(extra_rows) <- NULL
+    eg_df <- rbind(eg_df, extra_rows)
     rownames(eg_df) <- NULL
   }
-  names(eg_df) <- headers
   writeDataTable(wb, name, eg_df,
                  startRow    = 1,
                  startCol    = 1,
