@@ -299,13 +299,18 @@ age_formulas <- paste0(
 writeFormula(wb, "cases", age_formulas, startRow = 2, startCol = 7)
 
 # contexts: semi-colon separated list of context names for this case.
-# Uses absolute cell references (not structured table refs) for openxlsx
-# compatibility. case_contexts!$A = case_id, $B = context_id.
-# contexts!$A:$B = context_id + context_name for VLOOKUP. Requires Excel 365.
+# Uses FILTER (Excel 365 native dynamic array function) to extract matching
+# context_ids, then VLOOKUP to resolve names. FILTER is used instead of
+# IF(range=scalar,...) because openxlsx writes regular (non-array) formulas,
+# and Excel applies implicit intersection to range comparisons in that mode —
+# only evaluating the first row. FILTER explicitly returns an array, forcing
+# correct multi-row evaluation without needing Ctrl+Shift+Enter.
+# Inner IFERROR handles any unresolved context_ids in the VLOOKUP.
+# Outer IFERROR handles the no-match case (FILTER returns "" → VLOOKUP → #N/A).
 ctx_formulas <- paste0(
-  'IF(A', 2:1001, '="","",IFERROR(TEXTJOIN("; ",TRUE,',
-  'IF(case_contexts!$A$2:$A$2001=A', 2:1001, ',',
-  'VLOOKUP(case_contexts!$B$2:$B$2001,contexts!$A$2:$B$1001,2,0),"")),""))'
+  'IF(A', 2:1001, '="","",IFERROR(TEXTJOIN("; ",TRUE,IFERROR(VLOOKUP(',
+  'FILTER(case_contexts!$B$2:$B$2001,case_contexts!$A$2:$A$2001=A', 2:1001, ',""),',
+  'contexts!$A$2:$B$1001,2,0),"")),""))'
 )
 writeFormula(wb, "cases", ctx_formulas, startRow = 2, startCol = 13)
 
