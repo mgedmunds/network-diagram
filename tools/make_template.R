@@ -298,12 +298,13 @@ age_formulas <- paste0(
 writeFormula(wb, "cases", age_formulas, startRow = 2, startCol = 7)
 
 # contexts: semi-colon separated list of context names for this case.
-# Looks up case_contexts[case_id] to find matching rows, then resolves
-# each context_id to a name via the contexts table. Requires Excel 365.
+# Uses absolute cell references (not structured table refs) for openxlsx
+# compatibility. case_contexts!$A = case_id, $B = context_id.
+# contexts!$A:$B = context_id + context_name for VLOOKUP. Requires Excel 365.
 ctx_formulas <- paste0(
   'IF(A', 2:1001, '="","",IFERROR(TEXTJOIN("; ",TRUE,',
-  'IF(case_contexts[case_id]=A', 2:1001, ',',
-  'VLOOKUP(case_contexts[context_id],contexts[[context_id]:[context_name]],2,0),"")),"")'
+  'IF(case_contexts!$A$2:$A$2001=A', 2:1001, ',',
+  'VLOOKUP(case_contexts!$B$2:$B$2001,contexts!$A$2:$B$1001,2,0),"")),"")'
 )
 writeFormula(wb, "cases", ctx_formulas, startRow = 2, startCol = 13)
 
