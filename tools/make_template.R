@@ -88,7 +88,7 @@ wb <- createWorkbook()
 
 add_sheet <- function(wb, name, headers, example, col_widths = NULL,
                       date_cols = NULL, dropdowns = list(),
-                      validations = list(), nrows = 1) {
+                      validations = list(), nrows = 1, has_example = TRUE) {
   addWorksheet(wb, name, tabColour = "#2980B9")
 
   # Build data frame: 1 example row + (nrows-1) blank rows.
@@ -116,8 +116,10 @@ add_sheet <- function(wb, name, headers, example, col_widths = NULL,
                  withFilter  = TRUE,
                  bandedRows  = FALSE)
 
-  addStyle(wb, name, example_style,
-           rows = 2, cols = seq_along(headers), gridExpand = TRUE, stack = TRUE)
+  if (has_example) {
+    addStyle(wb, name, example_style,
+             rows = 2, cols = seq_along(headers), gridExpand = TRUE, stack = TRUE)
+  }
 
   if (!is.null(date_cols)) {
     addStyle(wb, name, date_style,
@@ -175,15 +177,16 @@ readme_rows <- list(
   list(style = title_style,   text = "OUTBREAK NETWORK TOOL — DATA ENTRY TEMPLATE"),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "HOW TO FILL IN THIS TEMPLATE"),
-  list(style = note_style,    text = "1.  Fill in the 'cases' sheet first — one row per case."),
-  list(style = note_style,    text = "2.  Fill in the 'contexts' sheet — one row per location linked to the outbreak."),
+  list(style = note_style,    text = "This workbook contains example data for a fictional 20-case measles outbreak."),
+  list(style = note_style,    text = "Use it to explore the network tool, or overwrite the data with your outbreak data."),
+  list(style = note_style,    text = ""),
+  list(style = note_style,    text = "1.  Fill in (or overwrite) the 'cases' sheet — one row per case."),
+  list(style = note_style,    text = "2.  Fill in (or overwrite) the 'contexts' sheet — one row per location linked to the outbreak."),
   list(style = note_style,    text = "    Context types are validated against the 'Lookups' tab — add types there if needed."),
-  list(style = note_style,    text = "3.  Fill in 'case_contexts' — one row per case x context combination."),
+  list(style = note_style,    text = "3.  Fill in (or overwrite) 'case_contexts' — one row per case x context combination."),
   list(style = note_style,    text = "    Once filled, the 'contexts' column in the cases sheet will populate automatically."),
-  list(style = note_style,    text = "4.  Fill in 'visit_dates' — one row per date a case visited a context."),
-  list(style = note_style,    text = "    Use the 'Date Helper' tab to generate blocks of dates efficiently (see below)."),
-  list(style = note_style,    text = "5.  Delete the example rows (shaded grey, italic) before uploading."),
-  list(style = note_style,    text = "6.  Save as .xlsx and upload using the Upload button in the network tool."),
+  list(style = note_style,    text = "4.  Fill in (or overwrite) 'visit_dates' — one row per date a case visited a context."),
+  list(style = note_style,    text = "5.  Save as .xlsx and upload using the Upload button in the network tool."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "RULES"),
   list(style = note_style,    text = "•  case_id, context_id, age, and contexts are AUTO-GENERATED — do not type in these columns (locked, blue shading)."),
@@ -233,13 +236,6 @@ readme_rows <- list(
   list(style = note_style,    text = "•  To remove a type: delete the cell contents (do not leave blank rows in the middle of the list)."),
   list(style = note_style,    text = "•  To edit a type: overtype the existing value."),
   list(style = note_style,    text = "•  Changes take effect immediately in the context_type dropdown."),
-  list(style = note_style,    text = ""),
-  list(style = section_style, text = "DATE HELPER TAB — efficient bulk visit date entry"),
-  list(style = note_style,    text = "•  Use the 'Date Helper' tab to generate a block of visit dates for one case x context at a time."),
-  list(style = note_style,    text = "•  Fill in the four yellow cells (case, context, start date, end date)."),
-  list(style = note_style,    text = "•  Dates generate automatically. Weekend rows are shaded grey — skip them if not relevant."),
-  list(style = note_style,    text = "•  Select the rows with dates (columns A–C), copy, and paste into the visit_dates sheet."),
-  list(style = note_style,    text = "•  Repeat for each case x context pair."),
   list(style = note_style,    text = ""),
   list(style = section_style, text = "CONTACTS SHEET"),
   list(style = note_style,    text = "•  Optional. Leave blank if transmission links are not known."),
@@ -291,6 +287,181 @@ addStyle(wb, "Lookups", note_style,
          rows = 2:(1 + length(lookup_instructions)), cols = 2)
 
 
+# ---- Dummy data (fictional 20-case measles outbreak) ------------------------
+# Respects relational rules: case_id / context_id are formula columns — left
+# blank here and overwritten by writeFormula after each sheet is created.
+# visit_dates are generated programmatically from onset dates and epi windows.
+
+onset_dates <- as.Date(c(
+  "2026-03-05","2026-03-12","2026-03-14","2026-03-15","2026-03-18",
+  "2026-03-19","2026-03-21","2026-03-23","2026-03-25","2026-03-26",
+  "2026-03-28","2026-03-30","2026-04-01","2026-04-03","2026-04-04",
+  "2026-04-07","2026-04-08","2026-04-10","2026-04-12","2026-04-15"
+))
+
+cases_d <- data.frame(
+  case_id            = rep("", 20),
+  CIMS_id            = paste0("CIMS-", formatC(1:20, width = 4, flag = "0")),
+  forename           = c("Sophie","Liam","Emma","Noah","Olivia","Jack","Amelia",
+                         "Harry","Isla","George","Poppy","Charlie","Grace","Oscar",
+                         "Freya","Alfie","Millie","Ethan","Chloe","William"),
+  surname            = c("Barker","Patel","Johnson","Williams","Ahmed","Thompson",
+                         "Davies","Evans","Wilson","Clarke","Roberts","Walker",
+                         "Wright","Hill","Green","Scott","Baker","Mitchell",
+                         "Turner","Collins"),
+  date_of_birth      = as.Date(c(
+    "2017-06-15","2017-03-22","2019-08-10","2016-11-05","1985-04-20",
+    "2021-02-14","2021-09-30","1978-07-08","2017-05-17","1985-03-11",
+    "1990-08-25","2011-12-01","2018-04-03","2016-07-19","2022-01-10",
+    "2016-09-28","2021-11-22","1980-05-13","1992-10-07","2015-02-28"
+  )),
+  age                = rep("", 20),
+  age_group          = rep("", 20),
+  gender             = c("Female","Male","Female","Male","Female","Male","Female",
+                         "Male","Female","Male","Female","Male","Female","Male",
+                         "Female","Male","Female","Male","Female","Male"),
+  postcode           = c("SW1A 1AA","E1 6RF","SW1A 1AA","W1A 0AX","SE1 7PB",
+                         "EC1A 1BB","WC2N 5DU","NW1 4NP","SW1A 1AA","E1 6RF",
+                         "N7 8DG","SE5 0HW","SW1A 1AA","W1A 0AX","EC1A 1BB",
+                         "WC2N 5DU","NW1 4NP","SW3 4SX","E14 5AB","N7 8DG"),
+  case_status        = c("Confirmed","Confirmed","Confirmed","Confirmed","Confirmed",
+                         "Confirmed","Probable","Confirmed","Confirmed","Confirmed",
+                         "Probable","Confirmed","Confirmed","Probable","Confirmed",
+                         "Probable","Confirmed","Possible","Confirmed","Probable"),
+  onset_date         = onset_dates,
+  vaccination_status = c("Unvaccinated","Unvaccinated","Unvaccinated","1 dose",
+                         "Unvaccinated","Unvaccinated","Unvaccinated","Unvaccinated",
+                         "1 dose","2 doses","Unvaccinated","Unvaccinated","1 dose",
+                         "Unvaccinated","Unvaccinated","1 dose","Unvaccinated",
+                         "Unvaccinated","Unvaccinated","1 dose"),
+  likely_index_case  = c("","C-001","C-001","C-001","C-002",
+                         "C-001","C-005","C-001","C-001","C-002",
+                         "C-005","C-005","C-009","C-004","C-006",
+                         "C-012","C-009","C-008","C-011","C-007"),
+  contexts           = rep("", 20),
+  stringsAsFactors   = FALSE
+)
+
+contexts_d <- data.frame(
+  context_id   = rep("", 15),
+  context_name = c(
+    "Oakfield Primary School",    "Sunnydale Day Nursery",
+    "14 Elm Street",              "7 Birchwood Close",
+    "22 Maple Avenue",            "9 Riverside Drive",
+    "31 Oak Lane",                "Westside Community Centre",
+    "St Peters Church",           "City General Hospital",
+    "Northside GP Surgery",       "Greentech Solutions",
+    "Town Market",                "Metro Bus Station",
+    "Broadfield Secondary School"
+  ),
+  context_type = c(
+    "School","Childcare",
+    "Household","Household","Household","Household","Household",
+    "Community","Place of worship","Healthcare","Healthcare",
+    "Workplace","Community","Transport","School"
+  ),
+  stringsAsFactors = FALSE
+)
+
+case_contexts_d <- data.frame(
+  case_id = c(
+    "C-001","C-001",
+    "C-002","C-002",
+    "C-003","C-003",
+    "C-004","C-004",
+    "C-005","C-005",
+    "C-006","C-006",
+    "C-007","C-007","C-007",
+    "C-008","C-008",
+    "C-009","C-009",
+    "C-010",
+    "C-011","C-011",
+    "C-012","C-012",
+    "C-013","C-013","C-013",
+    "C-014","C-014",
+    "C-015","C-015",
+    "C-016","C-016","C-016",
+    "C-017",
+    "C-018",
+    "C-019","C-019",
+    "C-020","C-020"
+  ),
+  context_id = c(
+    "Ctxt-001","Ctxt-003",
+    "Ctxt-001","Ctxt-004",
+    "Ctxt-003","Ctxt-011",
+    "Ctxt-001","Ctxt-005",
+    "Ctxt-008","Ctxt-009",
+    "Ctxt-002","Ctxt-006",
+    "Ctxt-002","Ctxt-007","Ctxt-013",
+    "Ctxt-001","Ctxt-010",
+    "Ctxt-001","Ctxt-009",
+    "Ctxt-004",
+    "Ctxt-008","Ctxt-012",
+    "Ctxt-009","Ctxt-015",
+    "Ctxt-001","Ctxt-009","Ctxt-014",
+    "Ctxt-005","Ctxt-014",
+    "Ctxt-002","Ctxt-006",
+    "Ctxt-008","Ctxt-013","Ctxt-015",
+    "Ctxt-002",
+    "Ctxt-010",
+    "Ctxt-011","Ctxt-012",
+    "Ctxt-007","Ctxt-015"
+  ),
+  exposure_relevance = c(
+    "Infectious period","Both",
+    "Exposure window","Both",
+    "Exposure window","Neither",
+    "Exposure window","Both",
+    "Exposure window","Infectious period",
+    "Exposure window","Both",
+    "Exposure window","Both","Infectious period",
+    "Exposure window","Infectious period",
+    "Exposure window","Infectious period",
+    "Exposure window",
+    "Exposure window","Both",
+    "Exposure window","Infectious period",
+    "Exposure window","Exposure window","Infectious period",
+    "Exposure window","Exposure window",
+    "Exposure window","Exposure window",
+    "Exposure window","Both","Infectious period",
+    "Exposure window",
+    "Exposure window",
+    "Exposure window","Exposure window",
+    "Exposure window","Infectious period"
+  ),
+  stringsAsFactors = FALSE
+)
+
+# Generate visit_dates from epi windows (measles defaults: inc 7-21d, inf -4 to +4d)
+onset_lookup <- setNames(onset_dates, paste0("C-", formatC(1:20, width = 3, flag = "0")))
+
+weekday_seq <- function(start, end) {
+  if (end < start) return(as.Date(character(0)))
+  d <- seq(start, end, by = "day")
+  d[!weekdays(d) %in% c("Saturday", "Sunday")]
+}
+
+visit_list <- lapply(seq_len(nrow(case_contexts_d)), function(i) {
+  onset <- onset_lookup[[case_contexts_d$case_id[i]]]
+  exp   <- weekday_seq(onset - 21, onset - 7)
+  inf   <- weekday_seq(onset - 4,  onset + 4)
+  dates <- switch(case_contexts_d$exposure_relevance[i],
+    "Exposure window"   = { if (length(exp) > 4) tail(exp, 4) else exp },
+    "Infectious period" = { if (length(inf) > 4) head(inf, 4) else inf },
+    "Both"              = c(tail(exp, 3), head(inf, 3)),
+    as.Date(character(0))
+  )
+  if (length(dates) == 0) return(NULL)
+  data.frame(case_id    = case_contexts_d$case_id[i],
+             context_id = case_contexts_d$context_id[i],
+             visit_date = sort(dates),
+             stringsAsFactors = FALSE)
+})
+visit_dates_d <- do.call(rbind, Filter(Negate(is.null), visit_list))
+rownames(visit_dates_d) <- NULL
+
+
 # ---- cases ------------------------------------------------------------------
 # Columns:
 #   A  case_id           — auto-formula (C-001…), locked
@@ -310,18 +481,20 @@ addStyle(wb, "Lookups", note_style,
 
 add_sheet(
   wb, "cases",
-  headers    = c("case_id", "CIMS_id", "forename", "surname",
-                 "date_of_birth", "age", "age_group",
-                 "gender", "postcode", "case_status", "onset_date",
-                 "vaccination_status", "likely_index_case", "contexts"),
-  example    = list("", "CIMS-123", "Jane", "Smith",
-                    as.Date("1995-03-15"), "", "",
-                    "Female", "SW1A 1AA", "Confirmed", as.Date("2026-04-01"),
-                    "Unvaccinated", "", ""),
-  col_widths = c(10, 14, 14, 14, 16, 8, 14, 12, 14, 14, 16, 20, 16, 45),
-  nrows      = 1000,
-  date_cols  = c(5, 11),
-  dropdowns  = list(
+  headers     = c("case_id", "CIMS_id", "forename", "surname",
+                  "date_of_birth", "age", "age_group",
+                  "gender", "postcode", "case_status", "onset_date",
+                  "vaccination_status", "likely_index_case", "contexts"),
+  example     = list("", cases_d$CIMS_id[1], cases_d$forename[1], cases_d$surname[1],
+                     cases_d$date_of_birth[1], "", "",
+                     cases_d$gender[1], cases_d$postcode[1], cases_d$case_status[1],
+                     cases_d$onset_date[1], cases_d$vaccination_status[1],
+                     cases_d$likely_index_case[1], ""),
+  col_widths  = c(10, 14, 14, 14, 16, 8, 14, 12, 14, 14, 16, 20, 16, 45),
+  nrows       = 1000,
+  has_example = FALSE,
+  date_cols   = c(5, 11),
+  dropdowns   = list(
     list(col = 8,  formula = '"Male,Female,Other,Unknown"'),
     list(col = 10, formula = '"Confirmed,Probable,Possible"'),
     list(col = 12, formula = '"Unvaccinated,1 dose,2 doses,Unknown"'),
@@ -334,6 +507,8 @@ add_sheet(
          value = as.Date(c("2000-01-01", "2100-01-01")))
   )
 )
+# Write remaining 19 cases (row 2 already written via example above)
+writeData(wb, "cases", cases_d[-1, ], startRow = 3, startCol = 1, colNames = FALSE)
 
 # case_id: row-position formula, fires regardless of other columns
 writeFormula(wb, "cases",
@@ -397,14 +572,16 @@ protectWorksheet(wb, "cases", protect = TRUE,
 
 add_sheet(
   wb, "contexts",
-  headers    = c("context_id", "context_name", "context_type"),
-  example    = list("", "Oakfield Primary School", "School"),
-  col_widths = c(12, 35, 20),
-  nrows      = 1000,
-  dropdowns  = list(
+  headers     = c("context_id", "context_name", "context_type"),
+  example     = list("", contexts_d$context_name[1], contexts_d$context_type[1]),
+  col_widths  = c(12, 35, 20),
+  nrows       = 1000,
+  has_example = FALSE,
+  dropdowns   = list(
     list(col = 3, formula = "OFFSET(Lookups!$A$2,0,0,COUNTA(Lookups!$A$2:$A$100),1)")
   )
 )
+writeData(wb, "contexts", contexts_d[-1, ], startRow = 3, startCol = 1, colNames = FALSE)
 
 writeFormula(wb, "contexts",
              rep('"Ctxt-"&TEXT(ROW()-1,"000")', 1000),
@@ -425,26 +602,30 @@ protectWorksheet(wb, "contexts", protect = TRUE,
 
 add_sheet(
   wb, "case_contexts",
-  headers    = c("case_id", "context_id", "exposure_relevance"),
-  example    = list("C-001", "Ctxt-001", ""),
-  col_widths = c(12, 14, 20),
-  dropdowns  = list(
+  headers     = c("case_id", "context_id", "exposure_relevance"),
+  example     = as.list(case_contexts_d[1, ]),
+  col_widths  = c(12, 14, 20),
+  has_example = FALSE,
+  dropdowns   = list(
     list(col = 1, formula = "cases!$A$2:$A$1001"),
     list(col = 2, formula = "contexts!$A$2:$A$1001"),
     list(col = 3, formula = '"Infectious period,Exposure window,Both,Neither"')
   )
 )
+writeData(wb, "case_contexts", case_contexts_d[-1, ], startRow = 3, startCol = 1, colNames = FALSE)
 
 
 # ---- visit_dates ------------------------------------------------------------
 
 add_sheet(
   wb, "visit_dates",
-  headers    = c("case_id", "context_id", "visit_date"),
-  example    = list("C-001", "Ctxt-001", as.Date("2026-04-03")),
-  col_widths = c(12, 14, 15),
-  date_cols  = 3,
-  dropdowns  = list(
+  headers     = c("case_id", "context_id", "visit_date"),
+  example     = list(visit_dates_d$case_id[1], visit_dates_d$context_id[1],
+                     visit_dates_d$visit_date[1]),
+  col_widths  = c(12, 14, 15),
+  has_example = FALSE,
+  date_cols   = 3,
+  dropdowns   = list(
     list(col = 1, formula = "cases!$A$2:$A$1001"),
     list(col = 2, formula = "contexts!$A$2:$A$1001")
   ),
@@ -453,85 +634,8 @@ add_sheet(
          value = as.Date(c("2000-01-01", "2100-01-01")))
   )
 )
+writeData(wb, "visit_dates", visit_dates_d[-1, ], startRow = 3, startCol = 1, colNames = FALSE)
 
-
-# ---- Date Helper ------------------------------------------------------------
-
-addWorksheet(wb, "Date Helper", tabColour = "#27AE60")
-setColWidths(wb, "Date Helper", cols = 1:4, widths = c(14, 18, 15, 8))
-freezePane(wb, "Date Helper", firstRow = TRUE)
-
-writeData(wb, "Date Helper", "VISIT DATE HELPER",
-          startRow = 1, startCol = 1, colNames = FALSE)
-addStyle(wb, "Date Helper", title_style, rows = 1, cols = 1)
-
-writeData(wb, "Date Helper",
-          "Use this tab to generate visit dates for one case x context at a time.",
-          startRow = 2, startCol = 1, colNames = FALSE)
-writeData(wb, "Date Helper",
-          "Fill in the four yellow cells below. Dates generate automatically. Weekend rows are shaded grey.",
-          startRow = 3, startCol = 1, colNames = FALSE)
-writeData(wb, "Date Helper",
-          "When ready: select the date rows (columns A-C), copy, and paste into the visit_dates sheet.",
-          startRow = 4, startCol = 1, colNames = FALSE)
-addStyle(wb, "Date Helper", note_style, rows = 2:4, cols = 1, gridExpand = TRUE)
-
-writeData(wb, "Date Helper", "Case ID",    startRow = 6, startCol = 1, colNames = FALSE)
-writeData(wb, "Date Helper", "Context ID", startRow = 7, startCol = 1, colNames = FALSE)
-writeData(wb, "Date Helper", "Start date", startRow = 8, startCol = 1, colNames = FALSE)
-writeData(wb, "Date Helper", "End date",   startRow = 9, startCol = 1, colNames = FALSE)
-
-label_style <- createStyle(fontColour = "#2C3E50", fontSize = 11, textDecoration = "bold")
-addStyle(wb, "Date Helper", label_style, rows = 6:9, cols = 1, gridExpand = TRUE)
-addStyle(wb, "Date Helper", input_style, rows = 6:9, cols = 2, gridExpand = TRUE)
-addStyle(wb, "Date Helper", date_style,  rows = 8:9, cols = 2, gridExpand = TRUE, stack = TRUE)
-
-dataValidation(wb, "Date Helper", col = 2, rows = 6,
-               type  = "list",
-               value = "cases!$A$2:$A$1001")
-dataValidation(wb, "Date Helper", col = 2, rows = 7,
-               type  = "list",
-               value = "contexts!$A$2:$A$1001")
-dataValidation(wb, "Date Helper", col = 2, rows = 8:9,
-               type = "date", operator = "between",
-               value = as.Date(c("2000-01-01", "2100-01-01")))
-
-writeData(wb, "Date Helper",
-          "Generated dates — copy columns A to C into the visit_dates sheet:",
-          startRow = 11, startCol = 1, colNames = FALSE)
-addStyle(wb, "Date Helper", note_style, rows = 11, cols = 1)
-
-writeData(wb, "Date Helper", "case_id",    startRow = 12, startCol = 1, colNames = FALSE)
-writeData(wb, "Date Helper", "context_id", startRow = 12, startCol = 2, colNames = FALSE)
-writeData(wb, "Date Helper", "visit_date", startRow = 12, startCol = 3, colNames = FALSE)
-writeData(wb, "Date Helper", "Day",        startRow = 12, startCol = 4, colNames = FALSE)
-addStyle(wb, "Date Helper", output_hdr_style, rows = 12, cols = 1:4, gridExpand = TRUE)
-
-writeFormula(wb, "Date Helper",
-             rep('IF($B$6<>"",$B$6,"")', 60),
-             startRow = 13, startCol = 1)
-writeFormula(wb, "Date Helper",
-             rep('IF($B$7<>"",$B$7,"")', 60),
-             startRow = 13, startCol = 2)
-
-date_formulas <- paste0(
-  'IF(OR(ISBLANK($B$8),ISBLANK($B$9)),"",',
-  'IF($B$8+', 0:59, '<=$B$9,$B$8+', 0:59, ',""))'
-)
-writeFormula(wb, "Date Helper", date_formulas, startRow = 13, startCol = 3)
-
-day_formulas <- paste0('IF(C', 13:72, '<>"",TEXT(C', 13:72, ',"ddd"),"")')
-writeFormula(wb, "Date Helper", day_formulas, startRow = 13, startCol = 4)
-
-addStyle(wb, "Date Helper", date_style,
-         rows = 13:72, cols = 3, gridExpand = TRUE, stack = TRUE)
-
-conditionalFormatting(wb, "Date Helper",
-                      cols  = 1:4,
-                      rows  = 13:72,
-                      type  = "expression",
-                      rule  = "WEEKDAY($C13,2)>5",
-                      style = weekend_style)
 
 
 # ---- Named ranges -----------------------------------------------------------
