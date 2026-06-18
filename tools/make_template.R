@@ -291,11 +291,12 @@ addStyle(wb, "cases", locked_style,
 addStyle(wb, "cases", unlocked_style,
          rows = 2:1001, cols = c(2:6, 8:11), gridExpand = TRUE, stack = TRUE)
 
-# Duplicate detection: CIMS_id (col 2) turns amber if a duplicate is present
+# Duplicate detection: CIMS_id (col 2) turns amber if the same value appears more than once
 conditionalFormatting(wb, "cases",
                       cols  = 2,
                       rows  = 2:1001,
-                      type  = "duplicateValues",
+                      type  = "expression",
+                      rule  = "COUNTIF($B$2:$B$1001,B2)>1",
                       style = dup_style)
 
 protectWorksheet(wb, "cases", protect = TRUE,
