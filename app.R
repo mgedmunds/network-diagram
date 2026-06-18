@@ -133,8 +133,8 @@ DICT_TABLES <- list(
     ~Field,           ~Type,       ~Key,        ~Required, ~Description,
     "case_id",        "character", "PK + FK",   "Yes",     "Composite primary key. FK to case_contexts.case_id.",
     "context_id",     "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to case_contexts.context_id.",
-    "visit_date",     "date",      "PK",        "Yes",     "Date of an epi-relevant visit. One row per calendar day per case-context pair.",
-  ),
+    "visit_date",     "date",      "PK",        "Yes",     "Date of an epi-relevant visit. One row per calendar day per case-context pair."
+  )
 )
 
 # ---- Demo data --------------------------------------------------------------
