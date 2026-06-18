@@ -254,6 +254,7 @@ Matt reviews and clears entries at the start of the next session.
 | `docs/decisions/ADR-002` | Bipartite link category definitions | Accepted |
 | `docs/decisions/ADR-003` | Network view selection and main page layout | Accepted |
 | `docs/decisions/ADR-004` | Shinylive + GitHub Pages deployment approach | Accepted |
+| `docs/decisions/ADR-005` | Excel on SharePoint for data entry; Shiny data entry app suspended | Accepted |
 | `docs/data-model.md` | Phase 1 working notes | Closed |
 | `docs/data-input.md` | Phase 3 working notes and data entry decision | Closed |
 | `docs/network-types.md` | Phase 2 working notes | Closed — see ADR-003 |
