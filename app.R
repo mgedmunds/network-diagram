@@ -47,6 +47,7 @@ library(purrr)
 library(tibble)
 library(ggplot2)     # Epi curve chart (converted to plotly via ggplotly)
 library(jsonlite)
+message("DEBUG: libraries loaded")
 
 # ---- Configuration ----------------------------------------------------------
 # 10 perceptually distinct colours (D3 category10). Assigned in order to whatever
@@ -106,6 +107,7 @@ leg_arrow <- function(color, direction = "none", dashed = FALSE) {
 # Field-level definitions for all five tables, displayed in the Reference tab.
 # Stored as a named list of data frames so the Reference tab can render each
 # table independently with its own DT output.
+message("DEBUG: before DICT_TABLES")
 DICT_TABLES <- list(
   cases = tibble::tribble(
     ~Field,                ~Type,       ~Key,  ~Required, ~Description,
@@ -936,6 +938,7 @@ build_timeline_plot <- function(sel, f, p) {
 }
 
 # ---- UI ---------------------------------------------------------------------
+message("DEBUG: before UI")
 ui <- page_navbar(
   title = paste0("Network explorer v", APP_VERSION),
   theme = bs_theme(version = 5, bootswatch = "flatly"), id = "nav", selected = "Home",
@@ -1197,6 +1200,7 @@ ui <- page_navbar(
   nav_item(tags$span(style = "color:#888; font-size:0.85em;", paste0("Measles outbreak explorer v", APP_VERSION)))
 )
 
+message("DEBUG: UI built OK")
 # ---- Server -----------------------------------------------------------------
 server <- function(input, output, session) {
 
