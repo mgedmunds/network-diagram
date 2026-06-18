@@ -43,10 +43,10 @@ library(igraph)
 library(plotly)
 library(DT)          # Interactive data tables with column filtering
 # Utility
+library(jsonlite)    # Loaded before shiny to prevent jsonlite::validate masking shiny::validate
 library(purrr)
 library(tibble)
 library(ggplot2)     # Epi curve chart (converted to plotly via ggplotly)
-library(jsonlite)
 
 # ---- Configuration ----------------------------------------------------------
 # 10 perceptually distinct colours (D3 category10). Assigned in order to whatever
