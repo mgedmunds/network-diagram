@@ -200,11 +200,11 @@ readme_rows <- list(
   list(style = section_style, text = "CONTEXTS COLUMN — one-time formula setup (do this once after filling the sheet)"),
   list(style = note_style,    text = "The 'contexts' column (M) in the cases sheet is blank when the template first opens."),
   list(style = note_style,    text = "After filling in cases, contexts, and case_contexts, add the formula:"),
-  list(style = note_style,    text = "  1. Click cell M2 in the cases sheet."),
+  list(style = note_style,    text = "  1. Click cell N2 in the cases sheet."),
   list(style = note_style,    text = "  2. Type = then copy and paste the formula text below into the formula bar."),
   list(style = note_style,    text = "  3. Press Ctrl+Shift+Enter — NOT plain Enter. The formula bar must show {=...} with curly braces."),
   list(style = note_style,    text = "     If you see plain =... without curly braces, delete and re-enter using Ctrl+Shift+Enter."),
-  list(style = note_style,    text = "  4. Copy M2 (Ctrl+C), select M3:M1001, paste (Ctrl+V)."),
+  list(style = note_style,    text = "  4. Copy N2 (Ctrl+C), select N3:N1001, paste (Ctrl+V)."),
   list(style = note_style,    text = "     Check a few of the pasted cells — they should also show {=...} with curly braces."),
   list(style = note_style,    text = ""),
   list(style = note_style,    text = '     IF(A2="","",IFERROR(TEXTJOIN("; ",TRUE,IF(ISNUMBER(MATCH(A2&contexts!$A$2:$A$1001,case_contexts!$A$2:$A$2001&case_contexts!$B$2:$B$2001,0)),contexts!$B$2:$B$1001,"")),""))'),
@@ -279,37 +279,38 @@ addStyle(wb, "Lookups", note_style, rows = 2:(1 + length(default_types)), cols =
 #   D  surname           — free text
 #   E  date_of_birth     — date; drives age
 #   F  age               — formula: DATEDIF(DOB, onset_date), locked
-#   G  gender            — dropdown
-#   H  postcode          — free text
-#   I  case_status       — dropdown
-#   J  onset_date        — date; drives age and epi-window logic
-#   K  vaccination_status — dropdown
-#   L  likely_index_case — dropdown: any case_id in this table
-#   M  contexts          — formula: semi-colon list of linked context names, locked
+#   G  age_group         — formula: UKHSA age band derived from age, locked
+#   H  gender            — dropdown
+#   I  postcode          — free text
+#   J  case_status       — dropdown
+#   K  onset_date        — date; drives age and epi-window logic
+#   L  vaccination_status — dropdown
+#   M  likely_index_case — dropdown: any case_id in this table
+#   N  contexts          — formula: semi-colon list of linked context names, locked
 
 add_sheet(
   wb, "cases",
   headers    = c("case_id", "CIMS_id", "forename", "surname",
-                 "date_of_birth", "age",
+                 "date_of_birth", "age", "age_group",
                  "gender", "postcode", "case_status", "onset_date",
                  "vaccination_status", "likely_index_case", "contexts"),
   example    = list("", "CIMS-123", "Jane", "Smith",
-                    as.Date("1995-03-15"), "",
+                    as.Date("1995-03-15"), "", "",
                     "Female", "SW1A 1AA", "Confirmed", as.Date("2026-04-01"),
                     "Unvaccinated", "", ""),
-  col_widths = c(10, 14, 14, 14, 16, 8, 12, 14, 14, 16, 20, 16, 45),
+  col_widths = c(10, 14, 14, 14, 16, 8, 14, 12, 14, 14, 16, 20, 16, 45),
   nrows      = 1000,
-  date_cols  = c(5, 10),
+  date_cols  = c(5, 11),
   dropdowns  = list(
-    list(col = 7,  formula = '"Male,Female,Other,Unknown"'),
-    list(col = 9,  formula = '"Confirmed,Probable,Possible"'),
-    list(col = 11, formula = '"Unvaccinated,1 dose,2 doses,Unknown"'),
-    list(col = 12, formula = "cases!$A$2:$A$1001")
+    list(col = 8,  formula = '"Male,Female,Other,Unknown"'),
+    list(col = 10, formula = '"Confirmed,Probable,Possible"'),
+    list(col = 12, formula = '"Unvaccinated,1 dose,2 doses,Unknown"'),
+    list(col = 13, formula = "cases!$A$2:$A$1001")
   ),
   validations = list(
     list(col = 5,  type = "date", operator = "between",
          value = as.Date(c("1900-01-01", "2100-01-01"))),
-    list(col = 10, type = "date", operator = "between",
+    list(col = 11, type = "date", operator = "between",
          value = as.Date(c("2000-01-01", "2100-01-01")))
   )
 )
@@ -319,25 +320,34 @@ writeFormula(wb, "cases",
              rep('"C-"&TEXT(ROW()-1,"000")', 1000),
              startRow = 2, startCol = 1)
 
-# age: whole years between date_of_birth (E) and onset_date (J)
+# age: whole years between date_of_birth (E) and onset_date (K)
 age_formulas <- paste0(
-  'IF(AND(E', 2:1001, '<>"",J', 2:1001, '<>""),',
-  'IFERROR(DATEDIF(E', 2:1001, ',J', 2:1001, ',"Y"),"err"),"")'
+  'IF(AND(E', 2:1001, '<>"",K', 2:1001, '<>""),',
+  'IFERROR(DATEDIF(E', 2:1001, ',K', 2:1001, ',"Y"),"err"),"")'
 )
 writeFormula(wb, "cases", age_formulas, startRow = 2, startCol = 6)
 
-# contexts (col M): NOT pre-populated — openxlsx cannot reliably write complex
+# age_group: UKHSA reporting bands derived from age (F)
+# Bands: <1 year | 1-4 | 5-17 | 18-29 | 30-49 | 50+
+age_group_formulas <- paste0(
+  'IF(F', 2:1001, '="","",IF(F', 2:1001, '<1,"<1 year",IF(F', 2:1001,
+  '<5,"1–4 years",IF(F', 2:1001, '<18,"5–17 years",IF(F', 2:1001,
+  '<30,"18–29 years",IF(F', 2:1001, '<50,"30–49 years","50+ years"))))))'
+)
+writeFormula(wb, "cases", age_group_formulas, startRow = 2, startCol = 7)
+
+# contexts (col N): NOT pre-populated — openxlsx cannot reliably write complex
 # cross-sheet formulas to OOXML. Column is styled and locked ready to receive
 # the formula. Instructions and the formula text are in the README tab.
-# The user pastes the formula into M2 and copies down once after setup.
+# The user pastes the formula into N2 and copies down once after setup.
 
-# Locked (blue): case_id (1) and age (6) — auto-generated, never edited
+# Locked (blue): case_id (1), age (6), age_group (7) — auto-generated, never edited
 addStyle(wb, "cases", locked_style,
-         rows = 2:1001, cols = c(1, 6), gridExpand = TRUE, stack = TRUE)
+         rows = 2:1001, cols = c(1, 6, 7), gridExpand = TRUE, stack = TRUE)
 
-# Unlocked: all editable columns including contexts (13) — user pastes formula here
+# Unlocked: all editable columns including contexts (14) — user pastes formula here
 addStyle(wb, "cases", unlocked_style,
-         rows = 2:1001, cols = c(2:5, 7:13), gridExpand = TRUE, stack = TRUE)
+         rows = 2:1001, cols = c(2:5, 8:14), gridExpand = TRUE, stack = TRUE)
 
 # Amber highlight on CIMS_id (col B) if the value appears more than once
 conditionalFormatting(wb, "cases",
@@ -347,13 +357,13 @@ conditionalFormatting(wb, "cases",
                       rule  = "COUNTIF($B$2:$B$1001,B2)>1",
                       style = dup_style)
 
-# Red highlight on likely_index_case (col L) if it matches the case's own case_id.
+# Red highlight on likely_index_case (col M) if it matches the case's own case_id.
 # LEN()>0 used instead of <>"" because openxlsx may not XML-escape <> in CF rules.
 conditionalFormatting(wb, "cases",
-                      cols  = 12,
+                      cols  = 13,
                       rows  = 2:1001,
                       type  = "expression",
-                      rule  = "AND(LEN($L2)>0,$L2=$A2)",
+                      rule  = "AND(LEN($M2)>0,$M2=$A2)",
                       style = self_ref_style)
 
 protectWorksheet(wb, "cases", protect = TRUE,
