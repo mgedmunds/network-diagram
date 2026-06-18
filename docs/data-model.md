@@ -70,7 +70,7 @@ Child table hanging off case_contexts. Records only dates that fall within or ne
 |---|---|---|---|---|
 | `from` | FK | character | yes | Source case; FK → cases.case_id |
 | `to` | FK | character | yes | Recipient case; FK → cases.case_id |
-| `link_type` | | character | yes | `Confirmed` or `Suspected` |
+| `link_type` | | character | yes | `Probable` or `Possible` |
 
 > (`from`, `to`) treated as unique per link. Optional sheet — if absent, case-to-case links can be derived from shared contexts and timing.
 

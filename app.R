@@ -137,7 +137,7 @@ DICT_TABLES <- list(
     ~Field,       ~Type,       ~Key,  ~Required, ~Description,
     "from",       "character", "FK",  "Yes",     "Source case. FK to cases.case_id.",
     "to",         "character", "FK",  "Yes",     "Recipient case. FK to cases.case_id.",
-    "link_type",  "character", "—",   "Yes",     "Strength of evidence: <b>Confirmed</b> (epidemiologically established) or <b>Suspected</b> (plausible based on timing and shared context)."
+    "link_type",  "character", "—",   "Yes",     "Strength of evidence for the transmission link: <b>Probable</b> (epidemiologically established) or <b>Possible</b> (plausible based on timing and shared context)."
   )
 )
 
@@ -241,7 +241,7 @@ make_demo_data <- function() {
     w    <- ifelse(prim_id[seq_len(i - 1)] == prim_id[i], 5, 1)
     j    <- sample(seq_len(nrow(cand)), 1, prob = w)
     tibble::tibble(from = cand$case_id[j], to = cases$case_id[i],
-                   link_type = sample(c("Confirmed","Suspected"), 1, prob = c(.7,.3)))
+                   link_type = sample(c("Probable","Possible"), 1, prob = c(.7,.3)))
   })
   list(cases = cases, contexts = contexts, case_contexts = case_contexts,
        visit_dates = visit_dates, contacts = contacts)
@@ -412,11 +412,11 @@ build_bipartite <- function(visits, ll, colours) {
   list(nodes = bind_rows(context_nodes, case_nodes), edges = edges)
 }
 
-# Derive SUSPECTED case-to-case links from shared contexts + onset timing.
-# A suspected link (earlier -> later case) is drawn when two cases attended the
+# Derive POSSIBLE case-to-case links from shared contexts + onset timing.
+# A possible link (earlier -> later case) is drawn when two cases attended the
 # same context and the later onset falls within [inc_min - inf_before,
 # inc_max + inf_after] days after the earlier onset.
-derive_suspected_links <- function(ll, visits, inc_min, inc_max, inf_before, inf_after) {
+derive_possible_links <- function(ll, visits, inc_min, inc_max, inf_before, inf_after) {
   empty <- tibble(from = character(), to = character(), link_type = character())
   if (nrow(visits) == 0) return(empty)
   onset <- setNames(ll$onset_date, ll$case_id)
@@ -433,12 +433,12 @@ derive_suspected_links <- function(ll, visits, inc_min, inc_max, inf_before, inf
            from = ifelse(gap >= 0, a, b), to = ifelse(gap >= 0, b, a),
            agap = abs(gap)) |>
     filter(agap > 0, agap >= lb, agap <= ub) |>
-    distinct(from, to) |> mutate(link_type = "Suspected")
+    distinct(from, to) |> mutate(link_type = "Possible")
 }
 
 # Who infected whom view: one node per case, edges are transmission links.
-# Links come from the contacts table (Confirmed or Suspected) or from
-# derive_suspected_links() if the user selects the "derive" option.
+# Links come from the contacts table (Probable or Possible) or from
+# derive_possible_links() if the user selects the "derive" option.
 # Node colour reflects the case's primary context type.
 build_contacts_network <- function(ll, contacts, visits, colours) {
   # Use the earliest recorded visit to assign each case a "primary" context type
@@ -466,6 +466,14 @@ build_contacts_network <- function(ll, contacts, visits, colours) {
   # For each contact edge, calculate the onset gap and find shared contexts
   # to show in the hover tooltip
   edges <- contacts |> filter(from %in% nodes$id, to %in% nodes$id) |>
+    # Support both old and new transmission labels so legacy files still render correctly.
+    mutate(
+      link_type_std = dplyr::case_when(
+        link_type %in% c("Possible", "Suspected") ~ "Possible",
+        link_type %in% c("Probable", "Confirmed") ~ "Probable",
+        TRUE ~ as.character(link_type)
+      )
+    ) |>
     mutate(
       gap = purrr::map2_int(from, to, function(f, t) {
         d1 <- onset[[f]]; d2 <- onset[[t]]
@@ -480,11 +488,11 @@ build_contacts_network <- function(ll, contacts, visits, colours) {
         paste(paste0(htmltools::htmlEscape(rows$context_name), " (", htmltools::htmlEscape(rows$context_type), ")"), collapse = "<br>")
       }),
       title = paste0(
-        htmltools::htmlEscape(link_type), " link",
+        htmltools::htmlEscape(link_type_std), " link",
         ifelse(!is.na(gap), paste0("<br>Onset gap: ", gap, ifelse(gap == 1, " day", " days")), ""),
         "<br>Common contexts: ", common_text)
     ) |>
-    transmute(from, to, dashes = link_type == "Suspected", title)
+    transmute(from, to, dashes = link_type_std == "Possible", title)
 
   list(nodes = nodes, edges = edges)
 }
@@ -551,18 +559,18 @@ Terms used in this tool and what they mean in the context of outbreak investigat
 
 ---
 
-### Confirmed source
+### Probable source
 
-A case that has been identified through investigation as the verified origin of
-transmission to another case. A confirmed link is one where an epidemiological
+A case that has been identified through investigation as the likely origin of
+transmission to another case. A probable link is one where an epidemiological
 connection has been established — for example a named household contact, a
 documented exposure event, or otherwise verified contact — and is recorded as
 such in the contacts data. Shown as a **solid line** in the Who infected whom view.
 
-### Suspected source
+### Possible source
 
-A case with a plausible but unverified link to a later case. A suspected link
-may be recorded as "Suspected" in the contacts data, or derived automatically
+A case with a plausible but unverified link to a later case. A possible link
+may be recorded as "Possible" in the contacts data, or derived automatically
 by this tool when two cases attended the same context and the gap between their
 onset dates falls within the range expected given the incubation and infectious
 periods. Shown as a **dashed line** in the Who infected whom view. See the
@@ -580,7 +588,7 @@ nodes in the Contexts network and Who visited where views.
 ### Transmission link
 
 A directional connection from an earlier case (the source) to a later case (the
-recipient), indicating a possible or confirmed route of infection. Arrows point
+recipient), indicating a possible or probable route of infection. Arrows point
 from source to recipient in the Who infected whom view.
 
 ### Degree
@@ -621,7 +629,7 @@ parameters and can be adjusted on the **Assumptions & parameters** tab.
 ---
 
 *All links are epidemiological connections recorded or inferred during
-investigation, not laboratory-proven transmission. Confirmed and suspected
+investigation, not laboratory-proven transmission. Probable and possible
 classifications reflect the strength of epidemiological evidence at the time of
 recording, not a clinical or virological standard.*
 '
@@ -644,9 +652,9 @@ are connected.
 **Who visited where** - shows cases (dark dots) and contexts (coloured squares);
 each line is a visit. A multi-context case appears joined to several squares.
 
-**Who infected whom** - suspected transmission links between cases, either taken
+**Who infected whom** - transmission links between cases, either taken
 from the contacts sheet or derived from shared contexts and timing. How
-"suspected" is defined, and the parameters behind it, are on the
+possible links are defined, and the parameters behind it, are on the
 **Assumptions & parameters** tab.
 
 ## Reading the network
@@ -712,14 +720,14 @@ acquired infection there). Measles is commonly treated as infectious from about
 4 days before to 4 days after rash onset; this is the default and can be changed
 below.
 
-### When is a transmission link "confirmed" vs "suspected"?
+### When is a transmission link "probable" vs "possible"?
 
-- **Confirmed** - a link established during investigation (for example a named
+- **Probable** - a link established during investigation (for example a named
   household or close contact, or an otherwise verified epidemiological link), as
   recorded in the contacts sheet. Shown as a solid line.
-- **Suspected** - a plausible but unverified link. Shown as a dashed line. A
-  suspected link can come from either:
-  1. a row marked "Suspected" in the contacts sheet, or
+- **Possible** - a plausible but unverified link. Shown as a dashed line. A
+  possible link can come from either:
+  1. a row marked "Possible" in the contacts sheet, or
   2. **derivation by the tool** (if you select that option below): two cases
      attended the **same context**, and the later case onset falls a plausible
      interval after the earlier one, given the incubation and infectious periods.
@@ -730,7 +738,7 @@ A susceptible case is exposed during a source case infectious period, then
 develops symptoms after the incubation period. So the gap between an earlier
 (source) onset and a later (infectee) onset is plausible when it lies between
 **(incubation minimum minus infectious-days-before)** and **(incubation maximum
-plus infectious-days-after)** days. The tool draws a suspected link, from the
+plus infectious-days-after)** days. The tool draws a possible link, from the
 earlier to the later case, for every co-attending pair whose onset gap falls in
 that window.
 
@@ -1145,12 +1153,12 @@ ui <- page_navbar(
                          DEF_INF_BEFORE, min = 0, max = 14, step = 1),
             numericInput("inf_after",  "Infectious period – days after onset",
                          DEF_INF_AFTER,  min = 0, max = 14, step = 1)),
-          radioButtons("susp_source",
-            "How should SUSPECTED case-to-case links be defined?",
+          radioButtons("poss_source",
+            "How should POSSIBLE case-to-case links be defined?",
             c("As recorded in the contacts sheet"                                    = "file",
               "Derive from shared contexts + timing (uses the parameters above)"     = "derive"),
             selected = "file"),
-          uiOutput("susp_readout"),
+          uiOutput("poss_readout"),
           actionButton("reset_params", "Reset to defaults",
                        class = "btn-outline-secondary btn-sm"))))),
 
@@ -1317,21 +1325,21 @@ server <- function(input, output, session) {
          inf_after  = g(input$inf_after,  DEF_INF_AFTER))
   })
 
-  # Restores all four parameter inputs and the suspected-link source to their defaults
+  # Restores all four parameter inputs and the possible-link source to their defaults
   observeEvent(input$reset_params, {
     updateNumericInput(session, "inc_min",    value = DEF_INC_MIN)
     updateNumericInput(session, "inc_max",    value = DEF_INC_MAX)
     updateNumericInput(session, "inf_before", value = DEF_INF_BEFORE)
     updateNumericInput(session, "inf_after",  value = DEF_INF_AFTER)
-    updateRadioButtons(session, "susp_source", selected = "file")
+    updateRadioButtons(session, "poss_source", selected = "file")
   })
 
   # Renders a plain-language summary of the derived-link rule with the current
   # parameter values, shown on the Assumptions & parameters tab
-  output$susp_readout <- renderUI({
+  output$poss_readout <- renderUI({
     p  <- params(); lb <- p$inc_min - p$inf_before; ub <- p$inc_max + p$inf_after
     div(style = "background:#eef6fb; border-left:4px solid #2c7fb8; padding:8px 12px; margin:8px 0; border-radius:4px;",
-        HTML(sprintf(paste0("With the current values, a <b>suspected</b> link is drawn from an ",
+        HTML(sprintf(paste0("With the current values, a <b>possible</b> link is drawn from an ",
                             "earlier case to a later case who shared a context when the later onset is between ",
                             "<b>%g</b> and <b>%g days</b> after the earlier one. The bipartite view marks a visit ",
                             "as infectious when it falls from <b>%g days before</b> to <b>%g days after</b> onset."),
@@ -1343,7 +1351,7 @@ server <- function(input, output, session) {
   output$contacts_warning <- renderUI({
     req(input$view == "contacts")
     f   <- filtered()
-    src <- if (!is.null(input$susp_source)) input$susp_source else "file"
+    src <- if (!is.null(input$poss_source)) input$poss_source else "file"
     if (nrow(f$contacts) == 0 && src == "file")
       div(class = "alert alert-info mb-2", role = "alert",
           tags$strong("No contacts information available."),
@@ -1395,8 +1403,8 @@ server <- function(input, output, session) {
       projection = build_context_projection(fv, f$cases, cols),
       bipartite  = build_bipartite(fv, f$cases, cols),
       contacts   = {
-        ct <- if (input$susp_source == "derive")
-          derive_suspected_links(f$cases, fv, p$inc_min, p$inc_max, p$inf_before, p$inf_after)
+        ct <- if (input$poss_source == "derive")
+          derive_possible_links(f$cases, fv, p$inc_min, p$inc_max, p$inf_before, p$inf_after)
         else f$contacts
         build_contacts_network(f$cases, ct, fv, cols)
       })

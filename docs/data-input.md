@@ -404,29 +404,36 @@ The file upload function was removed from the app in a recent commit. Stage 1 of
 restore it 
 ---
 
-## Decision
+## Decision: Option D (Metadata-Driven Shiny) — LOCKED
 
-**Chosen option: Two-stage hybrid**
+**Chosen: Single-stage, straight to built-in Shiny data entry with metadata-driven schema extension**
 
-- **Stage 1 (immediate):** SharePoint-based Excel template matching the five-table schema, imported into the Shiny app via restored file upload. Operational within hours. Handles simultaneous multi-site data entry natively (SharePoint is cloud-hosted). Satisfies UK data residency requirement.
-- **Stage 2 (target state):** Built-in Shiny data entry with a persistent backend, hosted on NHS-hosted Posit Connect. Posit Connect Cloud is ruled out (US servers, fails UK data residency). Stage 2 is conditional on Posit Connect being procured and provisioned.
+**Rationale (from user clarification, 2026-06-18):**
+- **Local deployment + SharePoint data storage:** App runs on user's machine; SQLite file stored in SharePoint folder (no data leaves SharePoint; data governance maintained).
+- **Concurrent multi-user entry:** SQLite file locking handles 3–4 simultaneous users without special infrastructure. Last-write-wins conflict resolution acceptable for outbreak timescale.
+- **Non-technical schema extension:** Data manager (intermediate data skills) can add custom fields mid-outbreak via UI (no developer involvement). Critical for reusability across organisms (measles, salmonella, etc.).
+- **Dual-view entry:** Form view (one case, clean UI, enforced validation) + Spreadsheet view (all cases, bulk edits, Excel-like interface). Supports both detailed entry and rapid corrections.
+- **Smart date entry:** Bulk populate "all dates", "weekdays only", "weekends only" filtered to epidemiologically relevant window. Major efficiency gain vs manual row entry.
+- **Main app integration:** Network analysis app reads same SQLite; auto-discovers custom fields from metadata table; no code changes when schema extends.
 
-**Rationale**
+**Key design decisions (locked):**
+1. Field extension scope: **cases table only** (Phase 1; contexts & case_contexts can extend in later phases)
+2. Categorical validation: **comma-separated text input** (user types "Healthcare worker, Food handler, Other")
+3. Field creation UX: **auto-appear on create** (no approval step); soft-delete on removal (data preserved)
+4. Concurrent field creation: **error + retry** (user must use different name if clash occurs)
+5. Dual-view sync: **same SQLite data; both views always in sync** (refresh on change)
 
-- REDCap and Google Sheets are unavailable. Microsoft Forms cannot handle the relational data model.
-- Simultaneous multi-site entry is required, which a locally-run Shiny app cannot support. Stage 1 resolves this using SharePoint's native cloud access; Stage 2 resolves it via Posit Connect.
-- UK data residency is required. SharePoint (NHS M365) satisfies this for Stage 1. For Stage 2, only an NHS-hosted Posit Connect instance is acceptable — shinyapps.io and Posit Connect Cloud are ruled out.
-- The file upload function (recently removed from the app) must be restored for Stage 1.
-- Built-in data entry remains the long-term goal: tighter validation, smart date suggestions based on onset date, no export/import step, and a single interface for data entry and visualisation. Development with Claude Code makes this feasible without a large team.
-- Stage 1 and Stage 2 use the same data schema — migration between stages requires no redesign.
+**Development:** Full architecture & design in `docs/data-entry-shiny-design.md`. Implementation: 5 weeks (5 phases × 1 week each).
 
-**Outstanding actions before first use**
+---
 
-1. **Restore file upload in the Shiny app** — limited to the fixed five-table schema; validate on import
-2. **Design the Stage 1 Excel template** — one sheet per table, column names matching the schema exactly, with dropdown validation for fixed fields (age_group, vaccination_status, case_status, link_type) and a contexts lookup sheet for context_type
-3. **Write a brief data entry guide** — one page covering the five tables, required fields, and how to export from the template into the app
-4. **Investigate Posit Connect availability** — ask IT whether the organisation has or can procure an NHS-hosted Posit Connect instance; this gates Stage 2
-5. **Confirm IG sign-off for Stage 2 hosting** — once a hosting platform is identified, confirm with IG/Caldicott lead before any real outbreak data is stored there
+## PHASE 3 WORKING NOTES CLOSED
+
+**Status: Phase 3a (Data Entry Shiny App) now scoped and ready for implementation.**
+
+All requirements gathered. Architecture decided. Design doc written. Next: prioritise relative to Phase 4 (Definitions & Tooltips).
+
+---
 
 
 

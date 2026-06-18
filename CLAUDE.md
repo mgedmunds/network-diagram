@@ -86,7 +86,7 @@ Five sheets (from `.xlsx` upload or demo data). Full field-level definitions are
 |---|---|---|---|
 | `from` | character | yes | source case_id; FK → cases |
 | `to` | character | yes | recipient case_id; FK → cases |
-| `link_type` | character | yes | `Confirmed` or `Suspected` |
+| `link_type` | character | yes | `Probable` or `Possible` |
 
 ---
 
@@ -116,7 +116,7 @@ All editable live in the "Assumptions & parameters" tab:
 | `inf_before` | 4 days | Infectious period: days before onset |
 | `inf_after` | 4 days | Infectious period: days after onset |
 
-Derived rule for suspected transmission links (Who infected whom view): onset gap must be between
+Derived rule for possible transmission links (Who infected whom view): onset gap must be between
 `(inc_min - inf_before)` and `(inc_max + inf_after)` days.
 
 ---

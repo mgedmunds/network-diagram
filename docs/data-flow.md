@@ -22,7 +22,7 @@ flowchart LR
 
     subgraph EPI["Epi parameters tab"]
         P_WIN["Incubation & infectious\nperiod inputs"]
-        P_SUSP["Suspected link source\ninput$susp_source"]
+        P_POSS["Possible link source\ninput$poss_source"]
     end
 
     subgraph REACT["Reactive chain"]
@@ -58,7 +58,7 @@ flowchart LR
     P_WIN --> PAR
     PAR --> NET
     V --> NET
-    P_SUSP --> NET
+    P_POSS --> NET
     NET --> O_NET
     NET --> O_MET
 ```
@@ -75,7 +75,7 @@ flowchart LR
 | `build_context_projection()` | app.R | Builds nodes/edges for the Contexts network view |
 | `build_bipartite()` | app.R | Builds nodes/edges for the Who visited where view |
 | `build_contacts_network()` | app.R | Builds nodes/edges for the Who infected whom view |
-| `derive_suspected_links()` | app.R | Derives suspected transmission links from timing + shared context |
+| `derive_possible_links()` | app.R | Derives possible transmission links from timing + shared context |
 | `colour_map()` | app.R ~line 47 | Assigns colours from `CONTEXT_PALETTE` to context types at runtime |
 | `network_metrics()` | app.R | Computes degree, betweenness etc. via igraph for the metrics table |
 
@@ -86,4 +86,4 @@ flowchart LR
 - `visit_relevance` is derived inside `netdata()` on every parameter change — it is never stored in the data
 - `filtered()` always returns all 5 tables as a list; downstream functions destructure as needed
 - Sidebar filter controls are populated by `observeEvent(raw())` when data loads, so they always reflect the current dataset's actual values
-- The contacts view has two modes: use the contacts sheet directly, or derive suspected links from timing (`input$susp_source`)
+- The contacts view has two modes: use the contacts sheet directly, or derive possible links from timing (`input$poss_source`)

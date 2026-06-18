@@ -7,14 +7,21 @@ For the entity-relationship diagram see `docs/erd.svg` (auto-generated when the 
 
 ## cases
 
-One row per confirmed or probable case.
+One row per case. The two required fields are `case_id` and `onset_date`; all others are optional but recommended. Fields marked *(derived)* are auto-calculated in the Excel template and should not be typed manually.
 
-| Field | Type | Key | Indexed | Required | Description |
-|---|---|---|---|---|---|
-| `case_id` | character | PK | Yes | Yes | Unique case identifier. Used as the join key across all tables. Must be unique within the dataset. |
-| `onset_date` | date | — | Yes | Yes | Symptom onset date. Drives the time slider, epidemic curve, and all epi-period derivations. Format: YYYY-MM-DD. |
-| `age_group` | character | — | No | No | Age band. Fixed values: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+ years`. Aligned with UKHSA reporting practice and vaccination schedule milestones. |
-| `vaccination_status` | character | — | No | No | Measles vaccination history at time of illness. Values: `Unvaccinated`, `1 dose`, `2 doses`, `Unknown`. |
+| Field | Type | Key | Required | Description |
+|---|---|---|---|---|
+| `case_id` | character | PK | Yes | Unique case identifier. Auto-generated in template as C-001, C-002 … based on row position. Join key across all tables. |
+| `CIMS_id` | character | — | No | Reference number from CIMS or equivalent national surveillance system. Must be unique; template highlights duplicates in amber. |
+| `forename` | character | — | No | Case forename. |
+| `surname` | character | — | No | Case surname. |
+| `date_of_birth` | date | — | No | Date of birth. Used to calculate age at onset. Format: DD/MM/YYYY in template. |
+| `onset_date` | date | — | Yes | Symptom onset date. Drives the time slider, epidemic curve, and all epi-period derivations. Format: DD/MM/YYYY in template. |
+| `age` | integer | — | No | *(derived)* Age in whole years at onset date. Auto-calculated from `date_of_birth` and `onset_date` in template. Do not type manually. |
+| `gender` | character | — | No | Values: `Male`, `Female`, `Other`, `Unknown`. |
+| `postcode` | character | — | No | UK postcode. Free text; no format enforcement. |
+| `case_status` | character | — | No | Classification of the case. Values: `Confirmed`, `Probable`, `Possible`. |
+| `vaccination_status` | character | — | No | Measles vaccination history at time of illness. Values: `Unvaccinated`, `1 dose`, `2 doses`, `Unknown`. |
 
 ---
 
@@ -36,11 +43,10 @@ One row per case × context combination. Bridging table between `cases` and `con
 
 | Field | Type | Key | Indexed | Required | Description |
 |---|---|---|---|---|---|
-| `case_id` | character | PK + FK | Yes | Yes | Composite primary key. FK → `cases.case_id`. |
-| `context_id` | integer | PK + FK | Yes | Yes | Composite primary key. FK → `contexts.context_id`. |
-| `has_other_visits` | logical | — | No | No | `TRUE` if the case visited this context on dates that fall outside all epi windows. Specific dates for those visits are not recorded in `visit_dates`. Typically `TRUE` for household residents who are continuously present. |
+| `case_id` | character | PK + FK | Yes | Composite primary key. FK → `cases.case_id`. |
+| `context_id` | integer | PK + FK | Yes | Composite primary key. FK → `contexts.context_id`. |
 
-> `context_name` and `context_type` are not stored here — they are joined from the `contexts` table at runtime when needed.
+> `context_name`, `context_type`, and `visit_relevance` are not stored here — they are joined or derived at runtime.
 
 ---
 
@@ -82,13 +88,13 @@ With default measles parameters the exposure window and infectious period do not
 
 ## contacts
 
-One row per recorded transmission link. Optional sheet — if absent, suspected links may be derived from shared contexts and timing.
+One row per recorded transmission link. Optional sheet — if absent, possible links may be derived from shared contexts and timing.
 
 | Field | Type | Key | Indexed | Required | Description |
 |---|---|---|---|---|---|
 | `from` | character | FK | Yes | Yes | Source case. FK → `cases.case_id`. |
 | `to` | character | FK | Yes | Yes | Recipient case. FK → `cases.case_id`. |
-| `link_type` | character | — | No | Yes | Strength of evidence: `Confirmed` (epidemiologically established) or `Suspected` (plausible based on timing and shared context). |
+| `link_type` | character | — | No | Yes | Strength of evidence: `Probable` (epidemiologically established) or `Possible` (plausible based on timing and shared context). |
 
 ---
 

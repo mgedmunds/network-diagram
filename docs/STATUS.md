@@ -3,14 +3,13 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-18 (session 5)
+**Last updated:** 2026-06-18 (session 6)
 
 ---
 
 ## Current focus
 
-**Deployment approach decided: Shinylive + GitHub Pages (ADR-004). Next priorities are (1) convert main app to Shinylive, (2) Phase 4 (Definitions & Tooltips), (3) Stage 1 data entry guide.**
-Data collection remains Excel on OneDrive. GitHub repo must be made public before deployment.
+**Architecture settled: Excel on SharePoint for data entry (upload to Shinylive viz app); no separate data entry Shiny app. Phase 3a Shiny app plan suspended — replaced by upgraded Excel template. Next: run make_template.R in RStudio to generate the new template, test it, then return to Phase 4 (Definitions & Tooltips) and Shinylive deployment.**
 
 ---
 
@@ -65,38 +64,81 @@ Data collection remains Excel on OneDrive. GitHub repo must be made public befor
 
 ---
 
-### Phase 3 — Data Collection Interface
-**Status: Stage 1 mostly complete; Stage 2 blocked on IT decision**
+### Phase 3a — Data Entry
+**Status: SUSPENDED — Shiny app approach abandoned; Excel template upgraded instead**
 
-**Next action:** Write Stage 1 data entry guide (1–2 pages for field teams). Stage 2 (in-browser data entry) remains blocked on Posit Connect — Shinylive cannot support concurrent shared data entry, so the IT conversation is still needed for that.
+**Critical Discovery (2026-06-18):** Shiny app is NOT just for network data — it's the PRIMARY outbreak linelist management tool. All staff data (demographics, testing, outcomes) + network data (contexts, visits, transmission) in one system.
 
-**Stage 1 — Excel template:**
+**Next action:** Run `source("tools/make_template.R")` in RStudio to generate the upgraded template; test with demo data; upload to Shinylive app to verify it reads the new fields correctly.
 
-| Item | Done? |
-|---|---|
-| File upload restored in app | Yes |
-| Excel template with 5 sheets | Yes |
-| Data validation (dates, dropdowns, integers) | Yes |
-| Named Excel tables matching schema | Yes |
-| Auto-generated IDs (C-nnn / Ctxt-nnn) with FK dropdowns | Yes |
-| Data entry guide for field teams | **No** |
+**NEW Architecture (2026-06-18):**
+- **Two separate apps** (not one): Data Entry App (Shiny) + Network Analysis App (existing, both read same SQLite)
+- **Nested form workflow** (not flat tabs): case → contexts → visit_dates; natural logical flow
+- **10 core fields in Phase 1** (CONFIRMED): case_id, CIMS_id, forename, surname, DOB, gender, postcode, case_confidence, onset_date, vax_status
+- **Extended fields deferred to Phase 2** (Phase 3b): date_of_rash, comments, ethnicity, utla, testing, outcomes, travel_history, vulnerable_contacts, etc.
+- **Manual entry only** (no external linelist import in Phase 1): staff type all data directly
+- **Nested forms with checklist** for multi-context entry + bulk date populate
+- **Real-time sync** across concurrent users (3–4 simultaneous OK; SharePoint syncs SQLite changes)
 
-**Stage 2 — Built-in Shiny data entry:** Blocked on NHS-hosted Posit Connect availability. Cannot start until IT confirms.
+**6-Week Timeline (2026-06-22 to 2026-08-09):**
+
+| Milestone | Dates | Duration | Deliverable |
+|---|---|---|---|
+| **M1: Nested cases form + spreadsheet** | 2026-06-22 to 2026-07-05 | 2w | Form + spreadsheet view; demographic fields; soft-delete |
+| **M2: Contexts + visits + bulk date populate** | 2026-07-06 to 2026-07-12 | 1w | Multi-select checklist; bulk dates (all/weekdays/weekends) |
+| **M3: Transmission links + validation** | 2026-07-13 to 2026-07-19 | 1w | Contacts table; duplicate detection (case_id + CIMS_id); DOB/postcode validation |
+| **M4: Search/filter + derived fields** | 2026-07-20 to 2026-07-26 | 1w | Filter by status/date; age auto-calc; Admin field manager UI |
+| **M5: Roles/access + spreadsheet optimization** | 2026-07-27 to 2026-08-02 | 1w | Data entry staff / data manager / viewer roles; virtual scroll (500 cases); real-time sync testing |
+| **M6: Testing + deployment** | 2026-08-03 to 2026-08-09 | 1w | Local deployment (3–4 concurrent users); documentation; data manager guide |
+| **TARGET COMPLETION** | **2026-08-09** | **6w total** | **MVP complete; ready for first outbreak** |
+
+**Design decision register:** [phase-3a-enhanced-design-decisions.md](phase-3a-enhanced-design-decisions.md)
+
+**Stage 2 (Deferred):**
+
+Excel template (no longer needed; direct data entry in Shiny).
 
 **Log:**
-- 2026-06-16 — Data input working notes and requirements questionnaire started (docs/data-input.md)
-- 2026-06-16 — Questionnaire completed; REDCap and Google Sheets ruled out; two-stage hybrid approach decided
-- 2026-06-16 — Posit Connect vs local deployment comparison written
-- 2026-06-16 — File upload restored in app for Stage 1 Excel import
-- 2026-06-16 — Stage 1 Excel template generator built (make_template.R)
-- 2026-06-16 — Data validation added to template (dates, dropdowns, integers)
-- 2026-06-16 — Named Excel tables added; template sheets formatted
-- 2026-06-16 — Auto-generated IDs (C-nnn / Ctxt-nnn) added; 1000 rows pre-filled
-- 2026-06-16 — Cross-sheet FK dropdowns added (case_id and context_id lists)
-- 2026-06-16 — Upload validation error messages improved with corrective guidance
-- 2026-06-16 — docs/data-input.md closed; decision and requirements documented
-- 2026-06-17 — Shinylive PoC run (branch shinylive-poc): all 10 packages confirmed available in WebR including readxl
+- 2026-06-16 — Data input questionnaire started (docs/data-input.md)
+- 2026-06-16 — Questionnaire completed; Excel + Access ruled out in favour of Shiny
+- 2026-06-17 — Shinylive PoC run (branch shinylive-poc): all packages confirmed available in WebR
 - 2026-06-17 — Deployment approach decided: Shinylive + GitHub Pages; ADR-004 written
+- 2026-06-18 — Full options appraisal completed (docs/data-entry-options-appraisal.md)
+- 2026-06-18 — SQLite + Shiny with metadata-driven schema extension chosen (Phase 3a, single-stage, local deployment)
+- 2026-06-18 — User clarifications locked (design decisions):
+  - Local app + SharePoint storage (no data leaves SharePoint; SQLite file in SharePoint folder)
+  - Drop Excel; go straight to Shiny for data entry (no interim Excel template stage)
+  - Non-technical user can add custom fields mid-outbreak (metadata-driven UI; data manager role)
+  - Dual-view entry: form view (one case, enforced validation) + spreadsheet view (all cases, bulk edits)
+  - Concurrent edits: 3–4 simultaneous users OK; last-write-wins conflict resolution
+  - Field extension scope: cases table only (Phase 1); contexts & case_contexts can extend later
+  - Categorical validation: comma-separated text input ("Healthcare worker, Food handler, Other")
+  - Field lifecycle: auto-appear on create (no approval); soft-delete on removal (data preserved)
+- 2026-06-18 — Detailed architecture & design doc written (docs/data-entry-shiny-design.md)
+- 2026-06-18 — Implementation roadmap: 5 weeks (5 × 1-week phases: forms, metadata schema, dynamic UI, validation, deployment)
+- 2026-06-18 — Phase 3 working notes (docs/data-input.md) closed with final decision locked
+- 2026-06-18 — Pre-build design decisions questionnaire completed (11 critical design decisions locked)
+- 2026-06-18 — CIMS_id added as core field (unique constraint; locked; no deletion/rename)
+- 2026-06-18 — Soft-delete schema added (is_deleted flag on cases & field_definitions; recoverable via Admin)
+- 2026-06-18 — Import function confirmed: upload main linelist extracts to populate cases/contexts
+- 2026-06-18 — Phase 3a design decisions doc written (phase-3a-design-decisions.md)
+- 2026-06-18 — Phase 3a + Phase 4 PARALLEL execution confirmed (both start together, not sequential)
+- 2026-06-18 — Ready to begin Phase 3a.1 (Core entry forms)
+- 2026-06-18 — MAJOR DISCOVERY: Shiny app is PRIMARY linelist tool (not just network data)
+- 2026-06-18 — Scope expanded: 11 core fields in Phase 1 (demographics + onset_date + vax + case_confidence + comments)
+- 2026-06-18 — Extended fields deferred to Phase 2: ethnicity, utla, testing, outcomes, travel, contacts, etc.
+- 2026-06-18 — Architecture: Two separate Shiny apps (Data Entry + Network Analysis, both read same SQLite)
+- 2026-06-18 — Workflow: Nested forms (case → contexts → visits), not flat tabs
+- 2026-06-18 — Data entry: manual only, no import function in Phase 1
+- 2026-06-18 — Context entry: multi-select checklist → then add dates for each
+- 2026-06-18 — Timeline extended: 5 weeks → 6 weeks (MVP with Phase 1 fields)
+- 2026-06-18 — Detailed design doc written (phase-3a-enhanced-design-decisions.md)
+- 2026-06-18 — visit_relevance workflow clarified: manual selection (not derived), stored at case_contexts level, staff select AFTER adding visit_dates (preferred flow), epi windows shown as reference, editable after entry
+- 2026-06-18 — Phase 1 field priority CONFIRMED: 10 core case fields (case_id, CIMS_id, forename, surname, DOB, gender, postcode, case_confidence, onset_date, vax_status) + all 3 related tables (case_contexts, visit_dates, contacts); date_of_rash and comments moved to Phase 2
+- 2026-06-18 — M1–M6 START DATE LOCKED: Monday 2026-06-22; TARGET COMPLETION: 2026-08-09 (6 weeks total)
+- 2026-06-18 (session 6) — Architecture review: Shiny data entry app suspended. Power Apps ruled out (no Business 365 on dev laptop). R-Portable reviewed and understood but Excel+SharePoint chosen as simpler, lower-risk path for first outbreak.
+- 2026-06-18 (session 6) — Excel template upgraded: cases extended to 11 fields (CIMS_id, forename, surname, date_of_birth, onset_date, age formula, gender, postcode, case_status, vaccination_status); CIMS_id duplicate detection (amber highlight); Date Helper tab added for bulk visit_date generation; README updated; data-dictionary.md updated.
+- 2026-06-18 (session 6) — link_type field options changed from Confirmed/Suspected to Probable/Possible throughout app.R and all docs.
 
 ---
 
@@ -192,6 +234,10 @@ Matt reviews and clears entries at the start of the next session.
 | 2026-06-17 | Deployment | Shinylive + GitHub Pages accepted (ADR-004). GitHub repo must be made public for free GitHub Pages. No patient data in repo — only app code and synthetic demo data. | Yes — using Pro account, repo stays private |
 | 2026-06-18 | Deployment | plotly deprecation warning on startup: "Specifying width/height in layout() is now deprecated." Harmless but should be fixed — pass height to ggplotly() differently. | No |
 | 2026-06-18 | Deployment | DiagrammeR permanently removed from app. ERD reference diagram (docs/erd.svg) still exists in repo but is no longer auto-generated on app startup. If schema changes, erd.svg must be updated manually or via a separate script. | No |
+| 2026-06-18 | Phase 3a | CIMS_id format: Is it auto-generated or manually entered? What is the format/validation? | Deferred — Shiny app suspended; CIMS_id is free-text in Excel template for now |
+| 2026-06-18 | Phase 3a | Main linelist structure: Which columns should the import function support? Which are optional? | Deferred — no import function in Excel approach |
+| 2026-06-18 | Phase 3a | Archive procedure: Step-by-step workflow to backup and reset SQLite between outbreaks | Deferred — not applicable to Excel approach |
+| 2026-06-18 | Architecture | Data entry approach: Excel on SharePoint (upload .xlsx to Shinylive viz app). Shiny data entry app suspended. Reasons: Shinylive can't write files; R-Portable viable but adds complexity; Power Apps requires Business 365 account not available on dev laptop. Excel is lower-risk for first outbreak. | Yes — session 6 |
 
 ---
 
