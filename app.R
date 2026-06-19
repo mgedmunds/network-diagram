@@ -43,7 +43,7 @@ library(igraph)
 library(plotly)
 library(DT)          # Interactive data tables with column filtering
 # Utility
-library(jsonlite)    # Loaded before shiny to prevent jsonlite::validate masking shiny::validate
+library(jsonlite)    # validate() calls use shiny::validate() explicitly to avoid jsonlite masking
 library(purrr)
 library(tibble)
 library(ggplot2)     # Epi curve chart (converted to plotly via ggplotly)
@@ -265,9 +265,15 @@ make_demo_data <- function() {
 # This denormalised view is what the network view builders consume — one row
 # per case × context × visit_date combination, with context name and type included.
 flat_visits <- function(d) {
-  d$case_contexts |>
+  result <- d$case_contexts |>
     left_join(d$contexts, by = "context_id") |>
     left_join(d$visit_dates, by = c("case_id", "context_id"))
+  # exposure_relevance should be present in case_contexts (either from the
+  # uploaded workbook or from make_demo_data). Guard against templates that
+  # omit it so the bipartite view doesn't crash.
+  if (!"exposure_relevance" %in% names(result))
+    result <- result |> mutate(exposure_relevance = "Neither")
+  result
 }
 
 # Classifies each case-context combination by when the case was present,
@@ -1223,7 +1229,7 @@ server <- function(input, output, session) {
 
     # Check required sheets exist before attempting to read
     missing_sheets <- setdiff(c("cases", "contexts", "case_contexts", "visit_dates"), sheets)
-    validate(
+    shiny::validate(
       need(length(missing_sheets) == 0,
            paste0("The uploaded file is missing required sheet(s): ",
                   paste(missing_sheets, collapse = ", "), ". ",
@@ -1245,7 +1251,7 @@ server <- function(input, output, session) {
     miss_st  <- setdiff(c("context_id", "context_name", "context_type"), names(st))
     miss_cst <- setdiff(c("case_id", "context_id"), names(cst))
     miss_vd  <- setdiff(c("case_id", "context_id", "visit_date"), names(vd))
-    validate(
+    shiny::validate(
       need(length(miss_cs) == 0,
            paste0("The 'cases' sheet is missing column(s): ",
                   paste(miss_cs, collapse = ", "), ". ",
@@ -1273,7 +1279,7 @@ server <- function(input, output, session) {
     bad_ctx_cst   <- setdiff(unique(cst$context_id), unique(st$context_id))
     bad_case_vd   <- setdiff(unique(vd$case_id),     unique(cs$case_id))
     bad_ctx_vd    <- setdiff(unique(vd$context_id),  unique(st$context_id))
-    validate(
+    shiny::validate(
       need(length(bad_case_cst) == 0,
            paste0("The 'case_contexts' sheet contains case_id value(s) not found in 'cases': ",
                   fmt_ids(bad_case_cst), ". ",
@@ -1478,6 +1484,10 @@ server <- function(input, output, session) {
     if (nrow(candidates) == 0) return(tibble())
 
     onset <- setNames(ll$onset_date, ll$case_id)
+    # Ensure optional columns exist so the downstream select/rename logic is
+    # unconditional regardless of what the uploaded file contained.
+    for (col in c("age_group", "vaccination_status", "case_status"))
+      if (!col %in% names(ll)) ll[[col]] <- NA_character_
     case_info <- ll |> select(case_id, onset_date, age_group, vaccination_status, case_status)
     ctx_tbl   <- fv |> select(case_id, context_name, context_type, exposure_relevance) |> distinct()
 
