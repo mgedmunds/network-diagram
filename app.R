@@ -772,9 +772,16 @@ hypotheses, alongside your wider outbreak knowledge.
 
 # Returns the number of chart rows that will be drawn for a given selection,
 # so the container height can be set before the plot renders.
-nrow_timeline <- function(sel, f) {
-  # Returns the number of chart rows: contexts visited (case selected) or
-  # cases that attended (context selected). Used to size the plotlyOutput.
+nrow_timeline <- function(sel, f, view = "bipartite") {
+  if (view == "contacts" && sel %in% f$cases$case_id) {
+    ll <- f$cases
+    if (!("likely_index_case" %in% names(ll))) ll$likely_index_case <- NA_character_
+    linked_from <- ll$case_id[!is.na(ll$likely_index_case) & ll$likely_index_case == sel]
+    linked_to   <- ll$likely_index_case[ll$case_id == sel]
+    linked_to   <- linked_to[!is.na(linked_to) & nchar(linked_to) > 0]
+    associated  <- unique(c(sel, linked_from, linked_to))
+    return(length(associated[associated %in% ll$case_id]))
+  }
   if (sel %in% f$cases$case_id)
     return(length(unique(f$visit_dates$context_id[f$visit_dates$case_id == sel])))
   clean  <- sub("^ctx::", "", sel)
@@ -794,14 +801,83 @@ nrow_timeline <- function(sel, f) {
 # Context selected: one row per case linked to that context. Each case gets its
 #   own epi window segments and onset marker (dates differ per case). Visit dots
 #   show only days that case attended the selected context.
-build_timeline_plot <- function(sel, f, p) {
+build_timeline_plot <- function(sel, f, p, view = "bipartite") {
   cases_df <- f$cases; ctx_df <- f$contexts; vd <- f$visit_dates
   is_case  <- sel %in% cases_df$case_id
   clean    <- sub("^ctx::", "", sel)
   is_ctx   <- !is_case && clean %in% ctx_df$context_name
   if (!is_case && !is_ctx) return(plotly_empty())
 
-  if (is_case) {
+  if (view == "contacts" && is_case) {
+    # ---- Contacts view: case selected -------------------------------------------
+    # Rows: selected case + direct transmission neighbours, sorted by onset date.
+    # Selected case row highlighted in yellow.
+    ll <- cases_df
+    if (!("likely_index_case" %in% names(ll))) ll$likely_index_case <- NA_character_
+    linked_from <- ll$case_id[!is.na(ll$likely_index_case) & ll$likely_index_case == sel]
+    linked_to   <- ll$likely_index_case[ll$case_id == sel]
+    linked_to   <- linked_to[!is.na(linked_to) & nchar(linked_to) > 0]
+    associated  <- unique(c(sel, linked_from, linked_to))
+    associated  <- associated[associated %in% ll$case_id]
+    onset_vals  <- setNames(ll$onset_date, ll$case_id)
+    associated  <- associated[order(sapply(associated, function(id) onset_vals[[id]]))]
+    if (length(associated) == 0) return(plotly_empty())
+
+    segs <- list(); pts <- list(); y_order <- character(0)
+    for (cid in associated) {
+      onset <- onset_vals[[cid]]
+      segs[[paste0(cid, "_exp")]] <- data.frame(
+        y_label = cid, x0 = onset - p$inc_max, x1 = onset - p$inc_min,
+        seg_type = "Exposure window", stringsAsFactors = FALSE)
+      segs[[paste0(cid, "_inf")]] <- data.frame(
+        y_label = cid, x0 = onset - p$inf_before, x1 = onset + p$inf_after,
+        seg_type = "Infectious period", stringsAsFactors = FALSE)
+      pts[[paste0(cid, "_onset")]] <- data.frame(
+        y_label = cid, x = onset, pt_type = "Onset date", stringsAsFactors = FALSE)
+      y_order <- c(y_order, cid)
+    }
+    all_segs <- do.call(rbind, segs)
+    all_pts  <- do.call(rbind, pts)
+    all_segs$x0 <- as.Date(all_segs$x0, origin = "1970-01-01")
+    all_segs$x1 <- as.Date(all_segs$x1, origin = "1970-01-01")
+    all_pts$x   <- as.Date(all_pts$x,   origin = "1970-01-01")
+
+    sel_pos   <- which(rev(y_order) == sel) - 1L
+    highlight <- list(type = "rect", xref = "paper", yref = "y",
+      x0 = 0, x1 = 1, y0 = sel_pos - 0.45, y1 = sel_pos + 0.45,
+      fillcolor = "rgba(255,230,100,0.35)", line = list(width = 0), layer = "below")
+
+    fig <- plot_ly()
+    exp_d <- all_segs[all_segs$seg_type == "Exposure window", ]
+    if (nrow(exp_d) > 0)
+      fig <- add_segments(fig, data = exp_d,
+        x = ~x0, xend = ~x1, y = ~y_label, yend = ~y_label,
+        line = list(color = "#aec7e8", width = 14),
+        name = "Exposure window", legendgroup = "exp", showlegend = TRUE)
+    inf_d <- all_segs[all_segs$seg_type == "Infectious period", ]
+    if (nrow(inf_d) > 0)
+      fig <- add_segments(fig, data = inf_d,
+        x = ~x0, xend = ~x1, y = ~y_label, yend = ~y_label,
+        line = list(color = "#fc8d8d", width = 14),
+        name = "Infectious period", legendgroup = "inf", showlegend = TRUE)
+    onset_d <- all_pts[all_pts$pt_type == "Onset date", ]
+    if (nrow(onset_d) > 0)
+      fig <- add_markers(fig, data = onset_d, x = ~x, y = ~y_label,
+        marker = list(symbol = "line-ns-open", size = 22, color = "#333",
+                      line = list(width = 2.5, color = "#333")),
+        name = "Onset date", legendgroup = "onset", showlegend = TRUE)
+
+    n_rows <- length(y_order)
+    return(fig |> layout(
+      height = n_rows * 36L + 130L,
+      shapes = list(highlight),
+      yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
+      xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
+                   minor = list(dtick = 86400000, showgrid = TRUE, gridcolor = "rgba(0,0,0,0.12)")),
+      legend = list(orientation = "h", x = 0, y = -0.25),
+      margin = list(l = 80, b = 90)))
+
+  } else if (is_case) {
     # ---- Case selected -------------------------------------------------------
     cr    <- cases_df[cases_df$case_id == sel, ]
     onset <- cr$onset_date[1]
@@ -1002,9 +1078,12 @@ ui <- page_navbar(
       padding: 4px !important;
     }
     .timeline-expanded #timeline_body_div {
-      height: auto !important;
+      max-height: none !important;
       overflow-y: visible !important;
-      resize: none !important;
+    }
+    #node_selector {
+      margin-bottom: 0 !important;
+      font-size: 0.85em !important;
     }
   ")),
   tags$script(HTML("
@@ -1074,7 +1153,8 @@ ui <- page_navbar(
         card_header(class = "d-flex justify-content-between align-items-center",
           span("Network"),
           div(class = "d-flex align-items-center gap-2",
-            selectInput("view", NULL, width = "290px",
+            selectInput("node_selector", NULL, choices = c("-- Select node --" = ""), width = "190px"),
+            selectInput("view", NULL, width = "220px",
               choices = c("Contexts network"  = "projection",
                           "Who visited where" = "bipartite",
                           "Who infected whom" = "contacts"),
@@ -1084,7 +1164,8 @@ ui <- page_navbar(
               onclick = "toggleNetwork()", "Maximise"),
             info(paste0("Contexts network links places that share a case. ",
                         "Who visited where shows cases and contexts together. ",
-                        "Who infected whom shows transmission links from the likely_index_case field in the cases table.")))),
+                        "Who infected whom shows transmission links from the likely_index_case field in the cases table. ",
+                        "Use the node selector to highlight a node and view its timeline below.")))),
         div(style = "position:relative;",
           uiOutput("network_legend"),
           visNetworkOutput("net", height = "60vh"))),
@@ -1103,7 +1184,7 @@ ui <- page_navbar(
         card_body(
           padding = 0,
           div(id = "timeline_body_div",
-              style = "height: 30vh; min-height: 120px; overflow-y: auto; resize: vertical; padding: 4px;",
+              style = "max-height: 30vh; min-height: 120px; overflow-y: auto; padding: 4px;",
               uiOutput("timeline_container"))))
     )),
 
@@ -1349,11 +1430,13 @@ server <- function(input, output, session) {
   # then contexts is trimmed to only those still in case_contexts. This cascade
   # ensures no orphaned nodes appear in the network.
   filtered <- reactive({
-    d   <- raw()
+    d         <- raw()
+    # If types checkbox is empty (race condition on data load), show all context types
+    types_sel <- if (length(input$types) == 0) unique(d$contexts$context_type) else input$types
     cs  <- d$cases |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
     if ("case_status" %in% names(cs))
       cs <- cs |> filter(is.na(case_status) | case_status %in% input$case_status_filter)
-    st  <- d$contexts |> filter(context_type %in% input$types)
+    st  <- d$contexts |> filter(context_type %in% types_sel)
     cst <- d$case_contexts |> filter(case_id %in% cs$case_id, context_id %in% st$context_id)
     st  <- st |> filter(context_id %in% cst$context_id)
     vd  <- d$visit_dates |> filter(case_id %in% cs$case_id, context_id %in% cst$context_id)
@@ -1382,17 +1465,20 @@ server <- function(input, output, session) {
 
   # Renders the network diagram. exposure_relevance is dropped from edges before
   # passing to visNetwork (it was only needed for colour/arrow assignment).
-  # nodesIdSelection = TRUE adds a dropdown above the canvas and sets
-  # input$net_selected when a node is clicked — used by the timeline panel.
+  # Node clicks fire a JS event that updates input$node_selector (the toolbar dropdown),
+  # which drives the timeline panel below.
   output$net <- renderVisNetwork({
     nd <- netdata(); v <- input$view
     vis_edges <- if ("exposure_relevance" %in% names(nd$edges))
       nd$edges |> select(-exposure_relevance) else nd$edges
     vn <- visNetwork(nd$nodes, vis_edges) |>
-      visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE),
-                 nodesIdSelection = TRUE) |>
+      visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE)) |>
       visPhysics(stabilization = TRUE,
-                 barnesHut = list(gravitationalConstant = -3500, springLength = 130))
+                 barnesHut = list(gravitationalConstant = -3500, springLength = 130)) |>
+      visEvents(click = "function(params) {
+        var node = params.nodes.length > 0 ? String(params.nodes[0]) : '';
+        Shiny.setInputValue('net_node_clicked', {node: node, ts: new Date().getTime()}, {priority: 'event'});
+      }")
     # Edge style differs by view: contacts uses directional arrows; bipartite
     # uses straight lines (arrows already encoded per-edge); projection uses
     # grey semi-transparent curves
@@ -1401,6 +1487,30 @@ server <- function(input, output, session) {
           else visEdges(vn, smooth = TRUE, color = list(color = "#9aa0a6", opacity = 0.7))
     vn
   })
+
+  # ---- Node selector (toolbar dropdown) -------------------------------------
+  # Update node selector choices whenever the network data changes.
+  # Resets selection to blank so a stale node from the previous view is not shown.
+  observe({
+    nd  <- netdata()
+    lbl <- if ("label" %in% names(nd$nodes))
+      ifelse(nd$nodes$label == "" | is.na(nd$nodes$label), nd$nodes$id, nd$nodes$label)
+    else nd$nodes$id
+    choices <- c("-- Select node --" = "", setNames(nd$nodes$id, lbl))
+    updateSelectInput(session, "node_selector", choices = choices, selected = "")
+  })
+
+  # Canvas click → update the toolbar dropdown (visual sync)
+  observeEvent(input$net_node_clicked, {
+    updateSelectInput(session, "node_selector", selected = input$net_node_clicked$node)
+  }, ignoreInit = TRUE)
+
+  # Toolbar dropdown change → highlight node in canvas
+  observeEvent(input$node_selector, {
+    sel <- input$node_selector
+    if (!is.null(sel) && nchar(trimws(sel)) > 0)
+      visNetworkProxy("net") |> visSelectNodes(id = list(sel))
+  }, ignoreInit = TRUE)
 
   # Combined legend overlay: context type colours (all views) plus bipartite
   # edge direction key (bipartite view only). Floats over the canvas so the
@@ -1575,24 +1685,37 @@ server <- function(input, output, session) {
                              headerCallback = header_tooltips(unname(tips))))
   })
 
-  # Timeline panel: placeholder when nothing selected, otherwise a plotlyOutput
-  # sized to fit its content. The card body is fixed at 25vh and scrolls if
-  # the chart is taller (many rows); the user can drag the card bottom to resize.
+  # Timeline panel: placeholder when nothing selected, otherwise a heading + plotlyOutput
+  # sized to fit its content. Scrolls when the chart is taller than the 30vh max-height.
   output$timeline_container <- renderUI({
-    sel <- input$net_selected
+    sel  <- input$node_selector
+    view <- input$view
     if (is.null(sel) || nchar(trimws(sel)) == 0)
       return(div(style = "padding:32px; text-align:center; color:#888; font-size:0.9em;",
                  "Click a node in the network above — or use the node selector — to see its timeline here."))
-    n_rows <- nrow_timeline(sel, filtered())
+    f      <- filtered()
+    n_rows <- nrow_timeline(sel, f, view)
     if (n_rows == 0)
       return(div(style = "padding:20px; color:#888;", "No timeline data available for this node."))
-    plotlyOutput("timeline_plot", height = paste0(max(150L, n_rows * 36L + 130L), "px"))
+    is_case <- sel %in% f$cases$case_id
+    clean   <- sub("^ctx::", "", sel)
+    heading <- if (view == "contacts" && is_case)
+      paste0("Cases linked to ", sel)
+    else if (is_case)
+      paste0("Contexts visited by ", sel)
+    else
+      paste0("Cases associated with ", clean)
+    tagList(
+      div(style = "padding:6px 8px 4px; font-weight:600; font-size:0.88em; color:#333; border-bottom:1px solid #dee2e6; margin-bottom:2px;",
+          heading),
+      plotlyOutput("timeline_plot", height = paste0(max(150L, n_rows * 36L + 130L), "px")))
   })
 
   output$timeline_plot <- renderPlotly({
-    sel <- input$net_selected
+    sel  <- input$node_selector
+    view <- input$view
     req(!is.null(sel) && nchar(trimws(sel)) > 0)
-    build_timeline_plot(sel, filtered(), params())
+    build_timeline_plot(sel, filtered(), params(), view)
   })
 
   # ---- Reference tab outputs --------------------------------------------------
