@@ -207,6 +207,7 @@ flowchart TD
   - `docs/decisions/` — ADRs for significant decisions (use TEMPLATE.md)
 - Windows Obsidian and WSL Claude Code stay in sync via `git pull` / `git push`
 - Windows repo is at `C:\Users\claude-dev\projects\network-diagram`; RStudio pull sometimes needs `git fetch origin && git merge origin/main` in the Terminal tab if the remote cache is stale
+- **Amendment log** — `docs/amendments.md` is where bugs and UI tweaks are queued between sessions. Add items there during app review (plain English, no special format). Claude reads it at session start alongside `docs/STATUS.md` and batches the fixes in one go.
 
 ---
 
