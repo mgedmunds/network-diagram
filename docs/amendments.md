@@ -36,6 +36,8 @@ in plain English. Items are deleted once the fix is committed.
 
 - [ ] Reference tab: move the Definitions, How to use, and Assumptions & parameters pages out of the top navigation bar and into the Reference tab as sub-tabs (alongside the existing data dictionary tabs). Reduces top-nav clutter and groups all supporting content in one place.
 
+- [ ] Schema: add `gender` to the cases table schema in CLAUDE.md and the data dictionary. Values: Male, Female, Other, Unknown. The column already exists in the Excel template — this formalises it in the app data model so it is recognised, documented, and available as a grouping option in the epi curve. Do this before implementing epi curve colour-coding (item above).
+
 ---
 
 ## Parked (needs decision or not urgent)
