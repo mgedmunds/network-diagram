@@ -1327,6 +1327,23 @@ server <- function(input, output, session) {
     vd  <- readxl::read_excel(input$file$datapath, sheet = "visit_dates")
     cs$onset_date <- as.Date(cs$onset_date)
     vd$visit_date <- as.Date(vd$visit_date)
+
+    # The template uses Excel row-position formulas for case_id and context_id.
+    # readxl reads these as NA when the file hasn't been opened in Excel first
+    # (openxlsx doesn't store cached formula values). Derive the IDs from row
+    # position when all values are empty, replicating what the formula produces.
+    id_empty <- function(x) all(is.na(x) | nchar(trimws(as.character(x))) == 0)
+    if ("case_id"    %in% names(cs) && id_empty(cs$case_id))
+      cs$case_id    <- paste0("C-",    formatC(seq_len(nrow(cs)), width = 3, flag = "0"))
+    if ("context_id" %in% names(st) && id_empty(st$context_id))
+      st$context_id <- paste0("Ctxt-", formatC(seq_len(nrow(st)), width = 3, flag = "0"))
+
+    # Remove blank rows written to pre-size Excel tables (no actual data entered)
+    if ("onset_date"    %in% names(cs)) cs  <- cs  |> filter(!is.na(onset_date))
+    if ("context_name"  %in% names(st)) st  <- st  |> filter(!is.na(context_name) & nchar(trimws(coalesce(context_name, ""))) > 0)
+    if ("case_id"       %in% names(cst)) cst <- cst |> filter(!is.na(case_id)    & nchar(trimws(as.character(case_id)))    > 0)
+    if ("visit_date"    %in% names(vd))  vd  <- vd  |> filter(!is.na(visit_date))
+
     # Check required columns in each sheet
     miss_cs  <- setdiff(c("case_id", "onset_date"), names(cs))
     miss_st  <- setdiff(c("context_id", "context_name", "context_type"), names(st))
