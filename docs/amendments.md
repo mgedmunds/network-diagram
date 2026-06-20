@@ -13,7 +13,7 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
-*(empty — batch of 15 amendments completed 2026-06-20; see git log on branch amendments-batch-1)*
+- [ ] Timeline panel (below the network diagram): (1) Normal view — keep the current initial height; when a case or context is selected and the plot extends beyond the bottom of the panel, show a single vertical scrollbar on the right (no duplicate scrollbar). (2) Maximise button — instead of filling the whole screen, grow the panel upward from the bottom just enough to fit the whole graph (including title and any horizontal scrollbar) within the window so no vertical scrollbar is needed; cap at viewport height (scrolls only if the graph is taller than the screen). *(requested: 2026-06-20)*
 
 ---
 

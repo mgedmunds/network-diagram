@@ -1093,16 +1093,24 @@ ui <- page_navbar(
     .network-expanded #net {
       height: 100% !important;
     }
+    /* Maximised: grow the panel upward from the bottom of the viewport just
+       enough to show the whole timeline (title, plot, horizontal scrollbar)
+       with no vertical scrollbar. height:auto sizes it to the content; capped
+       at the viewport height, at which point the body scrolls as a fallback. */
     .timeline-expanded {
       position: fixed !important;
-      inset: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      top: auto !important;
+      height: auto !important;
+      max-height: 100vh !important;
       z-index: 9998 !important;
       border-radius: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
       display: flex !important;
       flex-direction: column !important;
       overflow: hidden !important;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.25) !important;
     }
     .timeline-expanded .card-body {
       flex: 1 !important;
@@ -1113,6 +1121,11 @@ ui <- page_navbar(
     .timeline-expanded #timeline_body_div {
       max-height: none !important;
       overflow-y: visible !important;
+    }
+    /* Normal (non-maximised) mode: let only #timeline_body_div scroll, so the
+       card_body's own overflow does not add a second vertical scrollbar. */
+    .timeline-card:not(.timeline-expanded) > .card-body {
+      overflow: hidden !important;
     }
     #node_selector {
       margin-bottom: 0 !important;
