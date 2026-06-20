@@ -134,12 +134,25 @@ These permissions let Claude read files on your Windows drive from inside WSL.
 
 ---
 
+## Explicit deny list — blocked globally, always
+
+These are hard-blocked in `~/.claude/settings.json` and cannot run without your approval, even if accidentally added to an allow list in future:
+
+| Denied command | Why |
+|---|---|
+| `git push *` | Prevents silent pushes to GitHub |
+| `git reset *` | Prevents discarding commits or unstaging all files |
+| `git checkout -- *` | Prevents discarding uncommitted file changes |
+| `git clean *` | Prevents deleting untracked files |
+| `git rebase *` | Prevents rewriting commit history |
+
 ## What Claude cannot do without asking
 
 - Push to GitHub
+- Reset, rebase, or discard git history (all hard-blocked above)
 - Delete any file
 - Run PowerShell (removed 2026-06-20)
-- Read personal Windows folders (OneDrive, Desktop, Documents outside R — removed 2026-06-20)
+- Read personal Windows folders outside projects/ (OneDrive, Desktop, Documents outside R — removed 2026-06-20)
 - Install packages
 - Create or modify files outside the project folder (except the specific Windows paths above)
 - Make network requests other than web search
