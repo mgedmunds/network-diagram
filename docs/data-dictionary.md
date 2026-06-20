@@ -18,9 +18,9 @@ One row per case. The two required fields are `case_id` and `onset_date`; all ot
 | `date_of_birth` | date | — | No | Date of birth. Used to calculate age at onset. Format: DD/MM/YYYY in template. |
 | `onset_date` | date | — | Yes | Symptom onset date. Drives the time slider, epidemic curve, and all epi-period derivations. Format: DD/MM/YYYY in template. |
 | `age` | integer | — | No | *(derived)* Age in whole years at onset date. Auto-calculated from `date_of_birth` and `onset_date` in template. Do not type manually. |
-| `gender` | character | — | No | Values: `Male`, `Female`, `Other`, `Unknown`. |
+| `gender` | character | — | No | Values: `Male`, `Female`, `Other`, `Unknown`. Available as an epidemic-curve grouping option. |
 | `postcode` | character | — | No | UK postcode. Free text; no format enforcement. |
-| `case_status` | character | — | No | Classification of the case. Values: `Confirmed`, `Probable`, `Possible`. |
+| `case_status` | character | — | No | Case confidence — how firmly the case is classified. Values: `Confirmed`, `Probable`, `Possible`. Displayed in the UI as "Case confidence"; field name remains `case_status`. |
 | `vaccination_status` | character | — | No | Measles vaccination history at time of illness. Values: `Unvaccinated`, `1 dose`, `2 doses`, `Unknown`. |
 
 ---

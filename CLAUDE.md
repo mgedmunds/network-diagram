@@ -57,8 +57,9 @@ Five sheets (from `.xlsx` upload or demo data). Full field-level definitions are
 | `case_id` | character | yes | unique identifier; PK; format `C-nnn` (auto-generated in template) |
 | `onset_date` | date | yes | drives time slider, epi curve, infectious-period logic |
 | `age_group` | character | no | fixed bands: `Under 1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+` |
+| `gender` | character | no | `Male`, `Female`, `Other`, `Unknown`; available as an epi-curve grouping option |
 | `vaccination_status` | character | no | `Unvaccinated`, `1 dose`, `2 doses`, `Unknown` |
-| `case_status` | character | no | `Confirmed`, `Probable`, `Possible` |
+| `case_status` | character | no | `Confirmed`, `Probable`, `Possible`; **displayed in the UI as "Case confidence"** (field name unchanged) |
 
 ### contexts — one row per context
 | Field | Type | Required | Notes |

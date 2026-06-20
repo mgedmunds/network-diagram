@@ -112,8 +112,9 @@ DICT_TABLES <- list(
     "case_id",             "character", "PK",  "Yes",     "Unique case identifier. Join key across all tables. Must be unique within the dataset.",
     "onset_date",          "date",      "—",   "Yes",     "Symptom onset date. Drives the time slider, epidemic curve, and all epi-period derivations (exposure window, infectious period).",
     "age_group",           "character", "—",   "No",      "Age band. Fixed values: &lt;1 year, 1–4 years, 5–17 years, 18–29 years, 30–49 years, 50+ years. Aligned with UKHSA reporting and vaccination schedule milestones.",
+    "gender",              "character", "—",   "No",      "Recorded gender of the case. Values: Male, Female, Other, Unknown. Available as a grouping option on the epidemic curve.",
     "vaccination_status",  "character", "—",   "No",      "Measles vaccination history at time of illness. Values: Unvaccinated, 1 dose, 2 doses, Unknown.",
-    "case_status",         "character", "—",   "No",      "Classification of the case. Values: Confirmed, Probable, Possible. Definition pending."
+    "case_status",         "character", "—",   "No",      "Case confidence — how firmly the case is classified. Values: Confirmed, Probable, Possible. Field name remains case_status; displayed as 'Case confidence'."
   ),
   contexts = tibble::tribble(
     ~Field,          ~Type,       ~Key,  ~Required, ~Description,
@@ -165,6 +166,8 @@ make_demo_data <- function() {
     onset_date         = as.Date("2026-04-01") + sample(0:56, n, replace = TRUE),
     age_group          = sample(c("<1 year","1–4 years","5–17 years","18–29 years","30–49 years","50+ years"),
                                 n, TRUE, c(.10,.20,.30,.20,.12,.08)),
+    gender             = sample(c("Male","Female","Other","Unknown"),
+                                n, TRUE, c(.47,.47,.03,.03)),
     vaccination_status = sample(c("Unvaccinated","1 dose","2 doses","Unknown"),
                                 n, TRUE, c(.5,.2,.2,.1)),
     case_status        = sample(c("Confirmed","Probable","Possible"),
@@ -555,8 +558,9 @@ ll_tips_lookup <- c(
   case_id            = "Unique identifier for each case.",
   onset_date         = "Date the case first developed symptoms. Drives the time slider, epidemic curve and infectious-period logic.",
   age_group          = "Age band of the case.",
+  gender             = "Recorded gender of the case.",
   vaccination_status = "Recorded measles vaccination status of the case.",
-  case_status        = "Classification of the case: Confirmed, Probable, or Possible.",
+  case_status        = "Case confidence — how firmly the case is classified: Confirmed, Probable, or Possible.",
   contexts_visited   = "Number of distinct contexts this case is recorded as having visited.")
 
 # ---- Definitions content ----------------------------------------------------
@@ -1141,7 +1145,7 @@ ui <- page_navbar(
             info("Tick or untick to focus on particular kinds of context.")),
           choices = character(0), selected = character(0)),
         checkboxGroupInput("case_status_filter",
-          label = tagList("Case status",
+          label = tagList("Case confidence",
             info("Filter by how firmly the case has been classified. Confirmed and Probable are included by default; untick to exclude or tick Possible to include.")),
           choices  = c("Confirmed", "Probable", "Possible"),
           selected = c("Confirmed", "Probable")),
@@ -1665,8 +1669,8 @@ server <- function(input, output, session) {
       `Case age group`     = case_age,
       `Source vaccination` = source_vacc,
       `Case vaccination`   = case_vacc,
-      `Source status`      = source_status,
-      `Case status`        = case_status)
+      `Source confidence`  = source_status,
+      `Case confidence`    = case_status)
     datatable(display, rownames = FALSE, filter = "top",
               options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
   })

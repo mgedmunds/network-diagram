@@ -27,11 +27,7 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 - [ ] Source data page: add a heading and brief plain-language description explaining what the tab shows. Also add the contexts table as a fourth table (currently missing). *(requested: 2026-06-19)*
 
-- [ ] Schema: add `gender` to the cases table schema in CLAUDE.md and the data dictionary. Values: Male, Female, Other, Unknown. The column already exists in the Excel template — this formalises it in the app data model so it is recognised, documented, and available as a grouping option in the epi curve. Do this before the epi curve colour-coding item below. *(requested: 2026-06-19)*
-
 - [ ] Epi curve: add a dropdown to colour-code bars by case attribute — vaccination status, gender, or case confidence. Default is no grouping (current single-colour chart). Options shown only if the column exists in the loaded data. NA values grouped as "Unknown". *(requested: 2026-06-19)*
-
-- [ ] Terminology: rename "case status" / "Case status" to "case confidence" / "Case confidence" everywhere in the app UI, sidebar, tooltips, and data dictionary. Also update the Excel template (column heading, dropdown label, README). The underlying field name case_status in the data schema is unchanged — display labels only. *(requested: 2026-06-19)*
 
 - [ ] Line list table: increase height so that both column headings and the page-navigation controls are visible without scrolling, including when the horizontal scrollbar is present. *(requested: 2026-06-19)*
 

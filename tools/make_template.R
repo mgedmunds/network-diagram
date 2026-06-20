@@ -224,7 +224,7 @@ readme_rows <- list(
   list(style = note_style,    text = ""),
   list(style = section_style, text = "DROPDOWN FIELDS — select from the list; do not type free text"),
   list(style = note_style,    text = "•  gender:              Male | Female | Other | Unknown"),
-  list(style = note_style,    text = "•  case_status:         Confirmed | Probable | Possible"),
+  list(style = note_style,    text = "•  case_status (Case confidence): Confirmed | Probable | Possible"),
   list(style = note_style,    text = "•  vaccination_status:  Unvaccinated | 1 dose | 2 doses | Unknown"),
   list(style = note_style,    text = "•  context_type:        Values from the Lookups tab (editable)"),
   list(style = note_style,    text = "•  likely_index_case:   Any case_id already in the cases sheet (turns red if set to the case's own ID)"),
