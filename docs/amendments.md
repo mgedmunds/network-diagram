@@ -13,6 +13,8 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
+- [ ] Excel template (tools/make_template.R): add a "primary context type" column to the cases sheet, placed at a logical position next to the other context-related columns (currently `likely_index_case` and `contexts`, columns M–N). Update the column headers, example row, column widths, the locked/dropdown formatting, and the README/notes and data dictionary to match. *(Clarify when actioned: should it be a dropdown of the Lookups context types, free text, or derived? Does the app need to read it, i.e. add to the cases schema?)* *(requested: 2026-06-20)*
+
 - [ ] Timeline panel (below the network diagram): (1) Normal view — keep the current initial height; when a case or context is selected and the plot extends beyond the bottom of the panel, show a single vertical scrollbar on the right (no duplicate scrollbar). (2) Maximise button — instead of filling the whole screen, grow the panel upward from the bottom just enough to fit the whole graph (including title and any horizontal scrollbar) within the window so no vertical scrollbar is needed; cap at viewport height (scrolls only if the graph is taller than the screen). *(requested: 2026-06-20)*
 
 ---
