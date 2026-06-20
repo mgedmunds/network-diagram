@@ -3,7 +3,7 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-18 (session 6)
+**Last updated:** 2026-06-19 (session 7)
 
 ---
 
@@ -139,6 +139,12 @@ Excel template (no longer needed; direct data entry in Shiny).
 - 2026-06-18 (session 6) — Architecture review: Shiny data entry app suspended. Power Apps ruled out (no Business 365 on dev laptop). R-Portable reviewed and understood but Excel+SharePoint chosen as simpler, lower-risk path for first outbreak.
 - 2026-06-18 (session 6) — Excel template upgraded: cases extended to 11 fields (CIMS_id, forename, surname, date_of_birth, onset_date, age formula, gender, postcode, case_status, vaccination_status); CIMS_id duplicate detection (amber highlight); Date Helper tab added for bulk visit_date generation; README updated; data-dictionary.md updated.
 - 2026-06-18 (session 6) — link_type field options changed from Confirmed/Suspected to Probable/Possible throughout app.R and all docs.
+- 2026-06-19 (session 7) — Timeline contacts view fixed: shows selected case + direct transmission neighbours. Race condition on data load fixed (empty input$types now treated as all types). Node selector moved from network card header to sidebar toolbar (custom selectInput synced via JS events). Timeline scrollbar fix (max-height, overflow-y). Timeline button renamed Expand/Collapse → Maximise/Minimise (in amendments log, not yet coded).
+- 2026-06-19 (session 7) — FK validation error on direct Excel template upload fixed: IDs derived from row position when formula cells unreadable; blank pre-sizing rows filtered in raw().
+- 2026-06-19 (session 7) — Amendment log set up (docs/amendments.md). 15 ready-to-action items and 3 parked items logged with timestamps. Amendment workflow added to startup.md and CLAUDE.md.
+- 2026-06-19 (session 7) — Global CLAUDE.md updated: added batch-amendment planning rule and batch-sessions minimise-interruptions rule.
+- 2026-06-19 (session 7) — Security review of settings.local.json: removed Bash(git *) and Bash(git push *); added Bash(git fetch *), Bash(git pull *), Bash(git merge *). Git push now always prompts. Pending decision: narrow powershell.exe * (see decision register).
+- 2026-06-19 (session 7) — Amendment batch (15 items) ready to run next session — all clarifying questions answered.
 
 ---
 
@@ -238,6 +244,7 @@ Matt reviews and clears entries at the start of the next session.
 | 2026-06-18 | Phase 3a | Main linelist structure: Which columns should the import function support? Which are optional? | Deferred — no import function in Excel approach |
 | 2026-06-18 | Phase 3a | Archive procedure: Step-by-step workflow to backup and reset SQLite between outbreaks | Deferred — not applicable to Excel approach |
 | 2026-06-18 | Architecture | Data entry approach: Excel on SharePoint (upload .xlsx to Shinylive viz app). Shiny data entry app suspended. Reasons: Shinylive can't write files; R-Portable viable but adds complexity; Power Apps requires Business 365 account not available on dev laptop. Excel is lower-risk for first outbreak. | Yes — session 6 |
+| 2026-06-19 | Permissions | Security review of settings.local.json completed. `Bash(git *)` and `Bash(git push *)` removed — git push now prompts. `Bash(python3 *)`, `Bash(Rscript *)`, `Bash(powershell.exe *)` retained — accepted risk for local dev. Pending decision: narrow `powershell.exe *` to `powershell.exe -NoProfile -NonInteractive *` (would cover all actual usage, block interactive session). Resume this decision next session. | No |
 
 ---
 
