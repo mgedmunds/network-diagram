@@ -3,7 +3,7 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-19 (session 7)
+**Last updated:** 2026-06-20 (session 8)
 
 ---
 
@@ -145,6 +145,7 @@ Excel template (no longer needed; direct data entry in Shiny).
 - 2026-06-19 (session 7) — Global CLAUDE.md updated: added batch-amendment planning rule and batch-sessions minimise-interruptions rule.
 - 2026-06-19 (session 7) — Security review of settings.local.json: removed Bash(git *) and Bash(git push *); added Bash(git fetch *), Bash(git pull *), Bash(git merge *). Git push now always prompts. Pending decision: narrow powershell.exe * (see decision register).
 - 2026-06-19 (session 7) — Amendment batch (15 items) ready to run next session — all clarifying questions answered.
+- 2026-06-20 (session 8) — Security overhaul of Claude Code permissions. Changes: (1) removed `powershell.exe *` entirely — was added for one-off Obsidian setup, no longer needed; (2) removed broad `Read(//mnt/c/Users/mgedmunds/**)` — replaced by specific project and R paths already present; (3) added `settings.local.json` to `.gitignore` to prevent personal paths being committed; (4) restructured permissions into two tiers — global baseline in `~/.claude/settings.json` (read-only git ops, grep, web search) and project-specific in `settings.local.json` (R runtimes, Windows paths, git add/commit); (5) removed 5 stale one-off permissions (awk, xargs, chmod+x, two mkdir commands); (6) added global deny list blocking git push, reset, checkout --, clean, and rebase across all projects; (7) narrowed Windows read from `projects/**` to `projects/network-diagram/**`; (8) created `docs/permissions-guide.md` — plain-English explanation of every permission with risk levels and review checklist.
 
 ---
 
@@ -244,7 +245,8 @@ Matt reviews and clears entries at the start of the next session.
 | 2026-06-18 | Phase 3a | Main linelist structure: Which columns should the import function support? Which are optional? | Deferred — no import function in Excel approach |
 | 2026-06-18 | Phase 3a | Archive procedure: Step-by-step workflow to backup and reset SQLite between outbreaks | Deferred — not applicable to Excel approach |
 | 2026-06-18 | Architecture | Data entry approach: Excel on SharePoint (upload .xlsx to Shinylive viz app). Shiny data entry app suspended. Reasons: Shinylive can't write files; R-Portable viable but adds complexity; Power Apps requires Business 365 account not available on dev laptop. Excel is lower-risk for first outbreak. | Yes — session 6 |
-| 2026-06-19 | Permissions | Security review of settings.local.json completed. `Bash(git *)` and `Bash(git push *)` removed — git push now prompts. `Bash(python3 *)`, `Bash(Rscript *)`, `Bash(powershell.exe *)` retained — accepted risk for local dev. Pending decision: narrow `powershell.exe *` to `powershell.exe -NoProfile -NonInteractive *` (would cover all actual usage, block interactive session). Resume this decision next session. | No |
+| 2026-06-19 | Permissions | Security review of settings.local.json completed. `Bash(git *)` and `Bash(git push *)` removed — git push now prompts. `Bash(python3 *)`, `Bash(Rscript *)`, `Bash(powershell.exe *)` retained — accepted risk for local dev. Pending decision: narrow `powershell.exe *` to `powershell.exe -NoProfile -NonInteractive *` (would cover all actual usage, block interactive session). Resume this decision next session. | Yes — session 8: powershell.exe removed entirely (was one-off Obsidian task) |
+| 2026-06-20 | Permissions | Full security overhaul completed (session 8). See log entry below. No outstanding decisions. | Yes |
 
 ---
 
