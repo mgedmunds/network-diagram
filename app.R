@@ -1114,7 +1114,7 @@ ui <- page_navbar(
   nav_panel("Home",
     div(style = "max-width:800px; margin:40px auto; padding:0 16px;",
       card(
-        card_header(h4(paste0("Network explorer v", APP_VERSION), class = "mb-0")),
+        card_header(h4(paste0("Network explorer v", APP_VERSION, " - Prototype"), class = "mb-0")),
         card_body(
           p("This tool visualises a measles outbreak as an interactive network, showing how cases and places (contexts — such as schools, households, and healthcare settings) are connected. Use it to identify hub contexts, bridge cases, and potential transmission routes."),
           p("Upload your outbreak data below, then navigate to the ", tags$strong("Dashboard"), " tab to explore the network. If no file is uploaded, the tool runs on built-in demo data so you can explore the features straight away."),
