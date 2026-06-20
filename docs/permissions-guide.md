@@ -140,7 +140,7 @@ These are hard-blocked in `~/.claude/settings.json` and cannot run without your 
 
 | Denied command | Why |
 |---|---|
-| `git push *` | Prevents silent pushes to GitHub |
+| ~~`git push *`~~ | Removed from deny list — push will prompt for approval but is not hard-blocked |
 | `git reset *` | Prevents discarding commits or unstaging all files |
 | `git checkout -- *` | Prevents discarding uncommitted file changes |
 | `git clean *` | Prevents deleting untracked files |
