@@ -942,19 +942,21 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
            line = list(color = "#333", width = 2, dash = "dash"))
     )
 
-    # Background shapes do not appear in the plotly legend automatically.
-    # Empty-data traces (x = numeric(0)) add legend entries without drawing anything.
+    # Background shapes (exposure/infectious windows, onset line) do not appear in
+    # the plotly legend automatically. A single-point trace with y = NA registers a
+    # legend entry without drawing anything; zero-length traces get dropped from the
+    # legend, so a real x with a NA y is used instead.
     fig <- plot_ly() |>
       add_trace(type = "scatter", mode = "markers",
-        x = numeric(0), y = character(0),
+        x = onset, y = NA,
         marker = list(color = "rgba(174,199,232,0.85)", size = 14, symbol = "square"),
         name = "Exposure window", legendgroup = "exp", showlegend = TRUE) |>
       add_trace(type = "scatter", mode = "markers",
-        x = numeric(0), y = character(0),
+        x = onset, y = NA,
         marker = list(color = "rgba(252,141,141,0.85)", size = 14, symbol = "square"),
         name = "Infectious period", legendgroup = "inf", showlegend = TRUE) |>
       add_trace(type = "scatter", mode = "markers",
-        x = numeric(0), y = character(0),
+        x = onset, y = NA,
         marker = list(color = "#333", size = 14, symbol = "line-ns-open",
                       line = list(color = "#333", width = 2)),
         name = "Onset date", legendgroup = "onset", showlegend = TRUE) |>
@@ -1133,10 +1135,10 @@ ui <- page_navbar(
       var card = document.querySelector('.timeline-card');
       var btn  = document.getElementById('timeline_expand_btn');
       if (card.classList.toggle('timeline-expanded')) {
-        btn.textContent = 'Collapse';
+        btn.textContent = 'Minimise';
         document.body.style.overflow = 'hidden';
       } else {
-        btn.textContent = 'Expand';
+        btn.textContent = 'Maximise';
         document.body.style.overflow = '';
       }
     }
@@ -1211,7 +1213,7 @@ ui <- page_navbar(
               id = "timeline_expand_btn",
               class = "btn btn-outline-secondary btn-sm py-0",
               onclick = "toggleTimeline()",
-              "Expand"))),
+              "Maximise"))),
         card_body(
           padding = 0,
           div(id = "timeline_body_div",

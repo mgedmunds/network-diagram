@@ -13,11 +13,7 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
-- [ ] Timeline legend (case selected): when a case is highlighted, the legend only shows "Visit date". Add "Exposure window", "Infectious period", and "Onset date" entries to the legend as well. *(requested: 2026-06-19)*
-
 - [ ] Node selector: move the "Select node" dropdown from the network card header into the left sidebar, below the case status checkboxes. Dropdown must be wide enough to display 30 characters without truncating. *(requested: 2026-06-19)*
-
-- [ ] Timeline card: rename "Expand" / "Collapse" button to "Maximise" / "Minimise" to match the Network window button wording. *(requested: 2026-06-19)*
 
 - [ ] Onset date filter: add a "date from" and "date to" text entry field between the "Filter by onset date" label and the slider, so specific dates can be typed rather than only dragged. *(requested: 2026-06-19)*
 
