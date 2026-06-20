@@ -3,7 +3,7 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-20 (session 8)
+**Last updated:** 2026-06-20 (session 9)
 
 ---
 
@@ -217,6 +217,8 @@ Excel template (no longer needed; direct data entry in Shiny).
 - 2026-06-17 — visLegend side panel removed; network fills full card width
 - 2026-06-17 — Network height set to 60vh
 - 2026-06-17 — Timeline: cases sorted by onset date (ascending) in context-selected view
+- 2026-06-20 (session 9) — Amendment batch of 15 items completed on branch `amendments-batch-1` (6 commits, Groups A–F). NOT yet merged or pushed — awaiting RStudio test. Items: add `gender` field + epi-curve colour-by grouping; rename "Case status"→"Case confidence" (display only, field name unchanged); rename "Dashboard"→"Network model"; move Definitions/How to use/Assumptions into Reference tab as sub-tabs; epi-curve dynamic title + x-axis label; remove deprecated plotly layout height (from timeline layout calls, not the epi curve as originally logged); timeline button Expand/Collapse→Maximise/Minimise; fix case-selected timeline legend (zero-length traces were dropped — now NA-y single-point traces); move node selector to sidebar; typeable From/To onset date fields synced to slider; Data-tab filter banner; Source data heading + Contexts table; line-list card min-height; Home post-upload record summary.
+- 2026-06-20 (session 9) — Two items need visual confirmation in RStudio: (a) case-selected timeline legend now shows all four entries; (b) line-list headers + pager visible with horizontal scrollbar.
 
 ---
 
@@ -240,7 +242,7 @@ Matt reviews and clears entries at the start of the next session.
 | 2026-06-17 | RStudio | RStudio was running app from Documents/network-diagram (unmanaged copy). Fixed by cloning to projects/network-diagram. Ensure RStudio always opens from that location. | No |
 | 2026-06-17 | Versioning | Commit-count version number requires git in PATH — will not work in WebR. Needs a static fallback before Shinylive deployment. Action: fix before exporting main app. | No |
 | 2026-06-17 | Deployment | Shinylive + GitHub Pages accepted (ADR-004). GitHub repo must be made public for free GitHub Pages. No patient data in repo — only app code and synthetic demo data. | Yes — using Pro account, repo stays private |
-| 2026-06-18 | Deployment | plotly deprecation warning on startup: "Specifying width/height in layout() is now deprecated." Harmless but should be fixed — pass height to ggplotly() differently. | No |
+| 2026-06-18 | Deployment | plotly deprecation warning on startup: "Specifying width/height in layout() is now deprecated." Harmless but should be fixed — pass height to ggplotly() differently. | Yes — fixed session 9 (#1). Source was the timeline layout(height=) calls, not the epi curve; height already set on the plotlyOutput container, so layout height removed. |
 | 2026-06-18 | Deployment | DiagrammeR permanently removed from app. ERD reference diagram (docs/erd.svg) still exists in repo but is no longer auto-generated on app startup. If schema changes, erd.svg must be updated manually or via a separate script. | No |
 | 2026-06-18 | Phase 3a | CIMS_id format: Is it auto-generated or manually entered? What is the format/validation? | Deferred — Shiny app suspended; CIMS_id is free-text in Excel template for now |
 | 2026-06-18 | Phase 3a | Main linelist structure: Which columns should the import function support? Which are optional? | Deferred — no import function in Excel approach |
