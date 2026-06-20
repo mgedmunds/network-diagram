@@ -13,8 +13,6 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
-- [ ] Bug: plotly deprecation warning on app startup — "Specifying width/height in layout() is now deprecated." Comes from the epi curve (ggplotly conversion). Fix by passing height via ggplotly() directly rather than layout(). *(requested: 2026-06-18)*
-
 - [ ] Timeline legend (case selected): when a case is highlighted, the legend only shows "Visit date". Add "Exposure window", "Infectious period", and "Onset date" entries to the legend as well. *(requested: 2026-06-19)*
 
 - [ ] Node selector: move the "Select node" dropdown from the network card header into the left sidebar, below the case status checkboxes. Dropdown must be wide enough to display 30 characters without truncating. *(requested: 2026-06-19)*
@@ -27,11 +25,7 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 - [ ] Source data page: add a heading and brief plain-language description explaining what the tab shows. Also add the contexts table as a fourth table (currently missing). *(requested: 2026-06-19)*
 
-- [ ] Epi curve: add a dropdown to colour-code bars by case attribute — vaccination status, gender, or case confidence. Default is no grouping (current single-colour chart). Options shown only if the column exists in the loaded data. NA values grouped as "Unknown". *(requested: 2026-06-19)*
-
 - [ ] Line list table: increase height so that both column headings and the page-navigation controls are visible without scrolling, including when the horizontal scrollbar is present. *(requested: 2026-06-19)*
-
-- [ ] Epi curve: add a dynamic descriptive title covering time, place, and person — include the active date range if filtered, any active context filter, and the case confidence selection (e.g. "Confirmed and probable cases"). Add a label to the x-axis. *(requested: 2026-06-19)*
 
 - [ ] Home page: after a file is uploaded, show a brief record count summary beneath the upload widget (number of cases, contexts, and visit dates loaded). Add a sentence pointing users to the Source Data tab to view all imported data. *(requested: 2026-06-19)*
 

@@ -529,16 +529,46 @@ network_metrics <- function(nodes, edges) {
   out[order(-out$Degree), ]
 }
 
+# Joins a character vector into a natural-language list:
+# "a", "a and b", or "a, b and c".
+nice_join <- function(x) {
+  if (length(x) <= 1) return(paste(x, collapse = ""))
+  paste(paste(x[-length(x)], collapse = ", "), "and", x[length(x)])
+}
+
+# Builds a descriptive epi-curve title covering person, place and time from the
+# active filters, so the chart documents exactly which subset of cases it shows.
+curve_title <- function(date_range, context_types, all_context_types, statuses) {
+  person <- if (length(statuses) == 0) "Cases" else paste0(nice_join(statuses), " cases")
+  # Only name contexts when filtered to a genuine subset of those available
+  place  <- if (length(context_types) && length(context_types) < length(all_context_types))
+              paste0(" in ", nice_join(context_types)) else ""
+  time   <- if (length(date_range) == 2)
+              paste0(", ", format(date_range[1], "%d %b %Y"), " to ", format(date_range[2], "%d %b %Y")) else ""
+  paste0(person, place, " by week of onset", time)
+}
+
 # Draws a weekly bar chart of new cases by onset date.
 # week_start = 1 means weeks run Monday–Sunday (ISO standard).
-# Built with ggplot2 then converted to an interactive plotly chart.
-epi_curve <- function(ll) {
+# group_by optionally colours (stacks) bars by a case attribute; missing values
+# are grouped as "Unknown". Built with ggplot2 then converted to plotly.
+epi_curve <- function(ll, group_by = "none", title = NULL) {
   if (nrow(ll) == 0) return(plotly_empty())
-  d <- ll |> mutate(week = floor_date(onset_date, "week", week_start = 1)) |> count(week)
-  p <- ggplot2::ggplot(d, ggplot2::aes(week, n)) +
-    ggplot2::geom_col(fill = "#2c7fb8") + ggplot2::labs(x = NULL, y = "New cases") +
-    ggplot2::theme_minimal(base_size = 12)
-  ggplotly(p)
+  ll <- ll |> mutate(week = floor_date(onset_date, "week", week_start = 1))
+  if (group_by != "none" && group_by %in% names(ll)) {
+    gv <- as.character(ll[[group_by]])
+    ll$.grp <- ifelse(is.na(gv) | trimws(gv) == "", "Unknown", gv)
+    d <- ll |> count(week, .grp)
+    p <- ggplot2::ggplot(d, ggplot2::aes(week, n, fill = .grp)) +
+      ggplot2::geom_col() +
+      ggplot2::labs(x = "Week of onset", y = "New cases", fill = NULL, title = title)
+  } else {
+    d <- ll |> count(week)
+    p <- ggplot2::ggplot(d, ggplot2::aes(week, n)) +
+      ggplot2::geom_col(fill = "#2c7fb8") +
+      ggplot2::labs(x = "Week of onset", y = "New cases", title = title)
+  }
+  ggplotly(p + ggplot2::theme_minimal(base_size = 12))
 }
 
 # Generates a JavaScript callback for DT that attaches tooltip text to each
@@ -873,7 +903,6 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
 
     n_rows <- length(y_order)
     return(fig |> layout(
-      height = n_rows * 36L + 130L,
       shapes = list(highlight),
       yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
       xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
@@ -936,7 +965,6 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
 
     n_rows <- length(ctx_order)
     fig |> layout(
-      height = n_rows * 36L + 130L,
       shapes = shapes,
       yaxis  = list(categoryorder = "array", categoryarray = rev(ctx_order), title = ""),
       xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
@@ -1012,7 +1040,6 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
 
     n_rows <- length(y_order)
     fig |> layout(
-      height = n_rows * 36L + 130L,
       yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
       xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
                    minor = list(dtick = 86400000, showgrid = TRUE, gridcolor = "rgba(0,0,0,0.12)")),
@@ -1194,9 +1221,16 @@ ui <- page_navbar(
 
   nav_panel("Data",
     div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
-      card(hdr("Epidemic curve",
-               "New cases per week by onset date. A rising curve means the outbreak is still growing."),
-           plotlyOutput("curve", height = "300px")),
+      card(
+        card_header(class = "d-flex justify-content-between align-items-center",
+          span("Epidemic curve",
+               info("New cases per week by onset date. A rising curve means the outbreak is still growing.")),
+          div(class = "d-flex align-items-center gap-2",
+            tags$span("Colour by", class = "small text-muted"),
+            div(style = "min-width:180px;",
+              selectInput("curve_group", NULL,
+                          choices = c("No grouping" = "none"), width = "180px")))),
+        plotlyOutput("curve", height = "320px")),
       layout_columns(col_widths = c(6, 6),
         card(hdr("Network metrics — most connected nodes",
                  "Ranks nodes by how connected they are. Hover the column headings for definitions."),
@@ -1419,6 +1453,12 @@ server <- function(input, output, session) {
     else c("Confirmed","Probable","Possible")
     updateCheckboxGroupInput(session, "case_status_filter",
       choices = statuses, selected = intersect(statuses, c("Confirmed","Probable")))
+    # Offer epi-curve colour-by options only for attributes present in the data
+    grp_opts <- c("No grouping" = "none")
+    if ("vaccination_status" %in% names(d$cases)) grp_opts <- c(grp_opts, "Vaccination status" = "vaccination_status")
+    if ("gender" %in% names(d$cases))             grp_opts <- c(grp_opts, "Gender" = "gender")
+    if ("case_status" %in% names(d$cases))        grp_opts <- c(grp_opts, "Case confidence" = "case_status")
+    updateSelectInput(session, "curve_group", choices = grp_opts, selected = "none")
   })
 
   # params(): collects the four epi parameter inputs into a named list.
@@ -1570,7 +1610,12 @@ server <- function(input, output, session) {
       if (!is.null(edge_items)) do.call(tagList, edge_items))
   })
 
-  output$curve   <- renderPlotly({ epi_curve(filtered()$cases) })
+  output$curve   <- renderPlotly({
+    grp <- if (is.null(input$curve_group)) "none" else input$curve_group
+    ttl <- curve_title(input$asof, input$types,
+                       unique(raw()$contexts$context_type), input$case_status_filter)
+    epi_curve(filtered()$cases, group_by = grp, title = ttl)
+  })
 
   output$metrics <- renderDT({
     mt   <- network_metrics(netdata()$nodes, netdata()$edges)
