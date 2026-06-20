@@ -9,6 +9,17 @@ Last reviewed: 2026-06-20
 
 ---
 
+## Two-tier structure
+
+Permissions are split across two files:
+
+- **`~/.claude/settings.json`** — global baseline, applies to every project automatically
+- **`<project>/.claude/settings.local.json`** — project-specific additions, not committed to git
+
+When Claude Code runs in a project folder, both files are active. Starting a new project means the global baseline is already in place — only project-specific things need to be added.
+
+---
+
 ## How to read this document
 
 - **Risk: Low** — read-only, or scoped to a specific known file
@@ -17,22 +28,42 @@ Last reviewed: 2026-06-20
 
 ---
 
-## Git operations
+## Global baseline (`~/.claude/settings.json`) — all projects
+
+### Search and utilities
+
+| Permission | Plain English | Risk |
+|---|---|---|
+| `WebSearch` | Search the web | Low |
+| `Bash(grep *)` | Search for text within files (read-only) | Low |
+| `Bash(apt list *)` | List installed Linux packages (read-only) | Low |
+
+### Git — read-only and safe operations
 
 | Permission | Plain English | Risk |
 |---|---|---|
 | `Bash(git init *)` | Create a new git repository | Low |
-| `Bash(git add *)` | Stage files for a commit | Low |
-| `Bash(git commit *)` | Save a commit locally | Low |
+| `Bash(git status)` / `Bash(git status *)` | Show working tree status | Low |
+| `Bash(git diff)` / `Bash(git diff *)` | Show file differences | Low |
+| `Bash(git log *)` | Show commit history | Low |
 | `Bash(git fetch *)` | Download latest changes from GitHub (read-only) | Low |
 | `Bash(git pull *)` | Download and apply changes from GitHub | Low |
 | `Bash(git merge *)` | Merge branches | Low |
-| `Bash(git remote *)` | View or configure remote connections | Low |
 | `Bash(git branch *)` | Create, list, or rename branches | Low |
+| `Bash(git remote *)` | View or configure remote connections | Low |
 
-The specific `git -C /home/claude-dev/projects/network-diagram ...` entries are narrower versions of the above, locked to this project folder.
+**Not permitted without asking (any project):** `git push`, `git add`, `git commit`, `git reset`, `git checkout --`, force-push, branch delete.
 
-**Not permitted without asking:** `git push`, `git reset`, `git checkout --`, force-push, branch delete.
+---
+
+## Project-specific (`network-diagram/.claude/settings.local.json`)
+
+### Git — write operations (kept project-specific by choice)
+
+| Permission | Plain English | Risk |
+|---|---|---|
+| `Bash(git add *)` | Stage files for a commit | Low |
+| `Bash(git commit *)` | Save a commit locally | Low |
 
 ---
 
