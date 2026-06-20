@@ -1121,16 +1121,16 @@ ui <- page_navbar(
         card_header(h4(paste0("Network explorer v", APP_VERSION, " - Prototype"), class = "mb-0")),
         card_body(
           p("This tool visualises a measles outbreak as an interactive network, showing how cases and places (contexts — such as schools, households, and healthcare settings) are connected. Use it to identify hub contexts, bridge cases, and potential transmission routes."),
-          p("Upload your outbreak data below, then navigate to the ", tags$strong("Dashboard"), " tab to explore the network. If no file is uploaded, the tool runs on built-in demo data so you can explore the features straight away."),
+          p("Upload your outbreak data below, then navigate to the ", tags$strong("Network model"), " tab to explore the network. If no file is uploaded, the tool runs on built-in demo data so you can explore the features straight away."),
           div(class = "alert alert-warning d-flex gap-2", role = "alert",
             tags$strong("Important:"),
             "Do not upload files containing personal identifiable information (PII). Use anonymised or pseudonymised data only — case IDs must not include names, dates of birth, addresses, or NHS numbers."),
           hr(),
           fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
           helpText("The file must contain four sheets: cases, contexts, case_contexts, and visit_dates."),
-          actionButton("go_dashboard", "Go to Dashboard →", class = "btn btn-primary mt-2"))))),
+          actionButton("go_dashboard", "Go to Network model →", class = "btn btn-primary mt-2"))))),
 
-  nav_panel("Dashboard",
+  nav_panel("Network model",
     layout_sidebar(
       sidebar = sidebar(width = 300,
         helpText("Upload data on the ", tags$strong("Home"), " tab. Demo data is used if no file is loaded."),
@@ -1150,8 +1150,8 @@ ui <- page_navbar(
           choices  = c("Confirmed", "Probable", "Possible"),
           selected = c("Confirmed", "Probable")),
         hr(),
-        helpText("See ", strong("Definitions"), ", ", strong("How to use"), " and ",
-                 strong("Assumptions & parameters"), " tabs at the top.")),
+        helpText("See the ", strong("Reference"), " tab for ", strong("Definitions"), ", ",
+                 strong("How to use"), " and ", strong("Assumptions & parameters"), ".")),
 
       card(class = "network-card",
         card_header(class = "d-flex justify-content-between align-items-center",
@@ -1218,52 +1218,50 @@ ui <- page_navbar(
            DTOutput("src_visit_dates")),
     )),
 
-  nav_panel("Definitions",
-    div(style = "max-width:860px; margin:0 auto; padding:8px 4px;",
-        card(card_body(markdown(definitions_md))))),
-
-  nav_panel("How to use",
-    div(style = "max-width:860px; margin:0 auto; padding:8px 4px;",
-        card(card_body(markdown(how_to_use_md))))),
-
-  nav_panel("Assumptions & parameters",
-    div(style = "max-width:900px; margin:0 auto; padding:8px 4px;",
-      card(card_body(markdown(assumptions_md))),
-      card(card_header("Editable parameters - changes update the model live"),
-        card_body(
-          layout_columns(col_widths = c(6, 6),
-            numericInput("inc_min",    "Incubation period – minimum (days, exposure to onset)",
-                         DEF_INC_MIN,    min = 1, max = 40, step = 1),
-            numericInput("inc_max",    "Incubation period – maximum (days, exposure to onset)",
-                         DEF_INC_MAX,    min = 1, max = 40, step = 1),
-            numericInput("inf_before", "Infectious period – days before onset",
-                         DEF_INF_BEFORE, min = 0, max = 14, step = 1),
-            numericInput("inf_after",  "Infectious period – days after onset",
-                         DEF_INF_AFTER,  min = 0, max = 14, step = 1)),
-          actionButton("reset_params", "Reset to defaults",
-                       class = "btn-outline-secondary btn-sm"))))),
-
   # ---- Reference tab (dev only — remove before release) ----------------------
+  # Houses all supporting content as sub-tabs: data dictionary, definitions,
+  # how-to-use guide, and the editable epi parameters (moved here from the top
+  # navigation bar to reduce clutter).
   nav_panel("Reference",
     div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
-      card(
-        hdr("Schema diagram",
-            "Entity-relationship diagram. Underlined fields are primary keys."),
-        card_body(
-          p(class = "text-muted",
-            "Schema diagram available in ", tags$code("docs/erd.svg"), " in the project repository.")
-        )
-      ),
-      card(
-        hdr("Data dictionary", "Field-level definitions for all tables in the workbook."),
-        card_body(
-          navset_tab(
-            nav_panel("cases",         DTOutput("dict_cases")),
-            nav_panel("contexts",      DTOutput("dict_contexts")),
-            nav_panel("case_contexts", DTOutput("dict_case_contexts")),
-            nav_panel("visit_dates",   DTOutput("dict_visit_dates"))
-          )
-        )
+      navset_pill(
+        nav_panel("Data dictionary",
+          card(
+            hdr("Schema diagram",
+                "Entity-relationship diagram. Underlined fields are primary keys."),
+            card_body(
+              p(class = "text-muted",
+                "Schema diagram available in ", tags$code("docs/erd.svg"), " in the project repository."))),
+          card(
+            hdr("Data dictionary", "Field-level definitions for all tables in the workbook."),
+            card_body(
+              navset_tab(
+                nav_panel("cases",         DTOutput("dict_cases")),
+                nav_panel("contexts",      DTOutput("dict_contexts")),
+                nav_panel("case_contexts", DTOutput("dict_case_contexts")),
+                nav_panel("visit_dates",   DTOutput("dict_visit_dates")))))),
+
+        nav_panel("Definitions",
+          card(card_body(markdown(definitions_md)))),
+
+        nav_panel("How to use",
+          card(card_body(markdown(how_to_use_md)))),
+
+        nav_panel("Assumptions & parameters",
+          card(card_body(markdown(assumptions_md))),
+          card(card_header("Editable parameters - changes update the model live"),
+            card_body(
+              layout_columns(col_widths = c(6, 6),
+                numericInput("inc_min",    "Incubation period – minimum (days, exposure to onset)",
+                             DEF_INC_MIN,    min = 1, max = 40, step = 1),
+                numericInput("inc_max",    "Incubation period – maximum (days, exposure to onset)",
+                             DEF_INC_MAX,    min = 1, max = 40, step = 1),
+                numericInput("inf_before", "Infectious period – days before onset",
+                             DEF_INF_BEFORE, min = 0, max = 14, step = 1),
+                numericInput("inf_after",  "Infectious period – days after onset",
+                             DEF_INF_AFTER,  min = 0, max = 14, step = 1)),
+              actionButton("reset_params", "Reset to defaults",
+                           class = "btn-outline-secondary btn-sm"))))
       )
     )
   ),
@@ -1442,7 +1440,7 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$go_dashboard, {
-    nav_select("nav", "Dashboard")
+    nav_select("nav", "Network model")
   })
 
   # filtered(): applies the sidebar controls to all five tables.

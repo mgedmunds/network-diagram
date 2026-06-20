@@ -35,10 +35,6 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 - [ ] Home page: after a file is uploaded, show a brief record count summary beneath the upload widget (number of cases, contexts, and visit dates loaded). Add a sentence pointing users to the Source Data tab to view all imported data. *(requested: 2026-06-19)*
 
-- [ ] Rename "Dashboard" to "Network model" throughout — nav tab label and all in-app references. *(requested: 2026-06-19)*
-
-- [ ] Reference tab: move the Definitions, How to use, and Assumptions & parameters pages out of the top navigation bar and into the Reference tab as sub-tabs alongside the existing data dictionary. Reduces top-nav clutter and groups all supporting content in one place. *(requested: 2026-06-19)*
-
 ---
 
 ## Parked (needs decision or not urgent)
