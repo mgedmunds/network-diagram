@@ -13,13 +13,7 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
-- [ ] Data page: add a small filter-summary banner at the top of the page showing what the current filters are (date range, context types, case confidence). Add a note that filters are changed on the Network model tab. No sidebar restructure. *(requested: 2026-06-19)*
-
-- [ ] Source data page: add a heading and brief plain-language description explaining what the tab shows. Also add the contexts table as a fourth table (currently missing). *(requested: 2026-06-19)*
-
-- [ ] Line list table: increase height so that both column headings and the page-navigation controls are visible without scrolling, including when the horizontal scrollbar is present. *(requested: 2026-06-19)*
-
-- [ ] Home page: after a file is uploaded, show a brief record count summary beneath the upload widget (number of cases, contexts, and visit dates loaded). Add a sentence pointing users to the Source Data tab to view all imported data. *(requested: 2026-06-19)*
+*(empty — batch of 15 amendments completed 2026-06-20; see git log on branch amendments-batch-1)*
 
 ---
 

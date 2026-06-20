@@ -1157,6 +1157,7 @@ ui <- page_navbar(
           hr(),
           fileInput("file", "Upload outbreak file (.xlsx)", accept = ".xlsx"),
           helpText("The file must contain four sheets: cases, contexts, case_contexts, and visit_dates."),
+          uiOutput("upload_summary"),
           actionButton("go_dashboard", "Go to Network model →", class = "btn btn-primary mt-2"))))),
 
   nav_panel("Network model",
@@ -1230,6 +1231,7 @@ ui <- page_navbar(
 
   nav_panel("Data",
     div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
+      uiOutput("filter_summary"),
       card(
         card_header(class = "d-flex justify-content-between align-items-center",
           span("Epidemic curve",
@@ -1241,18 +1243,29 @@ ui <- page_navbar(
                           choices = c("No grouping" = "none"), width = "180px")))),
         plotlyOutput("curve", height = "320px")),
       layout_columns(col_widths = c(6, 6),
-        card(hdr("Network metrics — most connected nodes",
+        card(min_height = "440px",
+             hdr("Network metrics — most connected nodes",
                  "Ranks nodes by how connected they are. Hover the column headings for definitions."),
              DTOutput("metrics")),
-        card(hdr("Line list (filtered)",
+        card(min_height = "440px",
+             hdr("Line list (filtered)",
                  "Case records currently shown, with how many contexts each visited. Hover headings for definitions."),
              DTOutput("ll"))))),
 
   nav_panel("Source data",
     div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
+      div(class = "mb-3",
+        h4("Source data", class = "mb-1"),
+        p(class = "text-muted mb-0",
+          "The raw data currently loaded, shown one table per sheet exactly as imported (before any filtering). ",
+          "Use these tables to check that your upload was read correctly. ",
+          "Filters on the Network model tab do not change what is shown here.")),
       card(hdr("Cases",
                "One row per case. The primary case record — onset date drives the time slider, epidemic curve and infectious-period logic."),
            DTOutput("src_cases")),
+      card(hdr("Contexts",
+               "One row per context (place or setting). context_type drives node colour and the context filter."),
+           DTOutput("src_contexts")),
       card(hdr("Case contexts",
                "One row per case × context combination. exposure_relevance records the practitioner's judgement on the epi relevance of each link."),
            DTOutput("src_case_contexts")),
@@ -1658,7 +1671,40 @@ server <- function(input, output, session) {
   src_dt <- function(df) datatable(df, rownames = FALSE, filter = "top",
     options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
 
+  # Plain-language banner on the Data tab summarising the filters currently applied.
+  # Filters live on the Network model tab; this just reflects their state here.
+  output$filter_summary <- renderUI({
+    dr <- input$asof
+    date_txt <- if (length(dr) == 2)
+      paste0(format(dr[1], "%d %b %Y"), " to ", format(dr[2], "%d %b %Y")) else "all dates"
+    all_types <- unique(raw()$contexts$context_type)
+    ctx_txt <- if (length(input$types) == 0 || length(input$types) >= length(all_types))
+      "all context types" else paste(input$types, collapse = ", ")
+    conf_txt <- if (length(input$case_status_filter) == 0)
+      "none selected" else paste(input$case_status_filter, collapse = ", ")
+    div(class = "alert alert-light border d-flex flex-wrap gap-3 align-items-center py-2 mb-3",
+        role = "status",
+        tags$span(tags$strong("Dates: "), date_txt),
+        tags$span(tags$strong("Contexts: "), ctx_txt),
+        tags$span(tags$strong("Case confidence: "), conf_txt),
+        tags$span(class = "text-muted ms-auto small",
+                  "Filters are changed on the ", tags$strong("Network model"), " tab."))
+  })
+
+  # After a file is uploaded, summarise how many records were read in and point
+  # the user to the Source data tab. Hidden when running on demo data.
+  output$upload_summary <- renderUI({
+    if (is.null(input$file)) return(NULL)
+    d <- raw()
+    div(class = "alert alert-success mt-2 mb-0", role = "status",
+        tags$strong("File loaded. "),
+        sprintf("%d cases, %d contexts and %d visit dates read in. ",
+                nrow(d$cases), nrow(d$contexts), nrow(d$visit_dates)),
+        "See the ", tags$strong("Source data"), " tab to view all imported data.")
+  })
+
   output$src_cases         <- renderDT({ src_dt(raw()$cases) })
+  output$src_contexts      <- renderDT({ src_dt(raw()$contexts) })
   output$src_case_contexts <- renderDT({ src_dt(raw()$case_contexts) })
   output$src_visit_dates   <- renderDT({ src_dt(raw()$visit_dates) })
 
