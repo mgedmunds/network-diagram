@@ -13,10 +13,6 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
-- [ ] Node selector: move the "Select node" dropdown from the network card header into the left sidebar, below the case status checkboxes. Dropdown must be wide enough to display 30 characters without truncating. *(requested: 2026-06-19)*
-
-- [ ] Onset date filter: add a "date from" and "date to" text entry field between the "Filter by onset date" label and the slider, so specific dates can be typed rather than only dragged. *(requested: 2026-06-19)*
-
 - [ ] Data page: add a small filter-summary banner at the top of the page showing what the current filters are (date range, context types, case confidence). Add a note that filters are changed on the Network model tab. No sidebar restructure. *(requested: 2026-06-19)*
 
 - [ ] Source data page: add a heading and brief plain-language description explaining what the tab shows. Also add the contexts table as a fourth table (currently missing). *(requested: 2026-06-19)*

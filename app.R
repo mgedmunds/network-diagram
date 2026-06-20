@@ -1166,6 +1166,10 @@ ui <- page_navbar(
         tags$label(class = "form-label mb-0",
           "Filter by onset date",
           info("Filters to cases whose symptom onset falls within this date range. Visit dates are filtered to the same window.")),
+        # Typeable date fields kept in sync with the slider below (either can drive the filter)
+        layout_columns(col_widths = c(6, 6), gap = "6px",
+          dateInput("date_from", "From", format = "dd M yyyy", width = "100%"),
+          dateInput("date_to",   "To",   format = "dd M yyyy", width = "100%")),
         sliderInput("asof", label = NULL, min = Sys.Date() - 60, max = Sys.Date(),
                     value = c(Sys.Date() - 60, Sys.Date()), timeFormat = "%d %b %Y",
                     animate = animationOptions(interval = 900)),
@@ -1178,6 +1182,10 @@ ui <- page_navbar(
             info("Filter by how firmly the case has been classified. Confirmed and Probable are included by default; untick to exclude or tick Possible to include.")),
           choices  = c("Confirmed", "Probable", "Possible"),
           selected = c("Confirmed", "Probable")),
+        tags$label(class = "form-label mb-0",
+          "Highlight a node",
+          info("Pick a case or context to highlight it in the network and show its timeline below. Also updates when you click a node in the diagram.")),
+        selectInput("node_selector", NULL, choices = c("-- Select node --" = ""), width = "100%"),
         hr(),
         helpText("See the ", strong("Reference"), " tab for ", strong("Definitions"), ", ",
                  strong("How to use"), " and ", strong("Assumptions & parameters"), ".")),
@@ -1186,7 +1194,6 @@ ui <- page_navbar(
         card_header(class = "d-flex justify-content-between align-items-center",
           span("Network"),
           div(class = "d-flex align-items-center gap-2",
-            selectInput("node_selector", NULL, choices = c("-- Select node --" = ""), width = "190px"),
             selectInput("view", NULL, width = "220px",
               choices = c("Contexts network"  = "projection",
                           "Who visited where" = "bipartite",
@@ -1461,7 +1468,26 @@ server <- function(input, output, session) {
     if ("gender" %in% names(d$cases))             grp_opts <- c(grp_opts, "Gender" = "gender")
     if ("case_status" %in% names(d$cases))        grp_opts <- c(grp_opts, "Case confidence" = "case_status")
     updateSelectInput(session, "curve_group", choices = grp_opts, selected = "none")
+    updateDateInput(session, "date_from", value = rng[1], min = rng[1], max = rng[2])
+    updateDateInput(session, "date_to",   value = rng[2], min = rng[1], max = rng[2])
   })
+
+  # Keep the typeable date fields and the slider in step. The slider remains the
+  # single filter source; each side updates the other only when they differ, which
+  # stops the two observers from triggering each other in a loop.
+  observeEvent(input$asof, {
+    if (!identical(input$date_from, as.Date(input$asof[1])))
+      updateDateInput(session, "date_from", value = input$asof[1])
+    if (!identical(input$date_to, as.Date(input$asof[2])))
+      updateDateInput(session, "date_to", value = input$asof[2])
+  }, ignoreInit = TRUE)
+
+  observeEvent(c(input$date_from, input$date_to), {
+    req(input$date_from, input$date_to)
+    if (!identical(as.Date(input$asof[1]), input$date_from) ||
+        !identical(as.Date(input$asof[2]), input$date_to))
+      updateSliderInput(session, "asof", value = c(input$date_from, input$date_to))
+  }, ignoreInit = TRUE)
 
   # params(): collects the four epi parameter inputs into a named list.
   # Falls back to defaults if any input is NULL or NA (e.g. cleared by user).
