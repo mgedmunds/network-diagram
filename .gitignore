@@ -4,3 +4,4 @@ site/
 app_local_test*/
 shinylive_main*/
 .claude/settings.local.json
+.Rproj.user
