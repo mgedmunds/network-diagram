@@ -159,6 +159,24 @@ These are hard-blocked in `~/.claude/settings.json` and cannot run without your 
 
 ---
 
+## Sandbox mode
+
+Sandbox mode is **enabled** (`~/.claude/settings.json`). It uses bubblewrap (`bwrap`) on WSL to isolate bash commands.
+
+**What it blocks:**
+- Access to personal Windows folders (`/mnt/c/Users/mgedmunds/Documents/`, OneDrive, Downloads, etc.) from bash
+- Linux-side commands accessing files outside the project folder
+- The bare `Rscript` command (relied on Windows PATH injection into WSL, now blocked)
+
+**What it does NOT block (by design):**
+- Windows processes (`cmd.exe`, `Rscript.exe` via explicit path) — these launch outside the sandbox
+- Network access — `socat` is not installed; install it (`sudo apt install socat`) to enable network sandboxing
+
+**To install socat and enable network sandboxing:**
+Run `sudo apt install socat` in your terminal, then restart Claude Code.
+
+---
+
 ## Review checklist
 
 When reviewing this file, ask for each permission:
