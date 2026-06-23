@@ -3,13 +3,13 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-20 (session 9)
+**Last updated:** 2026-06-23 (session 10)
 
 ---
 
 ## Current focus
 
-**Architecture settled: Excel on SharePoint for data entry (upload to Shinylive viz app); no separate data entry Shiny app. Phase 3a Shiny app plan suspended — replaced by upgraded Excel template. Next: run make_template.R in RStudio to generate the new template, test it, then return to Phase 4 (Definitions & Tooltips) and Shinylive deployment.**
+**Phase 4 (Definitions, Tooltips & Help) in progress on branch `amendments-batch-1`. This session: removed the Data and Possible links tabs; rewrote the whole Reference tab (Definitions / How to use / Assumptions) around the manual, practitioner-entered model; cleaned up the schema (dropped the unused `contacts` sheet, documented `likely_index_case` as the single source of transmission links, ADR-006). All committed and pushed, NOT yet tested in RStudio or merged to main. Next: run the app in RStudio to read through the rewritten Reference tab; then reconcile the remaining data-dictionary drift (see decision register), and decide whether to PR `amendments-batch-1` into main.**
 
 ---
 
@@ -178,12 +178,16 @@ Excel template (no longer needed; direct data entry in Shiny).
 ---
 
 ### Phase 4 — Definitions, Tooltips & Help
-**Status: Not started — unblocked**
+**Status: In progress (branch `amendments-batch-1`)**
 
-**Next action:** Begin next session. Phase 2 is closed and ADR-003 is written.
+**Next action:** Read through the rewritten Reference tab in RStudio (text-only, low risk). Then reconcile the remaining data-dictionary drift (see decision register) before treating Phase 4 docs as final.
 
 **Log:**
 - 2026-06-13 — Definitions page added to app; infectious period wording clarified across tooltips
+- 2026-06-23 (session 10) — Removed the Data tab (epi curve + line list) and Possible links tab; code archived to `archive/removed-pages.R`; pre-removal snapshot tagged `pre-page-removal-2026-06-22` (commit e96347e).
+- 2026-06-23 (session 10) — Rewrote the full Reference tab around the manual (practitioner-entered) model (commit b5120ef): Definitions regrouped (core blocks / visit relevance categories / transmission terms / network measures / epi periods); Assumptions reframed as "what the tool shows vs does not calculate" with the three-view build logic consolidated as canonical, and the derived-link / auto-classification sections removed; How to use reduced to per-view pointers and the removed epidemic-curve section deleted; stale epi-curve mentions removed from the data-dictionary tooltips.
+- 2026-06-23 (session 10) — Schema cleanup (ADR-006): dropped the unused `contacts` sheet from `CLAUDE.md` and `docs/data-dictionary.md`; documented `likely_index_case` (self-FK on cases) as the single source of transmission links, with a validation rule. Excel template needed no change (never had a contacts sheet; `likely_index_case` already present).
+- 2026-06-23 (session 10) — Amendment log tidied: cleared the two completed "Ready to action" items (timeline scrollbar/maximise, metrics pop-out); items 1 (template primary context type column) and 3 (upload privacy line) confirmed still outstanding.
 
 ---
 
@@ -251,6 +255,8 @@ Matt reviews and clears entries at the start of the next session.
 | 2026-06-18 | Architecture | Data entry approach: Excel on SharePoint (upload .xlsx to Shinylive viz app). Shiny data entry app suspended. Reasons: Shinylive can't write files; R-Portable viable but adds complexity; Power Apps requires Business 365 account not available on dev laptop. Excel is lower-risk for first outbreak. | Yes — session 6 |
 | 2026-06-19 | Permissions | Security review of settings.local.json completed. `Bash(git *)` and `Bash(git push *)` removed — git push now prompts. `Bash(python3 *)`, `Bash(Rscript *)`, `Bash(powershell.exe *)` retained — accepted risk for local dev. Pending decision: narrow `powershell.exe *` to `powershell.exe -NoProfile -NonInteractive *` (would cover all actual usage, block interactive session). Resume this decision next session. | Yes — session 8: powershell.exe removed entirely (was one-off Obsidian task) |
 | 2026-06-20 | Permissions | Full security overhaul completed (session 8). See log entry below. No outstanding decisions. | Yes |
+| 2026-06-23 | Schema | `contacts` sheet dropped; `likely_index_case` (self-FK on cases) is the single source of transmission links. See ADR-006. | Yes — session 10 |
+| 2026-06-23 | Schema | Data-dictionary drift NOT yet reconciled: (1) `cases` schema in CLAUDE.md predates the demographic fields (CIMS_id, forename, surname, date_of_birth, age, postcode) now in data-dictionary.md and the template; (2) the case-context relevance field is named variously `visit_relevance` (CLAUDE.md), `epi_category` (data-dictionary.md) and `exposure_relevance` (app.R), and is documented as *derived* but is actually *stored/manually entered*. Needs one reconciliation pass + decision on the canonical name. | No |
 
 ---
 
@@ -268,6 +274,7 @@ Matt reviews and clears entries at the start of the next session.
 | `docs/decisions/ADR-003` | Network view selection and main page layout | Accepted |
 | `docs/decisions/ADR-004` | Shinylive + GitHub Pages deployment approach | Accepted |
 | `docs/decisions/ADR-005` | Excel on SharePoint for data entry; Shiny data entry app suspended | Accepted |
+| `docs/decisions/ADR-006` | Transmission links on cases (`likely_index_case`); `contacts` sheet dropped | Accepted |
 | `docs/data-model.md` | Phase 1 working notes | Closed |
 | `docs/data-input.md` | Phase 3 working notes and data entry decision | Closed |
 | `docs/network-types.md` | Phase 2 working notes | Closed — see ADR-003 |

@@ -6,7 +6,7 @@ An interactive R Shiny dashboard for visualising a measles outbreak as a network
 The primary users are **public health / outbreak investigation teams** who are not
 technically trained. Everything must be explainable to a non-statistician.
 
-The tool takes structured outbreak data (linelist, visits, contacts) and produces
+The tool takes structured outbreak data (cases, contexts, visits) and produces
 interactive network diagrams showing how cases and contexts are connected, alongside
 an epidemic curve, network metrics, and editable epidemiological parameters.
 
@@ -49,7 +49,7 @@ navigation overhead during rapid prototyping.
 
 ## Data model
 
-Five sheets (from `.xlsx` upload or demo data). Full field-level definitions are in `docs/data-dictionary.md`; ERD is in `docs/erd.svg`.
+Four sheets (from `.xlsx` upload or demo data). Full field-level definitions are in `docs/data-dictionary.md`; ERD is in `docs/erd.svg`.
 
 ### cases — one row per case
 | Field | Type | Required | Notes |
@@ -60,6 +60,7 @@ Five sheets (from `.xlsx` upload or demo data). Full field-level definitions are
 | `gender` | character | no | `Male`, `Female`, `Other`, `Unknown`; available as an epi-curve grouping option |
 | `vaccination_status` | character | no | `Unvaccinated`, `1 dose`, `2 doses`, `Unknown` |
 | `case_status` | character | no | `Confirmed`, `Probable`, `Possible`; **displayed in the UI as "Case confidence"** (field name unchanged) |
+| `likely_index_case` | character | no | `case_id` of the recorded source case (self-reference → cases); drives the "Who infected whom" view. One source per case. |
 
 ### contexts — one row per context
 | Field | Type | Required | Notes |
@@ -82,13 +83,6 @@ Five sheets (from `.xlsx` upload or demo data). Full field-level definitions are
 | `context_id` | integer | yes | PK + FK → case_contexts |
 | `visit_date` | date | yes | one row per calendar day |
 
-### contacts — one row per recorded transmission link (optional)
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `from` | character | yes | source case_id; FK → cases |
-| `to` | character | yes | recipient case_id; FK → cases |
-| `link_type` | character | yes | `Probable` or `Possible` |
-
 ---
 
 ## Network views
@@ -99,7 +93,7 @@ Three views selectable from a dropdown in the network card header:
 |---|---|---|
 | Contexts network | `"projection"` | Places linked by shared cases; edge weight = shared cases |
 | Who visited where | `"bipartite"` | Cases × contexts; edges coloured by visit timing category (see ADR-002) |
-| Who infected whom | `"contacts"` | Transmission links from contacts sheet or derived from timing |
+| Who infected whom | `"contacts"` | Transmission links from the `likely_index_case` field on the cases sheet (view ID is still `"contacts"`) |
 
 **Which views to keep is an open decision (Phase 2).** Do not add new views or
 remove existing ones without being asked.
@@ -117,8 +111,11 @@ All editable live in the "Assumptions & parameters" tab:
 | `inf_before` | 4 days | Infectious period: days before onset |
 | `inf_after` | 4 days | Infectious period: days after onset |
 
-Derived rule for possible transmission links (Who infected whom view): onset gap must be between
-`(inc_min - inf_before)` and `(inc_max + inf_after)` days.
+Transmission links in the Who infected whom view come from the `likely_index_case`
+field on the cases sheet (the investigator's recorded source for each case) — they
+are **not** derived from timing. The incubation/infectious parameters are used to
+shade the timeline and as a reference when the investigator records each visit's
+relevance category.
 
 ---
 
