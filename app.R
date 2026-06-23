@@ -395,30 +395,6 @@ build_bipartite <- function(visits, ll, colours) {
   list(nodes = bind_rows(context_nodes, case_nodes), edges = edges)
 }
 
-# Derive POSSIBLE case-to-case links from shared contexts + onset timing.
-# A possible link (earlier -> later case) is drawn when two cases attended the
-# same context and the later onset falls within [inc_min - inf_before,
-# inc_max + inf_after] days after the earlier onset.
-derive_possible_links <- function(ll, visits, inc_min, inc_max, inf_before, inf_after) {
-  empty <- tibble(from = character(), to = character(), link_type = character())
-  if (nrow(visits) == 0) return(empty)
-  onset <- setNames(ll$onset_date, ll$case_id)
-  pair_list <- visits |> distinct(case_id, context_name) |> group_by(context_name) |>
-    summarise(cz = list(sort(unique(case_id))), .groups = "drop") |>
-    filter(lengths(cz) >= 2)
-  if (nrow(pair_list) == 0) return(empty)
-  pairs <- purrr::map_dfr(pair_list$cz, function(cz) {
-    m <- t(combn(cz, 2)); tibble::tibble(a = m[, 1], b = m[, 2]) })
-  if (nrow(pairs) == 0) return(empty)
-  lb <- inc_min - inf_before; ub <- inc_max + inf_after
-  pairs |>
-    mutate(gap  = as.numeric(as.Date(onset[b]) - as.Date(onset[a])),
-           from = ifelse(gap >= 0, a, b), to = ifelse(gap >= 0, b, a),
-           agap = abs(gap)) |>
-    filter(agap > 0, agap >= lb, agap <= ub) |>
-    distinct(from, to) |> mutate(link_type = "Possible")
-}
-
 # Who infected whom view: one node per case, edges from likely_index_case field.
 # Node colour reflects the case's primary context type.
 build_transmission_network <- function(ll, visits, colours) {
@@ -473,41 +449,6 @@ build_transmission_network <- function(ll, visits, colours) {
   list(nodes = nodes, edges = edges)
 }
 
-# Possible links network: nodes and edges for the Possible links page.
-# Candidate pairs already captured by likely_index_case are excluded.
-build_possible_net <- function(ll, candidates, visits, colours) {
-  if (nrow(candidates) == 0)
-    return(list(nodes = tibble(id=character(), label=character()),
-                edges = tibble(from=character(), to=character())))
-
-  primary <- if (nrow(visits) > 0)
-    visits |> arrange(visit_date) |> group_by(case_id) |> slice(1) |> ungroup() |>
-      select(case_id, context_type)
-  else tibble(case_id = character(), context_type = character())
-
-  onset <- setNames(ll$onset_date, ll$case_id)
-  involved <- unique(c(candidates$from, candidates$to))
-
-  nodes <- ll |> filter(case_id %in% involved) |>
-    left_join(primary, by = "case_id") |>
-    mutate(context_type = coalesce(context_type, "Other")) |>
-    transmute(id = case_id, label = case_id, group = context_type,
-              color = coalesce(unname(colours[context_type]), "#7f7f7f"),
-              title = paste0("<b>", htmltools::htmlEscape(case_id), "</b><br>Onset: ", onset_date))
-
-  edges <- candidates |>
-    mutate(
-      title = paste0("<b>", htmltools::htmlEscape(from), "</b> → <b>",
-                     htmltools::htmlEscape(to), "</b><br>Onset gap: ",
-                     as.integer(as.Date(onset[to]) - as.Date(onset[from])), " days"),
-      color = "#e67e22",
-      dashes = TRUE
-    ) |>
-    select(from, to, title, color, dashes)
-
-  list(nodes = nodes, edges = edges)
-}
-
 # Calculates degree and betweenness for every node in the current network view.
 # Uses igraph to build the graph, then maps results back to display labels.
 # The "Kind" column (Case / Context) is included only for the bipartite view,
@@ -529,48 +470,6 @@ network_metrics <- function(nodes, edges) {
   out[order(-out$Degree), ]
 }
 
-# Joins a character vector into a natural-language list:
-# "a", "a and b", or "a, b and c".
-nice_join <- function(x) {
-  if (length(x) <= 1) return(paste(x, collapse = ""))
-  paste(paste(x[-length(x)], collapse = ", "), "and", x[length(x)])
-}
-
-# Builds a descriptive epi-curve title covering person, place and time from the
-# active filters, so the chart documents exactly which subset of cases it shows.
-curve_title <- function(date_range, context_types, all_context_types, statuses) {
-  person <- if (length(statuses) == 0) "Cases" else paste0(nice_join(statuses), " cases")
-  # Only name contexts when filtered to a genuine subset of those available
-  place  <- if (length(context_types) && length(context_types) < length(all_context_types))
-              paste0(" in ", nice_join(context_types)) else ""
-  time   <- if (length(date_range) == 2)
-              paste0(", ", format(date_range[1], "%d %b %Y"), " to ", format(date_range[2], "%d %b %Y")) else ""
-  paste0(person, place, " by week of onset", time)
-}
-
-# Draws a weekly bar chart of new cases by onset date.
-# week_start = 1 means weeks run Monday–Sunday (ISO standard).
-# group_by optionally colours (stacks) bars by a case attribute; missing values
-# are grouped as "Unknown". Built with ggplot2 then converted to plotly.
-epi_curve <- function(ll, group_by = "none", title = NULL) {
-  if (nrow(ll) == 0) return(plotly_empty())
-  ll <- ll |> mutate(week = floor_date(onset_date, "week", week_start = 1))
-  if (group_by != "none" && group_by %in% names(ll)) {
-    gv <- as.character(ll[[group_by]])
-    ll$.grp <- ifelse(is.na(gv) | trimws(gv) == "", "Unknown", gv)
-    d <- ll |> count(week, .grp)
-    p <- ggplot2::ggplot(d, ggplot2::aes(week, n, fill = .grp)) +
-      ggplot2::geom_col() +
-      ggplot2::labs(x = "Week of onset", y = "New cases", fill = NULL, title = title)
-  } else {
-    d <- ll |> count(week)
-    p <- ggplot2::ggplot(d, ggplot2::aes(week, n)) +
-      ggplot2::geom_col(fill = "#2c7fb8") +
-      ggplot2::labs(x = "Week of onset", y = "New cases", title = title)
-  }
-  ggplotly(p + ggplot2::theme_minimal(base_size = 12))
-}
-
 # Generates a JavaScript callback for DT that attaches tooltip text to each
 # column heading. The tips vector must align positionally with the table columns.
 header_tooltips <- function(tips) {
@@ -578,20 +477,12 @@ header_tooltips <- function(tips) {
     "function(thead){ var tips=%s; $(thead).find('th').each(function(i){ if(tips[i]){ $(this).attr('title', tips[i]); $(this).css('text-decoration','underline dotted'); $(this).css('cursor','help'); } }); }",
     jsonlite::toJSON(tips)))
 }
-# Tooltip text for the network metrics and line list tables, keyed by column name
+# Tooltip text for the network metrics table, keyed by column name
 metric_tips_lookup <- c(
   Node        = "The individual case or the context this row describes.",
   Kind        = "Whether this node is a Case or a Context (Who visited where view only).",
   Degree      = "Number of direct links. For a context: how many case-visits it has. For a case: how many contexts it visited (Who visited where) or transmission links it has (Who infected whom).",
   Betweenness = "How often this node lies on the connecting path between others. A high value flags a 'bridge' joining otherwise separate parts of the outbreak.")
-ll_tips_lookup <- c(
-  case_id            = "Unique identifier for each case.",
-  onset_date         = "Date the case first developed symptoms. Drives the time slider, epidemic curve and infectious-period logic.",
-  age_group          = "Age band of the case.",
-  gender             = "Recorded gender of the case.",
-  vaccination_status = "Recorded measles vaccination status of the case.",
-  case_status        = "Case confidence — how firmly the case is classified: Confirmed, Probable, or Possible.",
-  contexts_visited   = "Number of distinct contexts this case is recorded as having visited.")
 
 # ---- Definitions content ----------------------------------------------------
 definitions_md <- '
@@ -606,14 +497,6 @@ Terms used in this tool and what they mean in the context of outbreak investigat
 The case identified by the investigating practitioner as the probable source of
 infection for another case. Recorded in the **likely_index_case** field of the
 cases table. Shown as a directed arrow in the **Who infected whom** view.
-
-### Possible undetected link
-
-A pair of cases flagged by the tool as a plausible transmission pair based on
-shared context attendance and onset timing — but not yet captured in the
-likely_index_case field. Shown on the **Possible links** page with supporting
-data to help the practitioner assess whether to record the link. See
-**Assumptions & parameters** for the timing rule and parameters.
 
 ---
 
@@ -694,10 +577,6 @@ each line is a visit. A multi-context case appears joined to several squares.
 likely_index_case field in the cases data. Each arrow points from the
 recorded source to the recipient.
 
-**Possible links** (separate tab) - candidate pairs not yet recorded in
-likely_index_case, derived from shared contexts and onset timing. Includes
-a table of supporting data to help judge each candidate.
-
 ## Reading the network
 
 Colour = context type (legend). Size = number of cases. Hover any dot or line for
@@ -761,16 +640,11 @@ acquired infection there). Measles is commonly treated as infectious from about
 4 days before to 4 days after rash onset; this is the default and can be changed
 below.
 
-### Who infected whom — and the Possible links page
+### Who infected whom
 
 The **Who infected whom** view shows links recorded in the **likely_index_case**
 field of the cases table. Each case can name one source — the practitioner\'s
 judgement based on the investigation.
-
-The **Possible links** page shows candidate pairs not yet captured by
-likely_index_case: cases who shared a context and whose onset gap falls within
-the plausible transmission window (defined below). Use it to identify links that
-may have been missed.
 
 ### The derived-link rule
 
@@ -1131,6 +1005,50 @@ ui <- page_navbar(
       margin-bottom: 0 !important;
       font-size: 0.85em !important;
     }
+    /* Network metrics overlay: a panel that slides in from the right edge of the
+       diagram and floats over it (the diagram keeps its full width). A vertical
+       handle on the right edge opens/closes it and slides left with the panel. */
+    .metrics-handle {
+      position: absolute;
+      top: 80px;
+      right: 0;
+      z-index: 101;
+      writing-mode: vertical-rl;
+      background: #2c3e50;
+      color: #fff;
+      border: none;
+      border-radius: 6px 0 0 6px;
+      padding: 12px 6px;
+      cursor: pointer;
+      font-size: 0.8em;
+      letter-spacing: 0.03em;
+      box-shadow: -2px 2px 8px rgba(0,0,0,0.2);
+      transition: right 0.2s ease;
+    }
+    .metrics-handle.open { right: 380px; }
+    .metrics-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      height: 100%;
+      width: 380px;
+      background: #fff;
+      border-left: 1px solid #dee2e6;
+      box-shadow: -4px 0 16px rgba(0,0,0,0.15);
+      z-index: 100;
+      overflow-y: auto;
+      padding: 10px 14px;
+      transform: translateX(100%);
+      transition: transform 0.2s ease;
+    }
+    .metrics-panel.open { transform: translateX(0); }
+    .metrics-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
   ")),
   tags$script(HTML("
     function toggleNetwork() {
@@ -1153,6 +1071,15 @@ ui <- page_navbar(
       } else {
         btn.textContent = 'Maximise';
         document.body.style.overflow = '';
+      }
+    }
+    function toggleMetrics() {
+      var panel  = document.getElementById('metrics-panel');
+      var handle = document.getElementById('metrics-handle');
+      if (panel.classList.toggle('open')) {
+        handle.classList.add('open');
+      } else {
+        handle.classList.remove('open');
       }
     }
   "))),
@@ -1223,7 +1150,16 @@ ui <- page_navbar(
                         "Use the node selector to highlight a node and view its timeline below.")))),
         div(style = "position:relative;",
           uiOutput("network_legend"),
-          visNetworkOutput("net", height = "60vh"))),
+          visNetworkOutput("net", height = "60vh"),
+          tags$button(id = "metrics-handle", class = "metrics-handle",
+            onclick = "toggleMetrics()", "Network metrics"),
+          div(id = "metrics-panel", class = "metrics-panel",
+            div(class = "metrics-panel-header",
+              hdr("Network metrics — most connected nodes",
+                  "Ranks nodes by how connected they are. Hover the column headings for definitions."),
+              tags$button(class = "btn-close", onclick = "toggleMetrics()",
+                          `aria-label` = "Close")),
+            DTOutput("metrics")))),
 
       card(
         class = "timeline-card",
@@ -1242,29 +1178,6 @@ ui <- page_navbar(
               style = "max-height: 30vh; min-height: 120px; overflow-y: auto; padding: 4px;",
               uiOutput("timeline_container"))))
     )),
-
-  nav_panel("Data",
-    div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
-      uiOutput("filter_summary"),
-      card(
-        card_header(class = "d-flex justify-content-between align-items-center",
-          span("Epidemic curve",
-               info("New cases per week by onset date. A rising curve means the outbreak is still growing.")),
-          div(class = "d-flex align-items-center gap-2",
-            tags$span("Colour by", class = "small text-muted"),
-            div(style = "min-width:180px;",
-              selectInput("curve_group", NULL,
-                          choices = c("No grouping" = "none"), width = "180px")))),
-        plotlyOutput("curve", height = "320px")),
-      layout_columns(col_widths = c(6, 6),
-        card(min_height = "440px",
-             hdr("Network metrics — most connected nodes",
-                 "Ranks nodes by how connected they are. Hover the column headings for definitions."),
-             DTOutput("metrics")),
-        card(min_height = "440px",
-             hdr("Line list (filtered)",
-                 "Case records currently shown, with how many contexts each visited. Hover headings for definitions."),
-             DTOutput("ll"))))),
 
   nav_panel("Source data",
     div(style = "max-width:1100px; margin:0 auto; padding:8px 4px;",
@@ -1335,22 +1248,6 @@ ui <- page_navbar(
       )
     )
   ),
-
-  nav_panel("Possible links",
-    div(style = "max-width:1200px; margin:0 auto; padding:8px 4px;",
-      card(card_body(
-        p("Candidate case-to-case links derived from shared contexts and onset timing, using the epi parameters on the ",
-          tags$strong("Assumptions & parameters"), " tab. Only pairs ",
-          tags$strong("not already captured by the likely_index_case field"), " are shown."),
-        p(class = "text-muted mb-0",
-          "Use the table below to assess each candidate. Recording an accepted link is done by updating ",
-          tags$code("likely_index_case"), " in your data."))),
-      card(hdr("Candidate network",
-               "Possible undetected links shown as orange dashed arrows. Node colour = primary context type."),
-           visNetworkOutput("possible_links_net", height = "40vh")),
-      card(hdr("Assessment table",
-               "One row per candidate pair. Sortable and filterable. Use exposure_relevance to judge plausibility — pairs where neither case has a relevant classification at the shared context are weaker candidates."),
-           DTOutput("possible_links_table")))),
 
   nav_spacer(),
   nav_item(tags$span(style = "color:#888; font-size:0.85em;", paste0("Measles outbreak explorer v", APP_VERSION)))
@@ -1489,12 +1386,6 @@ server <- function(input, output, session) {
     else c("Confirmed","Probable","Possible")
     updateCheckboxGroupInput(session, "case_status_filter",
       choices = statuses, selected = intersect(statuses, c("Confirmed","Probable")))
-    # Offer epi-curve colour-by options only for attributes present in the data
-    grp_opts <- c("No grouping" = "none")
-    if ("vaccination_status" %in% names(d$cases)) grp_opts <- c(grp_opts, "Vaccination status" = "vaccination_status")
-    if ("gender" %in% names(d$cases))             grp_opts <- c(grp_opts, "Gender" = "gender")
-    if ("case_status" %in% names(d$cases))        grp_opts <- c(grp_opts, "Case confidence" = "case_status")
-    updateSelectInput(session, "curve_group", choices = grp_opts, selected = "none")
     updateDateInput(session, "date_from", value = rng[1], min = rng[1], max = rng[2])
     updateDateInput(session, "date_to",   value = rng[2], min = rng[1], max = rng[2])
   })
@@ -1564,8 +1455,7 @@ server <- function(input, output, session) {
 
   # netdata(): flattens the tables, assigns colours, then calls the appropriate
   # view builder. exposure_relevance is read directly from case_contexts.
-  # The contacts view reads likely_index_case from cases; possible links page
-  # from shared contexts + timing, depending on the user's radio button choice.
+  # The contacts view reads likely_index_case from cases.
   netdata <- reactive({
     f    <- filtered()
     p    <- params()
@@ -1665,13 +1555,6 @@ server <- function(input, output, session) {
       if (!is.null(edge_items)) do.call(tagList, edge_items))
   })
 
-  output$curve   <- renderPlotly({
-    grp <- if (is.null(input$curve_group)) "none" else input$curve_group
-    ttl <- curve_title(input$asof, input$types,
-                       unique(raw()$contexts$context_type), input$case_status_filter)
-    epi_curve(filtered()$cases, group_by = grp, title = ttl)
-  })
-
   output$metrics <- renderDT({
     mt   <- network_metrics(netdata()$nodes, netdata()$edges)
     # Map column names to tooltip text using the lookup defined above
@@ -1684,26 +1567,6 @@ server <- function(input, output, session) {
   # Shared DT options for the Source data tab tables: filterable, paginated, scrollable
   src_dt <- function(df) datatable(df, rownames = FALSE, filter = "top",
     options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
-
-  # Plain-language banner on the Data tab summarising the filters currently applied.
-  # Filters live on the Network model tab; this just reflects their state here.
-  output$filter_summary <- renderUI({
-    dr <- input$asof
-    date_txt <- if (length(dr) == 2)
-      paste0(format(dr[1], "%d %b %Y"), " to ", format(dr[2], "%d %b %Y")) else "all dates"
-    all_types <- unique(raw()$contexts$context_type)
-    ctx_txt <- if (length(input$types) == 0 || length(input$types) >= length(all_types))
-      "all context types" else paste(input$types, collapse = ", ")
-    conf_txt <- if (length(input$case_status_filter) == 0)
-      "none selected" else paste(input$case_status_filter, collapse = ", ")
-    div(class = "alert alert-light border d-flex flex-wrap gap-3 align-items-center py-2 mb-3",
-        role = "status",
-        tags$span(tags$strong("Dates: "), date_txt),
-        tags$span(tags$strong("Contexts: "), ctx_txt),
-        tags$span(tags$strong("Case confidence: "), conf_txt),
-        tags$span(class = "text-muted ms-auto small",
-                  "Filters are changed on the ", tags$strong("Network model"), " tab."))
-  })
 
   # After a file is uploaded, summarise how many records were read in and point
   # the user to the Source data tab. Hidden when running on demo data.
@@ -1721,121 +1584,6 @@ server <- function(input, output, session) {
   output$src_contexts      <- renderDT({ src_dt(raw()$contexts) })
   output$src_case_contexts <- renderDT({ src_dt(raw()$case_contexts) })
   output$src_visit_dates   <- renderDT({ src_dt(raw()$visit_dates) })
-
-  # ---- Possible links page --------------------------------------------------
-  # Derives candidate pairs from shared contexts + timing, excludes pairs
-  # already captured by likely_index_case, and enriches with case/context data.
-  possible_links_data <- reactive({
-    f  <- filtered()
-    p  <- params()
-    fv <- flat_visits(f)
-    ll <- f$cases
-    if (!("likely_index_case" %in% names(ll)))
-      ll <- ll |> mutate(likely_index_case = NA_character_)
-
-    known_keys <- ll |>
-      filter(!is.na(likely_index_case) & nchar(likely_index_case) > 0) |>
-      mutate(key = paste(likely_index_case, case_id)) |>
-      pull(key)
-
-    candidates <- derive_possible_links(ll, fv, p$inc_min, p$inc_max, p$inf_before, p$inf_after)
-    if (nrow(candidates) == 0) return(tibble())
-
-    candidates <- candidates |>
-      filter(!paste(from, to) %in% known_keys)
-    if (nrow(candidates) == 0) return(tibble())
-
-    onset <- setNames(ll$onset_date, ll$case_id)
-    # Ensure optional columns exist so the downstream select/rename logic is
-    # unconditional regardless of what the uploaded file contained.
-    for (col in c("age_group", "vaccination_status", "case_status"))
-      if (!col %in% names(ll)) ll[[col]] <- NA_character_
-    case_info <- ll |> select(case_id, onset_date, age_group, vaccination_status, case_status)
-    ctx_tbl   <- fv |> select(case_id, context_name, context_type, exposure_relevance) |> distinct()
-
-    ctx_rows <- purrr::map2_dfr(candidates$from, candidates$to, function(f_id, t_id) {
-      fc <- ctx_tbl |> filter(case_id == f_id)
-      tc <- ctx_tbl |> filter(case_id == t_id)
-      shared <- inner_join(fc, tc, by = c("context_name", "context_type"), suffix = c("_from", "_to"))
-      if (nrow(shared) == 0)
-        tibble(from = f_id, to = t_id, shared_contexts = "—",
-               context_types = "—", source_relevance = "—", case_relevance = "—")
-      else
-        tibble(from = f_id, to = t_id,
-               shared_contexts  = paste(shared$context_name,         collapse = "; "),
-               context_types    = paste(shared$context_type,         collapse = "; "),
-               source_relevance = paste(shared$exposure_relevance_from, collapse = "; "),
-               case_relevance   = paste(shared$exposure_relevance_to,   collapse = "; "))
-    })
-
-    candidates |>
-      mutate(gap_days = as.integer(as.Date(onset[to]) - as.Date(onset[from]))) |>
-      left_join(case_info, by = c("from" = "case_id")) |>
-      rename(source_onset = onset_date, source_age    = age_group,
-             source_vacc  = vaccination_status, source_status = case_status) |>
-      left_join(case_info, by = c("to" = "case_id")) |>
-      rename(case_onset = onset_date, case_age    = age_group,
-             case_vacc  = vaccination_status, case_status = case_status) |>
-      left_join(ctx_rows, by = c("from", "to")) |>
-      select(-link_type)
-  })
-
-  output$possible_links_table <- renderDT({
-    d <- possible_links_data()
-    if (nrow(d) == 0)
-      return(datatable(
-        data.frame(Message = "No undetected possible links with current filters and parameters."),
-        rownames = FALSE, options = list(dom = "t")))
-    display <- d |> transmute(
-      `Possible source`    = from,
-      `Possible case`      = to,
-      `Source onset`       = source_onset,
-      `Case onset`         = case_onset,
-      `Gap (days)`         = gap_days,
-      `Shared context(s)`  = shared_contexts,
-      `Context type(s)`    = context_types,
-      `Source relevance`   = source_relevance,
-      `Case relevance`     = case_relevance,
-      `Source age group`   = source_age,
-      `Case age group`     = case_age,
-      `Source vaccination` = source_vacc,
-      `Case vaccination`   = case_vacc,
-      `Source confidence`  = source_status,
-      `Case confidence`    = case_status)
-    datatable(display, rownames = FALSE, filter = "top",
-              options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
-  })
-
-  output$possible_links_net <- renderVisNetwork({
-    d    <- possible_links_data()
-    f    <- filtered()
-    fv   <- flat_visits(f)
-    cols <- colour_map(f$contexts$context_type)
-    nd   <- build_possible_net(f$cases, d, fv, cols)
-    if (nrow(nd$nodes) == 0)
-      return(visNetwork(
-        tibble(id = "x", label = "No possible links found"),
-        tibble(from = character(), to = character())) |>
-        visOptions(nodesIdSelection = FALSE))
-    visNetwork(nd$nodes, nd$edges) |>
-      visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE)) |>
-      visEdges(arrows = "to", smooth = TRUE) |>
-      visPhysics(stabilization = TRUE,
-                 barnesHut = list(gravitationalConstant = -3500, springLength = 130))
-  })
-
-  # Line list: filtered cases with a count of how many contexts each case visited
-  output$ll <- renderDT({
-    f  <- filtered()
-    nv <- f$case_contexts |> distinct(case_id, context_id) |> count(case_id, name = "contexts_visited")
-    df <- f$cases |> left_join(nv, by = "case_id") |>
-      mutate(contexts_visited = tidyr::replace_na(contexts_visited, 0L))
-    tips <- vapply(names(df),
-                   function(n) if (n %in% names(ll_tips_lookup)) ll_tips_lookup[[n]] else "", character(1))
-    datatable(df, rownames = FALSE,
-              options = list(pageLength = 6, scrollX = TRUE, dom = "tp",
-                             headerCallback = header_tooltips(unname(tips))))
-  })
 
   # Timeline panel: placeholder when nothing selected, otherwise a heading + plotlyOutput
   # sized to fit its content. Scrolls when the chart is taller than the 30vh max-height.
