@@ -110,9 +110,9 @@ DICT_TABLES <- list(
   cases = tibble::tribble(
     ~Field,                ~Type,       ~Key,  ~Required, ~Description,
     "case_id",             "character", "PK",  "Yes",     "Unique case identifier. Join key across all tables. Must be unique within the dataset.",
-    "onset_date",          "date",      "—",   "Yes",     "Symptom onset date. Drives the time slider, epidemic curve, and all epi-period derivations (exposure window, infectious period).",
+    "onset_date",          "date",      "—",   "Yes",     "Symptom onset date. Drives the time slider and timeline, and is the reference point for the infectious period and exposure window.",
     "age_group",           "character", "—",   "No",      "Age band. Fixed values: &lt;1 year, 1–4 years, 5–17 years, 18–29 years, 30–49 years, 50+ years. Aligned with UKHSA reporting and vaccination schedule milestones.",
-    "gender",              "character", "—",   "No",      "Recorded gender of the case. Values: Male, Female, Other, Unknown. Available as a grouping option on the epidemic curve.",
+    "gender",              "character", "—",   "No",      "Recorded gender of the case. Values: Male, Female, Other, Unknown.",
     "vaccination_status",  "character", "—",   "No",      "Measles vaccination history at time of illness. Values: Unvaccinated, 1 dose, 2 doses, Unknown.",
     "case_status",         "character", "—",   "No",      "Case confidence — how firmly the case is classified. Values: Confirmed, Probable, Possible. Field name remains case_status; displayed as 'Case confidence'."
   ),
@@ -488,71 +488,90 @@ metric_tips_lookup <- c(
 definitions_md <- '
 ## Definitions
 
-Terms used in this tool and what they mean in the context of outbreak investigation.
+The terms used in this tool, and what they mean during an outbreak investigation.
+Most of what the diagrams show is the **judgement of the investigation team**,
+recorded in the line list — not something the tool works out on its own.
 
 ---
 
-### Likely index case
+### Core building blocks
 
-The case identified by the investigating practitioner as the probable source of
+**Case** — an individual confirmed or probable case of the disease, held as one
+row in the cases table.
+
+**Context** — a place where one or more cases were present during the outbreak,
+for example a school, healthcare facility, community group, or household. Contexts
+are the coloured nodes in the Contexts network and Who visited where views.
+
+**Visit (case–context link)** — a record that a particular case was present at a
+particular context. One case can be linked to many contexts. Visit dates, where
+recorded, are listed against the link and shown on the timeline.
+
+---
+
+### Visit relevance categories
+
+For each visit, the investigator records **why that visit matters** for
+transmission. This is a judgement made when completing the line list — the tool
+does not work it out from the dates. There are four categories, shown by the
+colour and arrow of each line in the Who visited where view:
+
+- **Infectious period** — the case was present while they could spread infection
+  (red arrow towards the context). They may have infected others there.
+- **Exposure window** — the case was present while they could have caught the
+  infection (blue arrow towards the case). They may have been infected there.
+- **Both** — the visit falls in both windows, for example a household resident
+  (purple, two-way arrow).
+- **Neither** — the visit is recorded but is not considered relevant to
+  transmission (grey dashed line).
+
+---
+
+### Transmission terms
+
+**Likely index case** — the case the investigator believes was the source of
 infection for another case. Recorded in the **likely_index_case** field of the
-cases table. Shown as a directed arrow in the **Who infected whom** view.
+cases table, and shown as an arrow from source to recipient in the Who infected
+whom view.
+
+**Transmission link** — a directional connection from an earlier case (the
+source) to a later case (the recipient), representing a recorded route of
+infection. These links are the investigator judgement, not laboratory-proven
+transmission.
 
 ---
 
-### Context
+### Network measures
 
-A place where one or more cases were present during the outbreak — for example a
-school, healthcare facility, community group, or household. Contexts are the
-nodes in the Contexts network and Who visited where views.
+**Degree** — the number of direct links a node has. For a context: how many cases
+are linked to it. For a case: how many contexts it visited (Who visited where) or
+how many transmission links it has (Who infected whom). A high-degree node is a
+hub.
 
-### Transmission link
-
-A directional connection from an earlier case (the source) to a later case (the
-recipient), indicating a possible or probable route of infection. Arrows point
-from source to recipient in the Who infected whom view.
-
-### Degree
-
-The number of direct links a node has. In the Who infected whom view this is the
-total number of transmission links (in or out). In the Who visited where view it is the
-number of contexts a case visited, or the number of cases linked to a context.
-A high-degree node is a hub — either a case linked to many others, or a context
-attended by many cases.
-
-### Betweenness
-
-How often a node lies on the shortest connecting path between other nodes in the
-network. A high betweenness value flags a "bridge" — a case or context that
-connects otherwise separate parts of the outbreak. Removing a high-betweenness
-node would fragment the network into more isolated clusters.
-
-### Infectious period
-
-The window of time during which a case can transmit infection to others. In this
-tool it is defined as a set number of days before and after symptom onset. Visits
-that fall within this window are highlighted in red in the Who visited where view,
-indicating the case was infectious at the time — a necessary but not sufficient
-condition for onward transmission. Whether transmission actually occurred also
-depends on whether a susceptible person was present and went on to develop
-symptoms within the incubation period; that cross-case timing logic is applied
-only in the Who infected whom view. The default values are based on
-published measles parameters and can be adjusted on the **Assumptions &
-parameters** tab.
-
-### Incubation period
-
-The time between a susceptible person being exposed to infection and developing
-symptoms. Used by the tool to define the plausible onset-gap range for deriving
-suspected case-to-case links. The default values are based on published measles
-parameters and can be adjusted on the **Assumptions & parameters** tab.
+**Betweenness** — how often a node sits on the connecting path between other
+nodes. A high value flags a **bridge** that joins otherwise separate parts of the
+outbreak; removing it would split the network into more isolated clusters.
 
 ---
 
-*All links are epidemiological connections recorded or inferred during
-investigation, not laboratory-proven transmission. Probable and possible
-classifications reflect the strength of epidemiological evidence at the time of
-recording, not a clinical or virological standard.*
+### Epidemiological periods
+
+**Infectious period** — the window during which a case can pass infection to
+others, defined here as a set number of days before and after symptom onset. Used
+as a reference when the investigator decides whether a visit falls in the
+infectious period, and to shade the timeline. Defaults are based on published
+measles parameters and can be changed on the **Assumptions & parameters** tab.
+
+**Incubation period** — the time between a person being exposed to infection and
+developing symptoms. Used as a reference when judging the exposure window, and to
+shade the timeline. Defaults are editable on the **Assumptions & parameters** tab.
+
+---
+
+*All links are epidemiological connections recorded during investigation, not
+laboratory-proven transmission. Probable and possible classifications reflect the
+strength of epidemiological evidence at the time of recording, not a clinical or
+virological standard.*
 '
 
 # ---- How-to-use content -----------------------------------------------------
@@ -561,115 +580,118 @@ how_to_use_md <- '
 
 This dashboard turns an outbreak line list into an interactive picture of **how
 cases and contexts are connected**. You do not need any experience with network
-diagrams - this page explains every part. A single case can visit **many
+diagrams — this page explains every part. A single case can be linked to **many
 contexts**; each visit date is one row in the **visit_dates** table.
 
 ## The three views (sidebar control)
 
-**Contexts network** - each dot is a place; two places are joined when a case
-visited both (thicker line = more shared cases). Best for seeing how contexts
-are connected.
+Pick a view from the selector. Each answers a different question — full detail of
+how each one is built is on the **Assumptions & parameters** tab.
 
-**Who visited where** - shows cases (dark dots) and contexts (coloured squares);
-each line is a visit. A multi-context case appears joined to several squares.
-
-**Who infected whom** - transmission links between cases, taken from the
-likely_index_case field in the cases data. Each arrow points from the
-recorded source to the recipient.
+- **Contexts network** — which places are connected through shared cases. The
+  simplest view: it needs only a list of which cases attended which places.
+- **Who visited where** — each case against the places they attended, colour-coded
+  by the investigator judgement of whether they were infectious or exposed there.
+- **Who infected whom** — the recorded source of infection for each case, shown as
+  arrows between cases.
 
 ## Reading the network
 
-Colour = context type (legend). Size = number of cases. Hover any dot or line for
-details, drag to rearrange, click to highlight connections. In the Who visited
-where view, line colour and arrows show the direction of potential transmission:
-**red arrow → context** = present during infectious period (may have spread
-infection there); **blue arrow → case** = present during exposure window (may
-have acquired infection there); **purple ↔** = present during both windows;
-**grey dashed** = outside both windows (not transmission-relevant).
+Colour = context type (see the legend). Size = number of linked cases. Hover any
+dot or line for details, drag to rearrange, and click a node to highlight its
+connections. In the Who visited where view, the line colour and arrow show the
+recorded relevance of each visit: **red arrow → context** = infectious period;
+**blue arrow → case** = exposure window; **purple ↔** = both; **grey dashed** =
+neither.
 
-## Time slider, epidemic curve, metrics
+## Time slider, timeline and network measures
 
-Drag either end of the onset date slider to narrow or widen the window, or press
-play to advance the end date and watch the outbreak grow. The bar chart shows new
-cases per week. **Degree** = number of direct links; **Betweenness** = how often
-a node bridges otherwise separate clusters.
+Drag either end of the onset date slider to narrow or widen the date window, or
+press play to advance the end date and watch the network build up as cases are
+added. Select a node to see its dates on the **timeline** below the diagram. Open
+the **network measures** panel (handle on the right edge of the diagram) for
+**Degree** (number of direct links) and **Betweenness** (how often a node bridges
+otherwise separate clusters).
 
 ## Ways to use it
 
-Find hub contexts (large, high-degree), bridge contexts (high betweenness),
-and - in the Who visited where view - contexts where infection was likely spread
-(red) versus caught (blue). Combine with the epidemic curve to judge the
-trajectory and prioritise vaccination, isolation or communication.
+Find hub contexts (large, high-degree), bridge contexts (high betweenness), and —
+in the Who visited where view — places where infection was likely spread (red)
+versus caught (blue). Use the timeline to sense-check visit timing against onset
+dates when weighing up likely sources and exposures.
 
 ## Interpretation
 
-Links are epidemiological connections recorded or inferred during investigation,
-not laboratory-proven transmission. See the Assumptions & parameters tab for the
+Links are epidemiological connections recorded during investigation, not
+laboratory-proven transmission. See the **Assumptions & parameters** tab for the
 exact definitions and the editable epidemiological parameters.
 '
 
 # ---- Assumptions content ----------------------------------------------------
 assumptions_md <- '
-## Assumptions behind the diagram
+## Assumptions & parameters
 
-This page documents how every link in the tool is defined, and lets you change
-the key epidemiological parameters. **Changes update the dashboard immediately.**
+This page sets out how every link in the tool is defined, and lets you change the
+key epidemiological parameters. **Changes update the diagram immediately.**
 
-### Nodes and edges
+### What the tool shows — and what it does not calculate
 
-- **Context node** - a place where cases were present (school, healthcare centre,
-  community group, household).
-- **Case node** - an individual confirmed or probable case.
-- **Shared-case link (Contexts network view)** - drawn whenever at least one
-  case attended both contexts. This is based purely on **co-attendance**; it
-  makes no timing assumption. The line weight is the number of shared cases.
-- **Visit link (Who visited where view)** - one line per recorded visit of a case to a
-  context.
+Almost everything in these diagrams is the **recorded judgement of the
+investigation team**, entered in the line list:
 
-### When is a visit "infectious"?
+- whether a case visited a context, and on which dates;
+- whether each visit falls in the infectious period, the exposure window, both,
+  or neither;
+- which case was the likely source of infection for each other case.
 
-In the Who visited where view each visit is classified using the **infectious period**:
-a visit is marked red when its date falls from *infectious-days-before* to
-*infectious-days-after* the case onset — meaning the case was infectious at the
-time of the visit. This is a **necessary but not sufficient** condition for
-onward transmission: it shows that the case could have been infectious at that
-context, but does not confirm that a susceptible person was present or went on
-to develop symptoms within the incubation period. Visits outside that window are
-shown grey and represent possible exposure to infection (the case may have
-acquired infection there). Measles is commonly treated as infectious from about
-4 days before to 4 days after rash onset; this is the default and can be changed
-below.
+The tool **draws and analyses** these recorded judgements — it does not infer
+transmission, classify visits, or guess sources from the dates. The dates are
+used to shade the timeline and to give a reference when making those judgements;
+they do not drive the network automatically.
 
-### Who infected whom
+### How each view is built
 
-The **Who infected whom** view shows links recorded in the **likely_index_case**
-field of the cases table. Each case can name one source — the practitioner\'s
-judgement based on the investigation.
+- **Contexts network** — one dot per place; two places are joined whenever at
+  least one case attended both. Based purely on **co-attendance**, with no timing
+  assumption; the line weight is the number of shared cases. This view needs only
+  the case-to-context links, so it is the quickest to build when little detail is
+  available. (A case seen at only one place adds a dot but no line.)
+- **Who visited where** — one line per recorded visit, joining a case to a
+  context. The colour and arrow come from the **relevance category** recorded for
+  that visit (infectious / exposure / both / neither). Recorded visit dates appear
+  on hover and on the timeline.
+- **Who infected whom** — one arrow per recorded source, taken from the
+  **likely_index_case** field of the cases table. Each case can name one source —
+  the investigator judgement based on the investigation.
 
-### The derived-link rule
+### The epidemiological periods
 
-A susceptible case is exposed during a source case infectious period, then
-develops symptoms after the incubation period. So the gap between an earlier
-(source) onset and a later (infectee) onset is plausible when it lies between
-**(incubation minimum minus infectious-days-before)** and **(incubation maximum
-plus infectious-days-after)** days. The tool draws a possible link, from the
-earlier to the later case, for every co-attending pair whose onset gap falls in
-that window.
+- **Incubation period** — the time from exposure to symptom onset. Used as a
+  reference when judging the exposure window for a case, and to shade the timeline.
+- **Infectious period** — the days before and after onset during which a case can
+  spread infection. Used as a reference when judging whether a visit falls in the
+  infectious period, and to shade the timeline.
 
-### Default parameters (measles, approximate)
+These periods appear on the timeline beneath the diagram. They are **not** used to
+classify visits or to draw transmission links automatically — those are the
+investigator judgement.
 
-- **Incubation period** (exposure to symptom onset): about 7 to 21 days.
-- **Infectious period**: about 4 days before to 4 days after onset.
+### Editable parameters (measles defaults)
+
+- **Incubation period** (exposure to symptom onset): about **7 to 21 days**.
+- **Infectious period**: about **4 days before to 4 days after** onset.
 
 These are typical published ranges and will vary by source, case definition and
 jurisdiction. Treat them as starting points and adjust to your local guidance.
+Edit them below; the timeline updates straight away.
 
 ### Caveats
 
-Co-attendance and timing make a link **plausible**, not proven - two cases at the
-same context in a consistent window may still be unrelated, and true links may be
-missing if visits were not recorded. Use the diagram to generate and prioritise
-hypotheses, alongside your wider outbreak knowledge.
+Recorded links represent the investigation team understanding at a point in time,
+not laboratory-proven transmission. A judgement may change later as more is
+learned, and true links may be missing if visits or sources were not recorded.
+Use the diagrams to organise and prioritise what is known, alongside your wider
+outbreak knowledge.
 '
 
 # ---- Timeline helpers -------------------------------------------------------
@@ -1188,7 +1210,7 @@ ui <- page_navbar(
           "Use these tables to check that your upload was read correctly. ",
           "Filters on the Network model tab do not change what is shown here.")),
       card(hdr("Cases",
-               "One row per case. The primary case record — onset date drives the time slider, epidemic curve and infectious-period logic."),
+               "One row per case. The primary case record — onset date drives the time slider and timeline."),
            DTOutput("src_cases")),
       card(hdr("Contexts",
                "One row per context (place or setting). context_type drives node colour and the context filter."),
