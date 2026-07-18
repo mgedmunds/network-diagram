@@ -1439,7 +1439,7 @@ server <- function(input, output, session) {
          inf_after  = g(input$inf_after,  DEF_INF_AFTER))
   })
 
-  # Restores all four parameter inputs and the possible-link source to their defaults
+  # Restores all four parameter inputs to their defaults
   observeEvent(input$reset_params, {
     updateNumericInput(session, "inc_min",    value = DEF_INC_MIN)
     updateNumericInput(session, "inc_max",    value = DEF_INC_MAX)
@@ -1451,7 +1451,7 @@ server <- function(input, output, session) {
     nav_select("nav", "Network model")
   })
 
-  # filtered(): applies the sidebar controls to all five tables.
+  # filtered(): applies the sidebar controls to all four tables.
   # Filter order matters: cases are filtered first by date and status, then
   # case_contexts is filtered to those cases and selected context types,
   # then contexts is trimmed to only those still in case_contexts. This cascade
@@ -1470,11 +1470,6 @@ server <- function(input, output, session) {
     list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd)
   })
 
-  # filtered(): applies the three sidebar filters to all five tables in sequence.
-  # Context filtering cascades: filter cases → filter case_contexts to those cases
-  # → filter contexts to those that still have linked cases.
-  # This ensures the network only shows contexts with at least one visible case.
-
   # netdata(): flattens the tables, assigns colours, then calls the appropriate
   # view builder. exposure_relevance is read directly from case_contexts.
   # The contacts view reads likely_index_case from cases.
@@ -1491,7 +1486,7 @@ server <- function(input, output, session) {
 
   # Renders the network diagram. exposure_relevance is dropped from edges before
   # passing to visNetwork (it was only needed for colour/arrow assignment).
-  # Node clicks fire a JS event that updates input$node_selector (the toolbar dropdown),
+  # Node clicks fire a JS event that updates input$node_selector (the sidebar dropdown),
   # which drives the timeline panel below.
   output$net <- renderVisNetwork({
     nd <- netdata(); v <- input$view
