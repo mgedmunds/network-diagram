@@ -175,6 +175,18 @@ relevance category.
 - Commit after each logical unit of work with a clear message
 - Push branches to GitHub; open a PR to merge into `main` when a phase is complete
 
+### Pre-commit static check (automated)
+
+Commits made through Claude Code run an automated static check on `app.R` before
+the commit completes (a `PreToolUse` hook in `.claude/settings.local.json`, wired to
+`tools/precommit_hook.py` → `tools/check_app.py`). It blocks the commit, with a
+line number, if `app.R` has unbalanced `()[]{}` or an unterminated string (the shape
+an unescaped apostrophe in a single-quoted R string produces). This partially
+automates the manual pre-push static checks — it is a heuristic, **not** a full R
+parser, so RStudio's `runApp()` / `parse()` remains the gold-standard final check.
+Run it by hand any time with `python3 tools/check_app.py`. The hook fires only on
+commits made from Claude Code (WSL), not on commits made manually in RStudio.
+
 ## Development workflow
 
 ```mermaid

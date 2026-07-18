@@ -3,13 +3,15 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-23 (session 10)
+**Last updated:** 2026-07-18 (session 11)
 
 ---
 
 ## Current focus
 
 **Phase 4 (Definitions, Tooltips & Help) in progress on branch `amendments-batch-1`. This session: removed the Data and Possible links tabs; rewrote the whole Reference tab (Definitions / How to use / Assumptions) around the manual, practitioner-entered model; cleaned up the schema (dropped the unused `contacts` sheet, documented `likely_index_case` as the single source of transmission links, ADR-006). All committed and pushed, NOT yet tested in RStudio or merged to main. Next: run the app in RStudio to read through the rewritten Reference tab; then reconcile the remaining data-dictionary drift (see decision register), and decide whether to PR `amendments-batch-1` into main.**
+
+**Session 11 (2026-07-18):** Dev-tooling addition (not Phase 4 work) — added an automated pre-commit static check for `app.R`. `tools/check_app.py` flags unbalanced brackets / unterminated strings; `tools/precommit_hook.py` runs it as a Claude Code `PreToolUse` hook (in the gitignored `.claude/settings.local.json`) that blocks any Claude Code commit while `app.R` is broken. Proven live. See decision register and the `CLAUDE.md` "Pre-commit static check" note.
 
 ---
 
@@ -256,6 +258,7 @@ Matt reviews and clears entries at the start of the next session.
 | 2026-06-19 | Permissions | Security review of settings.local.json completed. `Bash(git *)` and `Bash(git push *)` removed — git push now prompts. `Bash(python3 *)`, `Bash(Rscript *)`, `Bash(powershell.exe *)` retained — accepted risk for local dev. Pending decision: narrow `powershell.exe *` to `powershell.exe -NoProfile -NonInteractive *` (would cover all actual usage, block interactive session). Resume this decision next session. | Yes — session 8: powershell.exe removed entirely (was one-off Obsidian task) |
 | 2026-06-20 | Permissions | Full security overhaul completed (session 8). See log entry below. No outstanding decisions. | Yes |
 | 2026-06-23 | Schema | `contacts` sheet dropped; `likely_index_case` (self-FK on cases) is the single source of transmission links. See ADR-006. | Yes — session 10 |
+| 2026-07-18 | Tooling | Added an automated pre-commit static check for `app.R` (`tools/check_app.py` + `tools/precommit_hook.py`, wired as a Claude Code `PreToolUse` hook in `.claude/settings.local.json`). Blocks Claude Code commits on unbalanced brackets / unterminated strings. Heuristic only — RStudio `parse()`/`runApp()` stays the gold check. Hook config is local/gitignored; the `tools/` scripts are committed. | Yes — session 11 |
 | 2026-06-23 | Schema | Data-dictionary drift NOT yet reconciled: (1) `cases` schema in CLAUDE.md predates the demographic fields (CIMS_id, forename, surname, date_of_birth, age, postcode) now in data-dictionary.md and the template; (2) the case-context relevance field is named variously `visit_relevance` (CLAUDE.md), `epi_category` (data-dictionary.md) and `exposure_relevance` (app.R), and is documented as *derived* but is actually *stored/manually entered*. Needs one reconciliation pass + decision on the canonical name. | No |
 
 ---
