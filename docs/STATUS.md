@@ -3,13 +3,15 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-06-20 (session 8)
+**Last updated:** 2026-07-18 (session 11)
 
 ---
 
 ## Current focus
 
 **Architecture settled: Excel on SharePoint for data entry (upload to Shinylive viz app); no separate data entry Shiny app. Phase 3a Shiny app plan suspended — replaced by upgraded Excel template. Next: run make_template.R in RStudio to generate the new template, test it, then return to Phase 4 (Definitions & Tooltips) and Shinylive deployment.**
+
+**Session 11 (2026-07-18):** Dev-tooling addition (not Phase 4 work) — added an automated pre-commit static check for `app.R`. `tools/check_app.py` flags unbalanced brackets / unterminated strings; `tools/precommit_hook.py` runs it as a Claude Code `PreToolUse` hook (in the gitignored `.claude/settings.local.json`) that blocks any Claude Code commit while `app.R` is broken. Proven live. See decision register and the `CLAUDE.md` "Pre-commit static check" note.
 
 ---
 
@@ -248,6 +250,7 @@ Matt reviews and clears entries at the start of the next session.
 | 2026-06-18 | Architecture | Data entry approach: Excel on SharePoint (upload .xlsx to Shinylive viz app). Shiny data entry app suspended. Reasons: Shinylive can't write files; R-Portable viable but adds complexity; Power Apps requires Business 365 account not available on dev laptop. Excel is lower-risk for first outbreak. | Yes — session 6 |
 | 2026-06-19 | Permissions | Security review of settings.local.json completed. `Bash(git *)` and `Bash(git push *)` removed — git push now prompts. `Bash(python3 *)`, `Bash(Rscript *)`, `Bash(powershell.exe *)` retained — accepted risk for local dev. Pending decision: narrow `powershell.exe *` to `powershell.exe -NoProfile -NonInteractive *` (would cover all actual usage, block interactive session). Resume this decision next session. | Yes — session 8: powershell.exe removed entirely (was one-off Obsidian task) |
 | 2026-06-20 | Permissions | Full security overhaul completed (session 8). See log entry below. No outstanding decisions. | Yes |
+| 2026-07-18 | Tooling | Added an automated pre-commit static check for `app.R` (`tools/check_app.py` + `tools/precommit_hook.py`, wired as a Claude Code `PreToolUse` hook in `.claude/settings.local.json`). Blocks Claude Code commits on unbalanced brackets / unterminated strings. Heuristic only — RStudio `parse()`/`runApp()` stays the gold check. Hook config is local/gitignored; the `tools/` scripts are committed. | Yes — session 11 |
 
 ---
 
