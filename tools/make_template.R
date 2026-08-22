@@ -99,7 +99,7 @@ wb <- createWorkbook()
 # date_cols   — integer vector of column indices to format as dates
 # dropdowns   — list of list(col, formula): Excel list-string dropdowns
 # validations — list of list(col, type, ...): other dataValidation calls
-#               Supported types: "whole", "date", "custom"
+#               Supported types: "whole", "date" (openxlsx has no custom type)
 
 add_sheet <- function(wb, name, headers, example, col_widths = NULL,
                       date_cols = NULL, dropdowns = list(),
@@ -172,12 +172,6 @@ add_sheet <- function(wb, name, headers, example, col_widths = NULL,
                      type     = "date",
                      operator = v$operator,
                      value    = v$value)
-    } else if (v$type == "custom") {
-      dataValidation(wb, name,
-                     col   = v$col,
-                     rows  = 2:2000,
-                     type  = "custom",
-                     value = v$value)
     }
   }
 }
@@ -219,7 +213,7 @@ readme_rows <- list(
   list(style = note_style,    text = "One row per case. This is your main linelist and can hold everything you need for"),
   list(style = note_style,    text = "reporting and day-to-day case management."),
   list(style = note_style,    text = "•  case_id is an essential unique ID you enter yourself, in the form C-001, C-002 …"),
-  list(style = note_style,    text = "   Each must be unique — a duplicate is rejected as you type (and shown red if pasted)."),
+  list(style = note_style,    text = "   Each must be unique and follow the C-### pattern — a duplicate or wrong format turns red."),
   list(style = note_style,    text = "   The rest of a row is greyed out until you give it a case_id, so enter it first."),
   list(style = note_style,    text = "The column headers are colour-coded:"),
   list(style = note_style,    text = "•  MAROON headers are read by the network tool: case_id, age_group, gender, onset_date,"),
@@ -291,9 +285,8 @@ readme_rows <- list(
   list(style = note_style,    text = ""),
 
   list(style = section_style, text = "VALIDATION — what the cells check as you type"),
-  list(style = note_style,    text = "•  case_id / context_id: must follow the pattern (C-### / Ctxt-###) and be unique in"),
-  list(style = note_style,    text = "   the column; a duplicate or wrong format is rejected as you type, and a pasted"),
-  list(style = note_style,    text = "   duplicate is highlighted red."),
+  list(style = note_style,    text = "•  case_id / context_id: should follow the pattern (C-### / Ctxt-###) and be unique in"),
+  list(style = note_style,    text = "   the column; a duplicate or wrong-format ID is highlighted red so you can correct it."),
   list(style = note_style,    text = "•  Dates (date_of_birth, onset_date, visit_date …): must be a valid date; text is rejected."),
   list(style = note_style,    text = "•  CIMS_id: turns amber if the same value appears more than once."),
   list(style = note_style,    text = "•  likely_index_case: turns red if set to the case's own ID."),
@@ -701,9 +694,6 @@ add_sheet(
     list(col = 31, formula = "OFFSET(Dropdowns!$J$2,0,0,COUNTA(Dropdowns!$J$2:$J$100),1)")
   ),
   validations = list(
-    # case_id (col 1): manual UID — must match C-### and be unique in the column
-    list(col = 1,  type = "custom",
-         value = 'AND(LEFT(A2,2)="C-",LEN(A2)>=5,ISNUMBER(VALUE(MID(A2,3,20))),COUNTIF($A$2:$A$1001,A2)<2)'),
     list(col = 5,  type = "date", operator = "between",
          value = as.Date(c("1900-01-01", "2100-01-01"))),
     list(col = 12, type = "date", operator = "between",
@@ -727,8 +717,8 @@ addStyle(wb, "cases", maroon_hdr_style,
          gridExpand = TRUE, stack = TRUE)
 
 # case_id (A) is a manually-entered unique ID (ADR-007) — no formula. Pattern
-# and uniqueness are enforced by data validation; duplicates are flagged red and
-# a row is greyed out until its ID is entered (see below).
+# and uniqueness are flagged by conditional formatting (openxlsx has no custom
+# data validation); a row is greyed out until its ID is entered (see below).
 
 # age (F): whole years between date_of_birth (E) and onset_date (M)
 age_formulas <- paste0(
@@ -797,13 +787,14 @@ conditionalFormatting(wb, "cases",
                       rule  = '$A2=""',
                       style = blank_row_style)
 
-# Red highlight on a duplicate case_id (col A). Validation rejects typed dupes;
-# this also catches dupes introduced by pasting (validation does not run on paste).
+# Red highlight on a bad case_id (col A): a duplicate, OR not matching the C-###
+# pattern. openxlsx cannot write custom data validation, so uniqueness/format are
+# flagged here rather than rejected on entry (ADR-007).
 conditionalFormatting(wb, "cases",
                       cols  = 1,
                       rows  = 2:1001,
                       type  = "expression",
-                      rule  = "AND(LEN($A2)>0,COUNTIF($A$2:$A$1001,$A2)>1)",
+                      rule  = 'AND(LEN($A2)>0,OR(COUNTIF($A$2:$A$1001,$A2)>1,NOT(AND(LEFT($A2,2)="C-",LEN($A2)>=5,ISNUMBER(VALUE(MID($A2,3,20)))))))',
                       style = self_ref_style)
 
 # Amber highlight on CIMS_id (col B) if the value appears more than once
@@ -853,11 +844,6 @@ add_sheet(
   has_example = FALSE,
   dropdowns   = list(
     list(col = 3, formula = "OFFSET(Dropdowns!$A$2,0,0,COUNTA(Dropdowns!$A$2:$A$100),1)")
-  ),
-  validations = list(
-    # context_id (col 1): manual UID — must match Ctxt-### and be unique
-    list(col = 1, type = "custom",
-         value = 'AND(LEFT(A2,5)="Ctxt-",LEN(A2)>=8,ISNUMBER(VALUE(MID(A2,6,20))),COUNTIF($A$2:$A$1001,A2)<2)')
   )
 )
 writeData(wb, "contexts", contexts_d[-1, ], startRow = 3, startCol = 1, colNames = FALSE)
@@ -874,12 +860,13 @@ conditionalFormatting(wb, "contexts",
                       rule  = '$A2=""',
                       style = blank_row_style)
 
-# Red highlight on a duplicate context_id (catches pasted dupes).
+# Red highlight on a bad context_id: a duplicate, OR not matching the Ctxt-###
+# pattern (flagged, not rejected — openxlsx has no custom validation; ADR-007).
 conditionalFormatting(wb, "contexts",
                       cols  = 1,
                       rows  = 2:1001,
                       type  = "expression",
-                      rule  = "AND(LEN($A2)>0,COUNTIF($A$2:$A$1001,$A2)>1)",
+                      rule  = 'AND(LEN($A2)>0,OR(COUNTIF($A$2:$A$1001,$A2)>1,NOT(AND(LEFT($A2,5)="Ctxt-",LEN($A2)>=8,ISNUMBER(VALUE(MID($A2,6,20)))))))',
                       style = self_ref_style)
 
 # Sorting and filtering allowed (IDs are manual, ADR-007); row-deletion blocked.

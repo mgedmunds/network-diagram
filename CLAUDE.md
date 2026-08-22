@@ -56,7 +56,7 @@ The template also carries a **Dropdowns** tab (one editable list per categorical
 ### cases — one row per case
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `case_id` | character | yes | unique identifier; PK; format `C-nnn`; **manually entered** (ADR-007), pattern + uniqueness enforced by template validation |
+| `case_id` | character | yes | unique identifier; PK; format `C-nnn`; **manually entered** (ADR-007); duplicate/wrong-format flagged red by conditional formatting |
 | `onset_date` | date | yes | drives time slider, epi curve, infectious-period logic |
 | `age_group` | character | no | fixed bands: `Under 1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+` |
 | `gender` | character | no | `Male`, `Female`, `Other`, `Unknown`; available as an epi-curve grouping option |
@@ -70,7 +70,7 @@ The Excel template's `cases` sheet also carries demographic and case-management 
 ### contexts — one row per context
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `context_id` | character | yes | PK; join key throughout; format `Ctxt-nnn`; **manually entered** (ADR-007), pattern + uniqueness enforced by template validation |
+| `context_id` | character | yes | PK; join key throughout; format `Ctxt-nnn`; **manually entered** (ADR-007); duplicate/wrong-format flagged red by conditional formatting |
 | `context_name` | character | yes | human-readable name |
 | `context_type` | character | yes | user-defined categorical (not pre-coded) |
 

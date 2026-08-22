@@ -8,9 +8,10 @@
 `case_id` (cases sheet) and `context_id` (contexts sheet) are **manually entered**
 by the user as essential unique IDs, following a fixed pattern (`C-001`,
 `Ctxt-001`). They are no longer auto-generated in the Excel template by a
-row-position formula (`"C-"&TEXT(ROW()-1,"000")`). The template enforces the
-pattern and uniqueness through data validation and highlights problems with
-conditional formatting.
+row-position formula (`"C-"&TEXT(ROW()-1,"000")`). The template checks pattern
+and uniqueness with **conditional formatting** (a red highlight on any duplicate
+or wrong-format ID) — `openxlsx` has no custom data-validation type, so problems
+are flagged rather than rejected on entry.
 
 ## Alternatives considered
 
@@ -36,10 +37,12 @@ conditional formatting.
   `OFFSET`/`COUNTA`.
 - **Local numbering flexibility.** Teams can use their own scheme within the
   `C-###` / `Ctxt-###` pattern rather than a fixed formula output.
-- **No macros.** Pattern and uniqueness are enforced with plain data validation
-  (`COUNTIF(...) < 2` plus a pattern check), which rejects duplicates/malformed
-  IDs as they are typed; a red conditional-format highlight catches duplicates
-  introduced by pasting (validation does not run on paste).
+- **No macros.** Pattern and uniqueness are checked with conditional formatting
+  (a red highlight when `COUNTIF(...) > 1` or the ID doesn't match the pattern).
+  `openxlsx` supports only whole/decimal/date/time/textLength/list data
+  validation — not custom-formula validation — so IDs are *flagged* for
+  correction rather than *rejected* on entry. (This also covers pasted values,
+  which real data validation would miss anyway.)
 
 ## Consequences
 

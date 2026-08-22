@@ -15,7 +15,7 @@ Every categorical field takes its dropdown options from a column on the **Dropdo
 
 | Field | Type | Key | Required | Tool? | Description |
 |---|---|---|---|---|---|
-| `case_id` | character | PK | Yes | Yes | Unique case identifier, **manually entered** (ADR-007), pattern `C-001`, `C-002` … Pattern and uniqueness enforced by data validation; duplicates flagged red. Join key across all tables. |
+| `case_id` | character | PK | Yes | Yes | Unique case identifier, **manually entered** (ADR-007), pattern `C-001`, `C-002` … Duplicate or wrong-format IDs are flagged red by conditional formatting (openxlsx has no custom validation). Join key across all tables. |
 | `CIMS_id` | character | — | No | No | Reference number from CIMS or equivalent national surveillance system. Must be unique; template highlights duplicates in amber. |
 | `forename` | character | — | No | No | Case forename. |
 | `surname` | character | — | No | No | Case surname. |
@@ -56,7 +56,7 @@ One row per unique context. Provided as a dedicated `contexts` sheet in the xlsx
 
 | Field | Type | Key | Indexed | Required | Description |
 |---|---|---|---|---|---|
-| `context_id` | character | PK | Yes | Yes | Primary key, **manually entered** (ADR-007), pattern `Ctxt-001`, `Ctxt-002` … Pattern and uniqueness enforced by data validation; duplicates flagged red. Join key in `case_contexts` and `visit_dates`. |
+| `context_id` | character | PK | Yes | Yes | Primary key, **manually entered** (ADR-007), pattern `Ctxt-001`, `Ctxt-002` … Duplicate or wrong-format IDs are flagged red by conditional formatting. Join key in `case_contexts` and `visit_dates`. |
 | `context_name` | character | — | No | Yes | Human-readable name for the context. Free text; should be unique within the dataset. |
 | `context_type` | character | — | Yes | Yes | User-defined categorical label describing the type of context (e.g. `School`, `Household`, `Healthcare`). Not pre-coded — values are determined by the data entered. Drives node colour in the network and the context-type filter. |
 
