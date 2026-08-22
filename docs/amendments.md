@@ -13,6 +13,18 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
+- [ ] **Contexts column — switch to manual paste instead of auto-fill (user preference).**
+  Alternative to the current auto-populated `AGGREGATE` formula (B2.5 / commit 09c3f90):
+  leave column AD blank in the generated template and instead put the contexts array
+  formula in the README with step-by-step paste instructions — user pastes it into AD2,
+  presses **Ctrl+Shift+Enter** (array entry — note: NOT Ctrl+Alt+Enter), then copies AD2
+  down. Rationale (user): simpler to understand, matches a previous version.
+  **DECISION FIRST:** test the auto `AGGREGATE` version — it should fill AD with no user
+  action at all (no paste, no CSE), which is simpler for end users, so this may be
+  unnecessary. If the manual approach is still preferred, implement by: removing the
+  generated AD formula from `make_template.R`, and restoring a README paste section with the
+  CSE `TEXTJOIN`/`MATCH` formula. *(requested: 2026-08-22)*
+
 - [ ] Upload confirmation box: add a succinct, reassuring privacy statement to the green success alert shown after a file is uploaded (`output$upload_summary`). It should make clear the data stayed on the user's device / in their browser and was not sent outside the organisation's IT infrastructure. Proposed wording (confirm against deployment before using): "Your file was read directly in your web browser on this device — it is not sent to any server and does not leave your organisation's IT environment." *(IMPORTANT — factual accuracy depends on deployment: TRUE for the Shinylive/GitHub Pages browser-only build (WebR); NOT true if the app is ever hosted on a Shiny server, where uploads go to that server. Word it to match the actual deployment model before release.)* *(requested: 2026-06-20)*
 
 ---
