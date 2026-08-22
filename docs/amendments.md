@@ -39,6 +39,18 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Parked (needs decision or not urgent)
 
+- [ ] **Epi-window anchor date — symptom onset vs rash onset (epi correctness — CHECK).**
+  `exposure_window` and `infectious_period` are currently calculated from `onset_date`
+  (symptom onset) — both in the template formulas (col M) and in the app's timeline / epi-
+  window logic (the inc/inf parameters are applied relative to `onset_date`). Measles
+  guidance usually anchors the **infectious period on RASH onset** (commonly 4 days before
+  to 4 days after rash), and incubation is often measured to rash onset too — so
+  `date_of_rash` (col N) may be the correct anchor, possibly for both windows.
+  **DECISION NEEDED:** confirm against UKHSA measles guidance which date each window should
+  use (the two windows may differ). If rash onset: switch the template formulas from M to N
+  and update the app's epi-window logic, with a sensible fallback to symptom onset where
+  rash date is missing. Likely warrants an ADR once decided. *(raised 2026-08-22)*
+
 - [ ] UI: node selector resets to blank whenever the view or filters change. Could instead preserve the selection if the same node ID exists in the new view. Needs a decision on whether this is the desired behaviour. Reassess once the move-to-sidebar item is done. *(requested: 2026-06-19)*
 
 - [ ] Docs: docs/erd.svg is no longer auto-generated (DiagrammeR removed). If the schema changes, it must be updated manually or regenerated via a separate script. Low priority until schema is finalised. *(requested: 2026-06-18)*
