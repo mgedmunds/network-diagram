@@ -1395,7 +1395,22 @@ server <- function(input, output, session) {
                   "Check for typos, or add the missing contexts to the contexts sheet first."))
     )
 
-    list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd)
+    # Optional Dropdowns sheet: gives the display order for the two categorical
+    # fields the tool reads (Setting Types -> context_type, Case confidence ->
+    # case_status). Absent for non-template uploads, in which case ordering falls
+    # back to first-appearance in the data (handled where the filters are built).
+    read_dropdown <- function(header) {
+      if (!"Dropdowns" %in% sheets) return(character(0))
+      dd <- tryCatch(readxl::read_excel(input$file$datapath, sheet = "Dropdowns"),
+                     error = function(e) NULL)
+      if (is.null(dd) || !header %in% names(dd)) return(character(0))
+      v <- dd[[header]]
+      as.character(v[!is.na(v) & nchar(trimws(as.character(v))) > 0])
+    }
+
+    list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd,
+         context_type_order = read_dropdown("Setting Types"),
+         case_status_order  = read_dropdown("Case confidence"))
   })
 
   # When new data loads, reset the date slider to span the full dataset date range
@@ -1404,12 +1419,28 @@ server <- function(input, output, session) {
     d    <- raw()
     rng  <- range(c(d$cases$onset_date, d$visit_dates$visit_date), na.rm = TRUE)
     updateSliderInput(session, "asof", min = rng[1], max = rng[2], value = c(rng[1], rng[2]))
-    types <- unique(d$contexts$context_type)
+
+    # Order categories by the uploaded Dropdowns lists where available. Values
+    # present in the data are shown in the list's order; any not in the list are
+    # appended (first-appearance) so nothing is ever hidden.
+    order_present <- function(in_data, desired) {
+      present <- intersect(desired, in_data)
+      c(present, setdiff(unique(in_data), present))
+    }
+
+    types <- order_present(unique(d$contexts$context_type), d$context_type_order)
     updateCheckboxGroupInput(session, "types", choices = types, selected = types)
-    # Only show case statuses that actually appear in this dataset
-    statuses <- if ("case_status" %in% names(d$cases))
-      intersect(c("Confirmed","Probable","Possible"), unique(d$cases$case_status))
-    else c("Confirmed","Probable","Possible")
+
+    # Case confidence: order by the Dropdowns 'Case confidence' list, else the
+    # standard order. Confirmed and Probable stay ticked by default; any extra
+    # values (e.g. new categories) appear as choices but unticked.
+    if ("case_status" %in% names(d$cases)) {
+      cs_desired <- if (length(d$case_status_order) > 0) d$case_status_order
+                    else c("Confirmed","Probable","Possible")
+      statuses <- order_present(unique(na.omit(d$cases$case_status)), cs_desired)
+    } else {
+      statuses <- c("Confirmed","Probable","Possible")
+    }
     updateCheckboxGroupInput(session, "case_status_filter",
       choices = statuses, selected = intersect(statuses, c("Confirmed","Probable")))
     updateDateInput(session, "date_from", value = rng[1], min = rng[1], max = rng[2])
