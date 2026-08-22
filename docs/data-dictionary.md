@@ -9,20 +9,42 @@ For the entity-relationship diagram see `docs/erd.svg` (auto-generated when the 
 
 One row per case. The two required fields are `case_id` and `onset_date`; all others are optional but recommended. Fields marked *(derived)* are auto-calculated in the Excel template and should not be typed manually.
 
-| Field | Type | Key | Required | Description |
-|---|---|---|---|---|
-| `case_id` | character | PK | Yes | Unique case identifier. Auto-generated in template as C-001, C-002 … based on row position. Join key across all tables. |
-| `CIMS_id` | character | — | No | Reference number from CIMS or equivalent national surveillance system. Must be unique; template highlights duplicates in amber. |
-| `forename` | character | — | No | Case forename. |
-| `surname` | character | — | No | Case surname. |
-| `date_of_birth` | date | — | No | Date of birth. Used to calculate age at onset. Format: DD/MM/YYYY in template. |
-| `onset_date` | date | — | Yes | Symptom onset date. Drives the time slider and timeline, and is the reference point for the infectious period and exposure window. Format: DD/MM/YYYY in template. |
-| `age` | integer | — | No | *(derived)* Age in whole years at onset date. Auto-calculated from `date_of_birth` and `onset_date` in template. Do not type manually. |
-| `gender` | character | — | No | Values: `Male`, `Female`, `Other`, `Unknown`. |
-| `postcode` | character | — | No | UK postcode. Free text; no format enforcement. |
-| `case_status` | character | — | No | Case confidence — how firmly the case is classified. Values: `Confirmed`, `Probable`, `Possible`. Displayed in the UI as "Case confidence"; field name remains `case_status`. |
-| `vaccination_status` | character | — | No | Measles vaccination history at time of illness. Values: `Unvaccinated`, `1 dose`, `2 doses`, `Unknown`. |
-| `likely_index_case` | character | FK | No | `case_id` of the case recorded as the likely source of infection for this case. Self-reference → `cases.case_id`. Drives the arrows in the "Who infected whom" view; one source per case. Template highlights it red if set to the case's own ID. |
+The `cases` sheet doubles as a working linelist. Columns are listed below in template order. **Tool?** = Yes means the network tool reads the field (maroon header in the template); No means it is collected for the linelist but not used by the tool (dark blue header).
+
+| Field | Type | Key | Required | Tool? | Description |
+|---|---|---|---|---|---|
+| `case_id` | character | PK | Yes | Yes | Unique case identifier. Auto-generated in template as C-001, C-002 … based on row position. Join key across all tables. |
+| `CIMS_id` | character | — | No | No | Reference number from CIMS or equivalent national surveillance system. Must be unique; template highlights duplicates in amber. |
+| `forename` | character | — | No | No | Case forename. |
+| `surname` | character | — | No | No | Case surname. |
+| `date_of_birth` | date | — | No | No | Date of birth. Used to calculate age at onset. Format: DD/MM/YYYY in template. |
+| `age` | integer | — | No | No | *(derived)* Age in whole years at onset date. Auto-calculated from `date_of_birth` and `onset_date` in template. Do not type manually. |
+| `age_group` | character | — | No | Yes | *(derived)* UKHSA age band from `age`: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+ years`. Auto-calculated in template. |
+| `gender` | character | — | No | Yes | Values: `Male`, `Female`, `Other`, `Unknown`. |
+| `ethnicity` | character | — | No | No | ONS 2021 census category. Dropdown sourced from the Ethnicity list on the Lookups tab. |
+| `postcode` | character | — | No | No | UK postcode. Free text; no format enforcement. |
+| `utla` | character | — | No | No | Upper-tier local authority. Free text. |
+| `report_date` | date | — | No | No | Date the case was reported/notified. Format: DD/MM/YYYY. |
+| `onset_date` | date | — | Yes | Yes | Symptom onset date. Drives the time slider and timeline, and is the reference point for the infectious period and exposure window. Format: DD/MM/YYYY in template. |
+| `date_of_rash` | date | — | No | No | Date of rash onset. Format: DD/MM/YYYY. |
+| `exposure_window` | character | — | No | No | *(derived)* Date range 21 to 7 days before `onset_date` (measles incubation default). Auto-calculated text range in template; uses fixed defaults (does not follow the app's editable parameters). |
+| `infectious_period` | character | — | No | No | *(derived)* Date range 4 days before to 4 days after `onset_date` (measles default). Auto-calculated text range in template; uses fixed defaults. |
+| `case_status` | character | — | No | Yes | Case confidence — how firmly the case is classified. Values: `Confirmed`, `Probable`, `Possible`. Displayed in the UI as "Case confidence"; field name remains `case_status`. |
+| `genotype` | character | — | No | No | Measles genotype (e.g. `B3`, `D8`). Free text. |
+| `confirmation_test_result` | character | — | No | No | Values: `Saliva IgM positive`, `Saliva IgM negative`, `Serum IgM positive`, `Serum IgM negative`, `PCR positive`, `PCR negative`, `Not tested`, `Pending`. |
+| `vaccination_status` | character | — | No | Yes | Measles vaccination history at time of illness. Values: `Unvaccinated`, `1 dose`, `2 doses`, `Unknown`. |
+| `vaccination_confirmation_method` | character | — | No | No | How vaccination status was confirmed. Values: `CHIS`, `GP`, `Occupational Health`, `Parent/guardian`, `Other`, `Unknown`. |
+| `vaccination_notes` | character | — | No | No | Free-text notes on vaccination history. |
+| `travel_history` | character | — | No | No | Any relevant travel. Values: `Yes`, `No`, `Unknown`. |
+| `travel_history_details` | character | — | No | No | Free-text detail where `travel_history` is Yes. |
+| `likely_index_case` | character | FK | No | Yes | `case_id` of the case recorded as the likely source of infection for this case. Self-reference → `cases.case_id`. Drives the arrows in the "Who infected whom" view; one source per case. Template highlights it red if set to the case's own ID. |
+| `probable_epi_link` | character | — | No | No | Whether a probable epidemiological link to another case is known. Values: `Yes`, `No`, `Unknown`. |
+| `total_contacts` | integer | — | No | No | Number of contacts identified for the case. Whole number ≥ 0. |
+| `vulnerable_contacts` | integer | — | No | No | Number of those contacts who are clinically vulnerable. Whole number ≥ 0. |
+| `primary_context_type` | character | — | No | Yes | The context type most associated with the case (e.g. `School`, `Household`). Dropdown from the Lookups Setting Types. Read from the workbook and stored on `cases`, but not yet used by any view ("store only"). |
+| `contexts` | character | — | No | No | *(derived)* Semi-colon list of context names linked to the case in `case_contexts`. Populated by a one-time array formula in the template (see the README tab). |
+| `status` | character | — | No | No | Case management status. Values: `Open`, `Closed`. |
+| `date_closed` | date | — | No | No | Date the case was closed. Format: DD/MM/YYYY. |
 
 ---
 

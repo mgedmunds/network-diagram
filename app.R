@@ -114,7 +114,8 @@ DICT_TABLES <- list(
     "age_group",           "character", "—",   "No",      "Age band. Fixed values: &lt;1 year, 1–4 years, 5–17 years, 18–29 years, 30–49 years, 50+ years. Aligned with UKHSA reporting and vaccination schedule milestones.",
     "gender",              "character", "—",   "No",      "Recorded gender of the case. Values: Male, Female, Other, Unknown.",
     "vaccination_status",  "character", "—",   "No",      "Measles vaccination history at time of illness. Values: Unvaccinated, 1 dose, 2 doses, Unknown.",
-    "case_status",         "character", "—",   "No",      "Case confidence — how firmly the case is classified. Values: Confirmed, Probable, Possible. Field name remains case_status; displayed as 'Case confidence'."
+    "case_status",         "character", "—",   "No",      "Case confidence — how firmly the case is classified. Values: Confirmed, Probable, Possible. Field name remains case_status; displayed as 'Case confidence'.",
+    "primary_context_type", "character", "—",  "No",      "The context type most associated with the case (e.g. School, Household). Read from the workbook and stored, but not yet used by any view."
   ),
   contexts = tibble::tribble(
     ~Field,          ~Type,       ~Key,  ~Required, ~Description,
@@ -258,7 +259,10 @@ make_demo_data <- function() {
     j    <- sample(seq_len(nrow(cand)), 1, prob = w)
     cand$case_id[j]
   }))
-  cases <- cases |> mutate(likely_index_case = index_cases)
+  # primary_context_type: the type of each case's primary community context.
+  # Stored on cases for the linelist; not yet used by any view.
+  cases <- cases |> mutate(likely_index_case    = index_cases,
+                           primary_context_type = community$context_type[prim])
 
   list(cases = cases, contexts = contexts, case_contexts = case_contexts,
        visit_dates = visit_dates)

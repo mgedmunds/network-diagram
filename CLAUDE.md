@@ -61,6 +61,9 @@ Four sheets (from `.xlsx` upload or demo data). Full field-level definitions are
 | `vaccination_status` | character | no | `Unvaccinated`, `1 dose`, `2 doses`, `Unknown` |
 | `case_status` | character | no | `Confirmed`, `Probable`, `Possible`; **displayed in the UI as "Case confidence"** (field name unchanged) |
 | `likely_index_case` | character | no | `case_id` of the recorded source case (self-reference → cases); drives the "Who infected whom" view. One source per case. |
+| `primary_context_type` | character | no | The context type most associated with the case (e.g. `School`, `Household`). Read from the template and stored on `cases`, but not yet used by any view ("store only" — added 2026-08-22). |
+
+The Excel template's `cases` sheet also carries demographic and case-management fields for use as a working linelist (CIMS_id, forename, surname, date_of_birth, age, ethnicity, postcode, utla, report_date, date_of_rash, exposure_window, infectious_period, genotype, confirmation_test_result, vaccination_confirmation_method, vaccination_notes, travel_history, travel_history_details, probable_epi_link, total_contacts, vulnerable_contacts, status, date_closed). These are **not read by the tool** — see `docs/data-dictionary.md`. Maroon column headers in the template mark the tool-read fields above; dark blue marks the external-only fields.
 
 ### contexts — one row per context
 | Field | Type | Required | Notes |
