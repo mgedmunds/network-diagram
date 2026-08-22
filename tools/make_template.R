@@ -72,6 +72,7 @@ section_style <- createStyle(
 
 dup_style      <- createStyle(bgFill = "#FFD700", fontColour = "#000000")
 self_ref_style <- createStyle(bgFill = "#FFCCCC", fontColour = "#CC0000")
+blank_row_style <- createStyle(bgFill = "#ECECEC")   # greys a row until its UID is entered
 
 input_style <- createStyle(fgFill = "#FFF9C4", border = "Bottom", borderColour = "#CCCCCC")
 
@@ -216,7 +217,11 @@ readme_rows <- list(
 
   list(style = section_style, text = "CASES SHEET"),
   list(style = note_style,    text = "One row per case. This is your main linelist and can hold everything you need for"),
-  list(style = note_style,    text = "reporting and day-to-day case management. The column headers are colour-coded:"),
+  list(style = note_style,    text = "reporting and day-to-day case management."),
+  list(style = note_style,    text = "•  case_id is an essential unique ID you enter yourself, in the form C-001, C-002 …"),
+  list(style = note_style,    text = "   Each must be unique — a duplicate is rejected as you type (and shown red if pasted)."),
+  list(style = note_style,    text = "   The rest of a row is greyed out until you give it a case_id, so enter it first."),
+  list(style = note_style,    text = "The column headers are colour-coded:"),
   list(style = note_style,    text = "•  MAROON headers are read by the network tool: case_id, age_group, gender, onset_date,"),
   list(style = note_style,    text = "   case_status, vaccination_status, likely_index_case, primary_context_type."),
   list(style = note_style,    text = "   Do not rename these — the upload matches them by name (case-sensitive)."),
@@ -227,7 +232,8 @@ readme_rows <- list(
   list(style = section_style, text = "CONTEXTS SHEET"),
   list(style = note_style,    text = "One row per place (context) linked to the outbreak — a school, household, workplace,"),
   list(style = note_style,    text = "healthcare setting, and so on."),
-  list(style = note_style,    text = "•  context_id is generated automatically (Ctxt-001, Ctxt-002 …) — do not type in it."),
+  list(style = note_style,    text = "•  context_id is an essential unique ID you enter, in the form Ctxt-001, Ctxt-002 …"),
+  list(style = note_style,    text = "   (unique, enforced the same way as case_id; the row greys out until it is filled)."),
   list(style = note_style,    text = "•  context_type is chosen from a dropdown (the Setting Types list on the Dropdowns tab)."),
   list(style = note_style,    text = ""),
 
@@ -246,17 +252,16 @@ readme_rows <- list(
   list(style = note_style,    text = ""),
 
   list(style = section_style, text = "RECORDS MANAGEMENT"),
-  list(style = note_style,    text = "Do not delete cases from this list. Deleting a row renumbers the case_id of every"),
-  list(style = note_style,    text = "case below it, because IDs are based on row position."),
-  list(style = note_style,    text = "If a case is ruled out or should be removed from active reporting, set its Status"),
-  list(style = note_style,    text = "(on the cases sheet) to 'Discarded'. You can then filter Discarded cases out of your"),
-  list(style = note_style,    text = "views while keeping a complete record."),
+  list(style = note_style,    text = "Prefer not to delete cases from this list — keep a complete record. If a case is"),
+  list(style = note_style,    text = "ruled out or should leave active reporting, set its Status (on the cases sheet) to"),
+  list(style = note_style,    text = "'Discarded', which you can then filter out."),
+  list(style = note_style,    text = "Enter records top-down without leaving empty rows in the middle: the ID dropdowns on"),
+  list(style = note_style,    text = "the other sheets read the list from the top down and stop at the first empty row."),
+  list(style = note_style,    text = "You can sort and filter the sheet freely — the IDs are yours and won't change."),
   list(style = note_style,    text = ""),
 
   list(style = section_style, text = "CALCULATED FIELDS (filled in automatically — do not type in these)"),
   list(style = note_style,    text = "Some columns are worked out for you and are locked with light-blue shading:"),
-  list(style = note_style,    text = "•  case_id: C-001, C-002 … based on row position."),
-  list(style = note_style,    text = "•  context_id: Ctxt-001, Ctxt-002 … based on row position."),
   list(style = note_style,    text = "•  age / age_group: worked out from date_of_birth and onset_date."),
   list(style = note_style,    text = "•  exposure_window: 21 to 7 days before onset_date (measles incubation default)."),
   list(style = note_style,    text = "•  infectious_period: 4 days before to 4 days after onset_date (measles default)."),
@@ -286,6 +291,9 @@ readme_rows <- list(
   list(style = note_style,    text = ""),
 
   list(style = section_style, text = "VALIDATION — what the cells check as you type"),
+  list(style = note_style,    text = "•  case_id / context_id: must follow the pattern (C-### / Ctxt-###) and be unique in"),
+  list(style = note_style,    text = "   the column; a duplicate or wrong format is rejected as you type, and a pasted"),
+  list(style = note_style,    text = "   duplicate is highlighted red."),
   list(style = note_style,    text = "•  Dates (date_of_birth, onset_date, visit_date …): must be a valid date; text is rejected."),
   list(style = note_style,    text = "•  CIMS_id: turns amber if the same value appears more than once."),
   list(style = note_style,    text = "•  likely_index_case: turns red if set to the case's own ID."),
@@ -297,8 +305,8 @@ readme_rows <- list(
   list(style = section_style, text = "A FEW GENERAL RULES"),
   list(style = note_style,    text = "•  Do not rename or reorder the sheet tabs or the column headers."),
   list(style = note_style,    text = "•  Dates must be entered as Excel dates (DD/MM/YYYY), not plain text."),
-  list(style = note_style,    text = "•  You can resize rows and columns on the cases sheet, but the locked (blue) columns"),
-  list(style = note_style,    text = "   cannot be typed into."),
+  list(style = note_style,    text = "•  You can resize, sort and filter the cases and contexts sheets. The locked (blue)"),
+  list(style = note_style,    text = "   calculated columns cannot be typed into."),
   list(style = note_style,    text = "")
 )
 
@@ -401,9 +409,9 @@ setColWidths(wb, "Dropdowns", cols = seq_along(dropdown_lists),
 
 
 # ---- Dummy data (fictional 20-case measles outbreak) ------------------------
-# Respects relational rules: case_id / context_id are formula columns — left
-# blank here and overwritten by writeFormula after each sheet is created.
-# visit_dates are generated programmatically from onset dates and epi windows.
+# case_id / context_id are manually-entered unique IDs (ADR-007), so the demo
+# provides real values (C-001…, Ctxt-001…). visit_dates are generated
+# programmatically from onset dates and epi windows.
 
 onset_dates <- as.Date(c(
   "2026-03-05","2026-03-12","2026-03-14","2026-03-15","2026-03-18",
@@ -413,7 +421,7 @@ onset_dates <- as.Date(c(
 ))
 
 cases_d <- data.frame(
-  case_id            = rep("", 20),
+  case_id            = paste0("C-", formatC(1:20, width = 3, flag = "0")),
   CIMS_id            = paste0("CIMS-", formatC(1:20, width = 4, flag = "0")),
   forename           = c("Sophie","Liam","Emma","Noah","Olivia","Jack","Amelia",
                          "Harry","Isla","George","Poppy","Charlie","Grace","Oscar",
@@ -491,7 +499,7 @@ cases_d$date_closed     <- onset_dates + 21
 cases_d$date_closed[cases_d$status == "Open"] <- as.Date(NA)
 
 contexts_d <- data.frame(
-  context_id   = rep("", 15),
+  context_id   = paste0("Ctxt-", formatC(1:15, width = 3, flag = "0")),
   context_name = c(
     "Oakfield Primary School",    "Sunnydale Day Nursery",
     "14 Elm Street",              "7 Birchwood Close",
@@ -637,7 +645,7 @@ cases_d <- cases_d[, cases_col_order]
 # 32-column linelist in logical case-management order. Header colour marks
 # whether the network tool reads the column (maroon) or it is external
 # collection only (blue). Column letters below drive the formulas.
-#   A  case_id                 — MAROON, auto-formula (C-001…), locked
+#   A  case_id                 — MAROON, manual UID (C-001…), pattern+unique validated
 #   B  CIMS_id                 — manual; amber highlight on duplicate
 #   C  forename                — free text
 #   D  surname                 — free text
@@ -687,12 +695,15 @@ add_sheet(
     list(col = 20, formula = "OFFSET(Dropdowns!$F$2,0,0,COUNTA(Dropdowns!$F$2:$F$100),1)"),
     list(col = 21, formula = "OFFSET(Dropdowns!$G$2,0,0,COUNTA(Dropdowns!$G$2:$G$100),1)"),
     list(col = 23, formula = "OFFSET(Dropdowns!$H$2,0,0,COUNTA(Dropdowns!$H$2:$H$100),1)"),
-    list(col = 25, formula = "cases!$A$2:$A$1001"),
+    list(col = 25, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$A$2:$A$1001),1)"),
     list(col = 26, formula = "OFFSET(Dropdowns!$I$2,0,0,COUNTA(Dropdowns!$I$2:$I$100),1)"),
     list(col = 29, formula = "OFFSET(Dropdowns!$A$2,0,0,COUNTA(Dropdowns!$A$2:$A$100),1)"),
     list(col = 31, formula = "OFFSET(Dropdowns!$J$2,0,0,COUNTA(Dropdowns!$J$2:$J$100),1)")
   ),
   validations = list(
+    # case_id (col 1): manual UID — must match C-### and be unique in the column
+    list(col = 1,  type = "custom",
+         value = 'AND(LEFT(A2,2)="C-",LEN(A2)>=5,ISNUMBER(VALUE(MID(A2,3,20))),COUNTIF($A$2:$A$1001,A2)<2)'),
     list(col = 5,  type = "date", operator = "between",
          value = as.Date(c("1900-01-01", "2100-01-01"))),
     list(col = 12, type = "date", operator = "between",
@@ -715,10 +726,9 @@ addStyle(wb, "cases", maroon_hdr_style,
          rows = 1, cols = c(1, 7, 8, 13, 17, 20, 25, 29),
          gridExpand = TRUE, stack = TRUE)
 
-# case_id (A): row-position formula, fires regardless of other columns
-writeFormula(wb, "cases",
-             rep('"C-"&TEXT(ROW()-1,"000")', 1000),
-             startRow = 2, startCol = 1)
+# case_id (A) is a manually-entered unique ID (ADR-007) — no formula. Pattern
+# and uniqueness are enforced by data validation; duplicates are flagged red and
+# a row is greyed out until its ID is entered (see below).
 
 # age (F): whole years between date_of_birth (E) and onset_date (M)
 age_formulas <- paste0(
@@ -768,15 +778,33 @@ for (i in seq_along(contexts_formulas)) {
                startRow = 1 + i, startCol = 30, array = TRUE)
 }
 
-# Locked (blue): auto-generated / formula columns — never edited
-# case_id (1), age (6), age_group (7), exposure_window (15), infectious_period (16), contexts (30)
+# Locked (blue): formula columns — never edited
+# age (6), age_group (7), exposure_window (15), infectious_period (16), contexts (30)
 addStyle(wb, "cases", locked_style,
-         rows = 2:1001, cols = c(1, 6, 7, 15, 16, 30), gridExpand = TRUE, stack = TRUE)
+         rows = 2:1001, cols = c(6, 7, 15, 16, 30), gridExpand = TRUE, stack = TRUE)
 
-# Unlocked: all editable columns
+# Unlocked: all editable columns (now includes case_id, col 1 — manual UID)
 addStyle(wb, "cases", unlocked_style,
          rows = 2:1001,
-         cols = c(2:5, 8:14, 17:29, 31, 32), gridExpand = TRUE, stack = TRUE)
+         cols = c(1:5, 8:14, 17:29, 31, 32), gridExpand = TRUE, stack = TRUE)
+
+# Grey out the rest of a row until its case_id (col A) is entered — prompts the
+# user to fill the essential UID first (ADR-007).
+conditionalFormatting(wb, "cases",
+                      cols  = 2:32,
+                      rows  = 2:1001,
+                      type  = "expression",
+                      rule  = '$A2=""',
+                      style = blank_row_style)
+
+# Red highlight on a duplicate case_id (col A). Validation rejects typed dupes;
+# this also catches dupes introduced by pasting (validation does not run on paste).
+conditionalFormatting(wb, "cases",
+                      cols  = 1,
+                      rows  = 2:1001,
+                      type  = "expression",
+                      rule  = "AND(LEN($A2)>0,COUNTIF($A$2:$A$1001,$A2)>1)",
+                      style = self_ref_style)
 
 # Amber highlight on CIMS_id (col B) if the value appears more than once
 conditionalFormatting(wb, "cases",
@@ -795,43 +823,73 @@ conditionalFormatting(wb, "cases",
                       rule  = "AND(LEN($Y2)>0,$Y2=$A2)",
                       style = self_ref_style)
 
-# Protection: formula columns stay locked and row-deletion stays blocked (IDs
-# are row-position based), but row heights and column widths remain resizable
-# (lockFormattingRows/Columns = FALSE) so users can size the linelist freely.
+# Protection: formula columns stay locked, but row/column resizing, sorting and
+# filtering are allowed. Sorting is safe now IDs are manual (ADR-007) rather than
+# row-position based. Row-deletion stays blocked (keeps the linelist gap-free,
+# which the ID dropdowns rely on).
 protectWorksheet(wb, "cases", protect = TRUE,
                  lockSelectingLockedCells = FALSE,
                  lockInsertingRows        = FALSE,
                  lockFormattingRows       = FALSE,
-                 lockFormattingColumns    = FALSE)
+                 lockFormattingColumns    = FALSE,
+                 lockAutoFilter           = FALSE,
+                 lockSorting              = FALSE)
+
+# Freeze the header row and the case_id column so both stay visible when scrolling
+# a wide, sortable linelist (overrides the header-only freeze from add_sheet).
+freezePane(wb, "cases", firstActiveRow = 2, firstActiveCol = 2)
 
 
 # ---- contexts ---------------------------------------------------------------
-# context_id (col 1) auto-generated. context_type validated against ContextTypes
-# named range in the Dropdowns tab.
+# context_id (col 1) is a manually-entered unique ID (ADR-007), pattern Ctxt-###.
+# context_type validated against ContextTypes named range in the Dropdowns tab.
 
 add_sheet(
   wb, "contexts",
   headers     = c("context_id", "context_name", "context_type"),
-  example     = list("", contexts_d$context_name[1], contexts_d$context_type[1]),
+  example     = list(contexts_d$context_id[1], contexts_d$context_name[1], contexts_d$context_type[1]),
   col_widths  = c(12, 35, 20),
   nrows       = 1000,
   has_example = FALSE,
   dropdowns   = list(
     list(col = 3, formula = "OFFSET(Dropdowns!$A$2,0,0,COUNTA(Dropdowns!$A$2:$A$100),1)")
+  ),
+  validations = list(
+    # context_id (col 1): manual UID — must match Ctxt-### and be unique
+    list(col = 1, type = "custom",
+         value = 'AND(LEFT(A2,5)="Ctxt-",LEN(A2)>=8,ISNUMBER(VALUE(MID(A2,6,20))),COUNTIF($A$2:$A$1001,A2)<2)')
   )
 )
 writeData(wb, "contexts", contexts_d[-1, ], startRow = 3, startCol = 1, colNames = FALSE)
 
-writeFormula(wb, "contexts",
-             rep('"Ctxt-"&TEXT(ROW()-1,"000")', 1000),
-             startRow = 2, startCol = 1)
-addStyle(wb, "contexts", locked_style,
-         rows = 2:1001, cols = 1, gridExpand = TRUE, stack = TRUE)
+# context_id is manual — no formula; all three columns editable.
 addStyle(wb, "contexts", unlocked_style,
-         rows = 2:1001, cols = 2:3, gridExpand = TRUE, stack = TRUE)
+         rows = 2:1001, cols = 1:3, gridExpand = TRUE, stack = TRUE)
+
+# Grey the rest of a row until its context_id is entered.
+conditionalFormatting(wb, "contexts",
+                      cols  = 2:3,
+                      rows  = 2:1001,
+                      type  = "expression",
+                      rule  = '$A2=""',
+                      style = blank_row_style)
+
+# Red highlight on a duplicate context_id (catches pasted dupes).
+conditionalFormatting(wb, "contexts",
+                      cols  = 1,
+                      rows  = 2:1001,
+                      type  = "expression",
+                      rule  = "AND(LEN($A2)>0,COUNTIF($A$2:$A$1001,$A2)>1)",
+                      style = self_ref_style)
+
+# Sorting and filtering allowed (IDs are manual, ADR-007); row-deletion blocked.
 protectWorksheet(wb, "contexts", protect = TRUE,
                  lockSelectingLockedCells = FALSE,
-                 lockInsertingRows        = FALSE)
+                 lockInsertingRows        = FALSE,
+                 lockFormattingRows       = FALSE,
+                 lockFormattingColumns    = FALSE,
+                 lockAutoFilter           = FALSE,
+                 lockSorting              = FALSE)
 
 
 # ---- case_contexts ----------------------------------------------------------
@@ -846,8 +904,8 @@ add_sheet(
   col_widths  = c(12, 14, 20),
   has_example = FALSE,
   dropdowns   = list(
-    list(col = 1, formula = "cases!$A$2:$A$1001"),
-    list(col = 2, formula = "contexts!$A$2:$A$1001"),
+    list(col = 1, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$A$2:$A$1001),1)"),
+    list(col = 2, formula = "OFFSET(contexts!$A$2,0,0,COUNTA(contexts!$A$2:$A$1001),1)"),
     list(col = 3, formula = '"Infectious period,Exposure window,Both,Neither"')
   )
 )
@@ -865,8 +923,8 @@ add_sheet(
   has_example = FALSE,
   date_cols   = 3,
   dropdowns   = list(
-    list(col = 1, formula = "cases!$A$2:$A$1001"),
-    list(col = 2, formula = "contexts!$A$2:$A$1001")
+    list(col = 1, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$A$2:$A$1001),1)"),
+    list(col = 2, formula = "OFFSET(contexts!$A$2,0,0,COUNTA(contexts!$A$2:$A$1001),1)")
   ),
   validations = list(
     list(col = 3, type = "date", operator = "between",
