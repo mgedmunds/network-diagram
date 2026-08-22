@@ -188,85 +188,117 @@ addWorksheet(wb, "README", tabColour = "#E74C3C")
 setColWidths(wb, "README", cols = 1, widths = 90)
 
 readme_rows <- list(
-  list(style = title_style,   text = "OUTBREAK NETWORK TOOL — DATA ENTRY TEMPLATE"),
+  list(style = title_style,   text = "MEASLES OUTBREAK LINELIST & DATA ENTRY TEMPLATE"),
   list(style = note_style,    text = ""),
-  list(style = section_style, text = "HOW TO FILL IN THIS TEMPLATE"),
-  list(style = note_style,    text = "This workbook contains example data for a fictional 20-case measles outbreak."),
-  list(style = note_style,    text = "Use it to explore the network tool, or overwrite the data with your outbreak data."),
+
+  list(style = section_style, text = "PURPOSE OF THIS SPREADSHEET"),
+  list(style = note_style,    text = "This workbook is the main linelist for recording and reporting measles cases."),
+  list(style = note_style,    text = "It can be used on its own, or alongside a case management system, to manage cases"),
+  list(style = note_style,    text = "throughout an outbreak."),
+  list(style = note_style,    text = "The fields highlighted in MAROON can also be read by a network analysis tool, to"),
+  list(style = note_style,    text = "visualise the transmission pathways between cases and the places they visited."),
   list(style = note_style,    text = ""),
-  list(style = note_style,    text = "1.  Fill in (or overwrite) the 'cases' sheet — one row per case."),
-  list(style = note_style,    text = "2.  Fill in (or overwrite) the 'contexts' sheet — one row per location linked to the outbreak."),
-  list(style = note_style,    text = "    Context types are validated against the 'Lookups' tab — add types there if needed."),
-  list(style = note_style,    text = "3.  Fill in (or overwrite) 'case_contexts' — one row per case x context combination."),
-  list(style = note_style,    text = "    Once filled, the 'contexts' column in the cases sheet will populate automatically."),
-  list(style = note_style,    text = "4.  Fill in (or overwrite) 'visit_dates' — one row per date a case visited a context."),
-  list(style = note_style,    text = "5.  Save as .xlsx and upload using the Upload button in the network tool."),
+
+  list(style = section_style, text = "HOW TO USE THIS WORKBOOK"),
+  list(style = note_style,    text = "The workbook opens with example data for a fictional 20-case outbreak. Explore it to"),
+  list(style = note_style,    text = "see how the sheets fit together, then overwrite it with your own data."),
   list(style = note_style,    text = ""),
-  list(style = section_style, text = "COLUMN HEADER COLOURS (cases sheet)"),
-  list(style = note_style,    text = "•  MAROON headers are the columns the network tool reads: case_id, age_group, gender,"),
-  list(style = note_style,    text = "   onset_date, case_status, vaccination_status, likely_index_case, primary_context_type."),
-  list(style = note_style,    text = "   Do not rename these headers — the upload matches them by name (case-sensitive)."),
-  list(style = note_style,    text = "•  DARK BLUE headers are collected for your linelist but are NOT used by the network tool."),
-  list(style = note_style,    text = "   You can leave them blank if you only want the network views."),
+  list(style = note_style,    text = "Fill the sheets in this order:"),
+  list(style = note_style,    text = "1.  cases — one row per case (your main linelist)."),
+  list(style = note_style,    text = "2.  contexts — one row per place linked to the outbreak (school, household, etc.)."),
+  list(style = note_style,    text = "3.  case_contexts — one row for each case-context link (who visited where)."),
+  list(style = note_style,    text = "4.  visit_dates — one row per date a case visited a context."),
+  list(style = note_style,    text = "5.  Save as .xlsx and upload it with the Upload button in the network tool."),
   list(style = note_style,    text = ""),
-  list(style = section_style, text = "RULES"),
-  list(style = note_style,    text = "•  case_id, context_id, age, age_group, exposure_window, infectious_period, and contexts"),
-  list(style = note_style,    text = "   are AUTO-GENERATED — do not type in these columns (locked, blue shading)."),
-  list(style = note_style,    text = "   case_id: C-001, C-002 … based on row position."),
-  list(style = note_style,    text = "   context_id: Ctxt-001, Ctxt-002 … based on row position."),
-  list(style = note_style,    text = "   age / age_group: calculated from date_of_birth and onset_date."),
-  list(style = note_style,    text = "   exposure_window: date range 21 to 7 days before onset_date (measles incubation default)."),
-  list(style = note_style,    text = "   infectious_period: date range 4 days before to 4 days after onset_date (measles default)."),
-  list(style = note_style,    text = "   contexts: lists all context names linked to the case in the case_contexts sheet (semi-colon separated)."),
-  list(style = note_style,    text = "•  CIMS_id: turns amber/yellow if a duplicate is detected — check and correct before uploading."),
-  list(style = note_style,    text = "•  Do not delete rows — IDs are based on row position and will renumber if rows are removed."),
-  list(style = note_style,    text = "•  Dates must be entered as Excel dates (DD/MM/YYYY) — not plain text."),
-  list(style = note_style,    text = "•  Do not rename or reorder sheet tabs or column headers."),
+  list(style = note_style,    text = "Each data sheet has an 'Instructions' link (to the right of its columns) that jumps"),
+  list(style = note_style,    text = "back to its section below."),
   list(style = note_style,    text = ""),
-  list(style = section_style, text = "CONTEXTS COLUMN — one-time formula setup (do this once after filling the sheet)"),
-  list(style = note_style,    text = "The 'contexts' column (AD) in the cases sheet is blank when the template first opens."),
-  list(style = note_style,    text = "After filling in cases, contexts, and case_contexts, add the formula:"),
-  list(style = note_style,    text = "  1. Click cell AD2 in the cases sheet."),
-  list(style = note_style,    text = "  2. Type = then copy and paste the formula text below into the formula bar."),
-  list(style = note_style,    text = "  3. Press Ctrl+Shift+Enter — NOT plain Enter. The formula bar must show {=...} with curly braces."),
-  list(style = note_style,    text = "     If you see plain =... without curly braces, delete and re-enter using Ctrl+Shift+Enter."),
-  list(style = note_style,    text = "  4. Copy AD2 (Ctrl+C), select AD3:AD1001, paste (Ctrl+V)."),
-  list(style = note_style,    text = "     Check a few of the pasted cells — they should also show {=...} with curly braces."),
+
+  list(style = section_style, text = "CASES SHEET"),
+  list(style = note_style,    text = "One row per case. This is your main linelist and can hold everything you need for"),
+  list(style = note_style,    text = "reporting and day-to-day case management. The column headers are colour-coded:"),
+  list(style = note_style,    text = "•  MAROON headers are read by the network tool: case_id, age_group, gender, onset_date,"),
+  list(style = note_style,    text = "   case_status, vaccination_status, likely_index_case, primary_context_type."),
+  list(style = note_style,    text = "   Do not rename these — the upload matches them by name (case-sensitive)."),
+  list(style = note_style,    text = "•  DARK BLUE headers are for your linelist only and are ignored by the network tool."),
+  list(style = note_style,    text = "   Leave them blank if you only want the network views."),
   list(style = note_style,    text = ""),
-  list(style = note_style,    text = '     IF(A2="","",IFERROR(TEXTJOIN("; ",TRUE,IF(ISNUMBER(MATCH(A2&contexts!$A$2:$A$1001,case_contexts!$A$2:$A$2001&case_contexts!$B$2:$B$2001,0)),contexts!$B$2:$B$1001,"")),""))'),
+
+  list(style = section_style, text = "CONTEXTS SHEET"),
+  list(style = note_style,    text = "One row per place (context) linked to the outbreak — a school, household, workplace,"),
+  list(style = note_style,    text = "healthcare setting, and so on."),
+  list(style = note_style,    text = "•  context_id is generated automatically (Ctxt-001, Ctxt-002 …) — do not type in it."),
+  list(style = note_style,    text = "•  context_type is chosen from a dropdown (the Setting Types list on the Dropdowns tab)."),
   list(style = note_style,    text = ""),
-  list(style = note_style,    text = "  Shows all context names linked to each case, semi-colon separated. Requires Excel 2019 or 365."),
+
+  list(style = section_style, text = "CASE_CONTEXTS SHEET"),
+  list(style = note_style,    text = "The bridging sheet: one row for each case-context link. It records which cases are"),
+  list(style = note_style,    text = "connected to which places, and drives the 'contexts' column back on the cases sheet."),
+  list(style = note_style,    text = "•  case_id and context_id are chosen from dropdowns (only IDs already entered appear)."),
+  list(style = note_style,    text = "•  exposure_relevance records your judgement of the link: Infectious period, Exposure"),
+  list(style = note_style,    text = "   window, Both, or Neither."),
   list(style = note_style,    text = ""),
-  list(style = section_style, text = "VALIDATION — what the cells will check as you type"),
-  list(style = note_style,    text = "•  date_of_birth, onset_date, visit_date: must be a valid date. Text is rejected."),
+
+  list(style = section_style, text = "VISIT_DATES SHEET"),
+  list(style = note_style,    text = "One row per date a case visited a context. Add every relevant visit date."),
+  list(style = note_style,    text = "•  case_id and context_id are chosen from dropdowns."),
+  list(style = note_style,    text = "•  visit_date must be a valid date (DD/MM/YYYY)."),
+  list(style = note_style,    text = ""),
+
+  list(style = section_style, text = "RECORDS MANAGEMENT"),
+  list(style = note_style,    text = "Do not delete cases from this list. Deleting a row renumbers the case_id of every"),
+  list(style = note_style,    text = "case below it, because IDs are based on row position."),
+  list(style = note_style,    text = "If a case is ruled out or should be removed from active reporting, set its Status"),
+  list(style = note_style,    text = "(on the cases sheet) to 'Discarded'. You can then filter Discarded cases out of your"),
+  list(style = note_style,    text = "views while keeping a complete record."),
+  list(style = note_style,    text = ""),
+
+  list(style = section_style, text = "CALCULATED FIELDS (filled in automatically — do not type in these)"),
+  list(style = note_style,    text = "Some columns are worked out for you and are locked with light-blue shading:"),
+  list(style = note_style,    text = "•  case_id: C-001, C-002 … based on row position."),
+  list(style = note_style,    text = "•  context_id: Ctxt-001, Ctxt-002 … based on row position."),
+  list(style = note_style,    text = "•  age / age_group: worked out from date_of_birth and onset_date."),
+  list(style = note_style,    text = "•  exposure_window: 21 to 7 days before onset_date (measles incubation default)."),
+  list(style = note_style,    text = "•  infectious_period: 4 days before to 4 days after onset_date (measles default)."),
+  list(style = note_style,    text = "•  contexts: the context names linked to each case (from case_contexts), semi-colon"),
+  list(style = note_style,    text = "   separated, filled in automatically."),
+  list(style = note_style,    text = "exposure_window and infectious_period use fixed measles defaults; they do not follow the"),
+  list(style = note_style,    text = "editable parameters inside the network tool."),
+  list(style = note_style,    text = "If the 'contexts' column is ever empty, refill it: click AD2, paste the formula below"),
+  list(style = note_style,    text = "into the formula bar, press Ctrl+Shift+Enter, then copy AD2 down over AD3:AD1001."),
+  list(style = note_style,    text = '   IF(A2="","",IFERROR(TEXTJOIN("; ",TRUE,IF(ISNUMBER(MATCH(A2&contexts!$A$2:$A$1001,case_contexts!$A$2:$A$2001&case_contexts!$B$2:$B$2001,0)),contexts!$B$2:$B$1001,"")),""))'),
+  list(style = note_style,    text = ""),
+
+  list(style = section_style, text = "DROPDOWN LISTS — how to edit the options (Dropdowns tab)"),
+  list(style = note_style,    text = "Every dropdown field takes its options from a column on the Dropdowns tab. To change"),
+  list(style = note_style,    text = "what appears in a dropdown, edit that column:"),
+  list(style = note_style,    text = "•  Add an option: type it in the next empty cell below the last entry."),
+  list(style = note_style,    text = "•  Remove an option: delete the cell contents (leave no blank rows in the middle — the"),
+  list(style = note_style,    text = "   list is read up to the first gap)."),
+  list(style = note_style,    text = "•  Rename an option: overtype it. IMPORTANT — renaming does NOT update cases already"),
+  list(style = note_style,    text = "   filled in with the old value; update those entries on the cases sheet by hand."),
+  list(style = note_style,    text = ""),
+  list(style = note_style,    text = "Two lists are also used by the network tool (their headers are MAROON):"),
+  list(style = note_style,    text = "•  Setting Types — the context types (used for context_type and primary_context_type)."),
+  list(style = note_style,    text = "•  Case confidence — the case_status values."),
+  list(style = note_style,    text = "For these two, the ORDER of the values sets the display order shown in the network"),
+  list(style = note_style,    text = "tool — arrange them how you want them to appear. Do not rename these two headers."),
+  list(style = note_style,    text = ""),
+
+  list(style = section_style, text = "VALIDATION — what the cells check as you type"),
+  list(style = note_style,    text = "•  Dates (date_of_birth, onset_date, visit_date …): must be a valid date; text is rejected."),
   list(style = note_style,    text = "•  CIMS_id: turns amber if the same value appears more than once."),
-  list(style = note_style,    text = "•  context_type: must match a value in the 'Lookups' tab (Setting Types list)."),
-  list(style = note_style,    text = "   To add a new type, go to the Lookups tab and add it to the Setting Types column."),
-  list(style = note_style,    text = "•  case_id in 'case_contexts' and 'visit_dates': dropdown shows only IDs from the cases sheet."),
-  list(style = note_style,    text = "•  context_id in 'case_contexts', 'visit_dates': dropdown shows only IDs from the contexts sheet."),
-  list(style = note_style,    text = "   Fill 'cases' and 'contexts' first — their IDs will then appear in the dropdowns."),
+  list(style = note_style,    text = "•  likely_index_case: turns red if set to the case's own ID."),
+  list(style = note_style,    text = "•  Dropdown fields: must match a value from the relevant Dropdowns column."),
+  list(style = note_style,    text = "•  case_id / context_id on case_contexts and visit_dates: choose from the dropdown —"),
+  list(style = note_style,    text = "   only IDs already in the cases and contexts sheets appear. Fill those two first."),
   list(style = note_style,    text = ""),
-  list(style = section_style, text = "DROPDOWN FIELDS — select from the list; do not type free text"),
-  list(style = note_style,    text = "•  gender:              Male | Female | Other | Unknown"),
-  list(style = note_style,    text = "•  ethnicity:           Values from the Lookups tab, Ethnicity column (ONS 2021 categories)"),
-  list(style = note_style,    text = "•  case_status (Case confidence): Confirmed | Probable | Possible"),
-  list(style = note_style,    text = "•  confirmation_test_result: Saliva/Serum IgM positive or negative | PCR positive or negative | Not tested | Pending"),
-  list(style = note_style,    text = "•  vaccination_status:  Unvaccinated | 1 dose | 2 doses | Unknown"),
-  list(style = note_style,    text = "•  vaccination_confirmation_method: CHIS | GP | Occupational Health | Parent/guardian | Other | Unknown"),
-  list(style = note_style,    text = "•  travel_history:      Yes | No | Unknown"),
-  list(style = note_style,    text = "•  likely_index_case:   Any case_id already in the cases sheet (turns red if set to the case's own ID)"),
-  list(style = note_style,    text = "•  probable_epi_link:   Yes | No | Unknown"),
-  list(style = note_style,    text = "•  primary_context_type: Values from the Lookups tab (Setting Types, editable)"),
-  list(style = note_style,    text = "•  status:              Open | Closed"),
-  list(style = note_style,    text = "•  genotype:            free text (e.g. B3, D8) — not a dropdown"),
-  list(style = note_style,    text = "•  exposure_relevance (case_contexts sheet): Infectious period | Exposure window | Both | Neither"),
-  list(style = note_style,    text = ""),
-  list(style = section_style, text = "LOOKUPS TAB — managing context types"),
-  list(style = note_style,    text = "•  The 'Lookups' tab contains the Setting Types list used to validate context_type entries."),
-  list(style = note_style,    text = "•  To add a type: type it in the next empty row of the Setting Types column."),
-  list(style = note_style,    text = "•  To remove a type: delete the cell contents (do not leave blank rows in the middle of the list)."),
-  list(style = note_style,    text = "•  To edit a type: overtype the existing value."),
-  list(style = note_style,    text = "•  Changes take effect immediately in the context_type dropdown."),
+
+  list(style = section_style, text = "A FEW GENERAL RULES"),
+  list(style = note_style,    text = "•  Do not rename or reorder the sheet tabs or the column headers."),
+  list(style = note_style,    text = "•  Dates must be entered as Excel dates (DD/MM/YYYY), not plain text."),
+  list(style = note_style,    text = "•  You can resize rows and columns on the cases sheet, but the locked (blue) columns"),
+  list(style = note_style,    text = "   cannot be typed into."),
   list(style = note_style,    text = "")
 )
 
@@ -275,25 +307,31 @@ for (i in seq_along(readme_rows)) {
   addStyle(wb, "README", readme_rows[[i]]$style, rows = i, cols = 1)
 }
 
+# README section rows — targets for the per-sheet Instructions links (B2.8).
+readme_texts <- vapply(readme_rows, function(r) r$text, character(1))
+find_readme_row <- function(txt) which(readme_texts == txt)[1]
+readme_row_cases        <- find_readme_row("CASES SHEET")
+readme_row_contexts     <- find_readme_row("CONTEXTS SHEET")
+readme_row_casecontexts <- find_readme_row("CASE_CONTEXTS SHEET")
+readme_row_visitdates   <- find_readme_row("VISIT_DATES SHEET")
 
-# ---- Lookups ----------------------------------------------------------------
-# Single-column list of valid setting/context types. Not an Excel Table —
-# kept as a plain named range (ContextTypes) so validation references it cleanly.
-# Users can add, remove, or edit values freely; no sheet protection applied.
 
-addWorksheet(wb, "Lookups", tabColour = "#E67E22")
-setColWidths(wb, "Lookups", cols = 1:3, widths = c(28, 62, 54))
+# ---- Dropdowns --------------------------------------------------------------
+# One column per categorical dropdown list used in the workbook. The cases and
+# contexts dropdowns read these columns via OFFSET, so editing a list here flows
+# straight through to the dropdowns — users can add, remove, or reorder values
+# freely (no sheet protection).
+#
+# Two columns are MAROON — "Setting Types" and "Case confidence" — because the
+# network tool also reads them: the ORDER of values in those two columns sets
+# the display order used in the tool. The rest are dark blue (workbook only).
+# There is no on-tab instructions column (B2.9) — full guidance is on the README
+# tab; the two tool-read headers carry a hover note.
 
-writeData(wb, "Lookups", "Setting Types", startRow = 1, startCol = 1, colNames = FALSE)
-addStyle(wb, "Lookups", hdr_style, rows = 1, cols = 1)
+addWorksheet(wb, "Dropdowns", tabColour = "#E67E22")
 
-default_types <- c("School", "Household", "Healthcare", "Community",
-                   "Workplace", "Childcare", "Place of worship", "Transport")
-writeData(wb, "Lookups", default_types, startRow = 2, startCol = 1, colNames = FALSE)
-addStyle(wb, "Lookups", note_style, rows = 2:(1 + length(default_types)), cols = 1)
-
-# Ethnicity list (column C) — ONS 2021 census 18+1 categories. Referenced by the
-# ethnicity dropdown on the cases sheet. Editable like Setting Types.
+# ONS 2021 census 18+1 ethnicity categories. Defined here (used both by the
+# Ethnicity dropdown list below and by the demo data further down).
 ons_ethnicity <- c(
   "White: English, Welsh, Scottish, Northern Irish or British",
   "White: Irish",
@@ -315,36 +353,51 @@ ons_ethnicity <- c(
   "Other: Arab",
   "Other: Any other ethnic group"
 )
-writeData(wb, "Lookups", "Ethnicity", startRow = 1, startCol = 3, colNames = FALSE)
-addStyle(wb, "Lookups", hdr_style, rows = 1, cols = 3)
-writeData(wb, "Lookups", ons_ethnicity, startRow = 2, startCol = 3, colNames = FALSE)
-addStyle(wb, "Lookups", note_style, rows = 2:(1 + length(ons_ethnicity)), cols = 3)
 
-# Instructions in column B
-writeData(wb, "Lookups", "About this tab", startRow = 1, startCol = 2, colNames = FALSE)
-addStyle(wb, "Lookups", hdr_style, rows = 1, cols = 2)
-
-lookup_instructions <- c(
-  "This tab holds reference lists used by dropdown menus in the workbook.",
-  "It is not protected — edit it freely to suit your outbreak.",
-  "",
-  "Setting Types (column A)",
-  "  The list of valid values for the context_type field on the contexts sheet.",
-  "  • Add new types by typing in the next empty cell below the last entry.",
-  "  • Remove a type by deleting the cell content.",
-  "  • Leave no blank rows between entries — the dropdown reads up to the first gap.",
-  "  • The context_type dropdown on the contexts sheet updates automatically.",
-  "",
-  "Ethnicity (column C)",
-  "  The list of valid values for the ethnicity field on the cases sheet.",
-  "  ONS 2021 census categories. Edit the same way as Setting Types.",
-  "  • Leave no blank rows between entries — the dropdown reads up to the first gap.",
-  "",
-  "Do not rename or delete the 'Setting Types' (A1) or 'Ethnicity' (C1) headers."
+# Column order on the Dropdowns tab. The two tool-read lists come first (A, B).
+dropdown_lists <- list(
+  "Setting Types"                   = c("School", "Household", "Healthcare", "Community",
+                                        "Workplace", "Childcare", "Place of worship", "Transport"),
+  "Case confidence"                 = c("Confirmed", "Probable", "Possible"),
+  "Gender"                          = c("Male", "Female", "Other", "Unknown"),
+  "Ethnicity"                       = ons_ethnicity,
+  "Confirmation test result"        = c("Saliva IgM positive", "Saliva IgM negative",
+                                        "Serum IgM positive", "Serum IgM negative",
+                                        "PCR positive", "PCR negative", "Not tested", "Pending"),
+  "Vaccination status"              = c("Unvaccinated", "1 dose", "2 doses", "Unknown"),
+  "Vaccination confirmation method" = c("CHIS", "GP", "Occupational Health",
+                                        "Parent/guardian", "Other", "Unknown"),
+  "Travel history"                  = c("Yes", "No", "Unknown"),
+  "Probable epi link"               = c("Yes", "No", "Unknown"),
+  "Status"                          = c("Open", "Closed", "Discarded")
 )
-writeData(wb, "Lookups", lookup_instructions, startRow = 2, startCol = 2, colNames = FALSE)
-addStyle(wb, "Lookups", note_style,
-         rows = 2:(1 + length(lookup_instructions)), cols = 2)
+
+# Headers the network tool reads (maroon + hover note); all others dark blue.
+app_read_cols <- c("Setting Types", "Case confidence")
+
+for (j in seq_along(dropdown_lists)) {
+  nm  <- names(dropdown_lists)[j]
+  val <- dropdown_lists[[j]]
+  writeData(wb, "Dropdowns", nm,  startRow = 1, startCol = j, colNames = FALSE)
+  writeData(wb, "Dropdowns", val, startRow = 2, startCol = j, colNames = FALSE)
+  addStyle(wb, "Dropdowns",
+           if (nm %in% app_read_cols) maroon_hdr_style else hdr_style,
+           rows = 1, cols = j)
+  addStyle(wb, "Dropdowns", note_style, rows = 2:(1 + length(val)), cols = j)
+}
+
+# Hover note on the two tool-read headers — kept as a cell comment so the tab
+# stays pure list columns. Full guidance is on the README tab.
+tool_note <- createComment(
+  comment = paste0("Used by the network tool. The order of values in this column ",
+                   "sets the display order in the tool. Do not rename this header, ",
+                   "and if you rename a value, update matching entries in the cases sheet."),
+  author = "Outbreak tool", visible = FALSE)
+writeComment(wb, "Dropdowns", col = 1, row = 1, comment = tool_note)
+writeComment(wb, "Dropdowns", col = 2, row = 1, comment = tool_note)
+
+setColWidths(wb, "Dropdowns", cols = seq_along(dropdown_lists),
+             widths = c(28, 16, 12, 62, 26, 18, 30, 14, 16, 12))
 
 
 # ---- Dummy data (fictional 20-case measles outbreak) ------------------------
@@ -592,7 +645,7 @@ cases_d <- cases_d[, cases_col_order]
 #   F  age                     — formula DATEDIF(DOB, onset_date), locked
 #   G  age_group               — MAROON, formula (UKHSA bands), locked
 #   H  gender                  — MAROON, dropdown
-#   I  ethnicity               — dropdown (ONS list, Lookups col C)
+#   I  ethnicity               — dropdown (ONS list on the Dropdowns tab)
 #   J  postcode                — free text
 #   K  utla                    — free text
 #   L  report_date             — date
@@ -612,9 +665,9 @@ cases_d <- cases_d[, cases_col_order]
 #   Z  probable_epi_link       — dropdown (Yes/No/Unknown)
 #   AA total_contacts          — whole number
 #   AB vulnerable_contacts     — whole number
-#   AC primary_context_type    — MAROON, dropdown (Lookups context types); stored, not yet used
+#   AC primary_context_type    — MAROON, dropdown (Dropdowns Setting Types); stored, not yet used
 #   AD contexts                — formula: semi-colon list of linked context names, locked
-#   AE status                  — dropdown (Open/Closed)
+#   AE status                  — dropdown (Open/Closed/Discarded)
 #   AF date_closed             — date
 
 add_sheet(
@@ -627,17 +680,17 @@ add_sheet(
   has_example = FALSE,
   date_cols   = c(5, 12, 13, 14, 32),
   dropdowns   = list(
-    list(col = 8,  formula = '"Male,Female,Other,Unknown"'),
-    list(col = 9,  formula = "OFFSET(Lookups!$C$2,0,0,COUNTA(Lookups!$C$2:$C$100),1)"),
-    list(col = 17, formula = '"Confirmed,Probable,Possible"'),
-    list(col = 19, formula = '"Saliva IgM positive,Saliva IgM negative,Serum IgM positive,Serum IgM negative,PCR positive,PCR negative,Not tested,Pending"'),
-    list(col = 20, formula = '"Unvaccinated,1 dose,2 doses,Unknown"'),
-    list(col = 21, formula = '"CHIS,GP,Occupational Health,Parent/guardian,Other,Unknown"'),
-    list(col = 23, formula = '"Yes,No,Unknown"'),
+    list(col = 8,  formula = "OFFSET(Dropdowns!$C$2,0,0,COUNTA(Dropdowns!$C$2:$C$100),1)"),
+    list(col = 9,  formula = "OFFSET(Dropdowns!$D$2,0,0,COUNTA(Dropdowns!$D$2:$D$100),1)"),
+    list(col = 17, formula = "OFFSET(Dropdowns!$B$2,0,0,COUNTA(Dropdowns!$B$2:$B$100),1)"),
+    list(col = 19, formula = "OFFSET(Dropdowns!$E$2,0,0,COUNTA(Dropdowns!$E$2:$E$100),1)"),
+    list(col = 20, formula = "OFFSET(Dropdowns!$F$2,0,0,COUNTA(Dropdowns!$F$2:$F$100),1)"),
+    list(col = 21, formula = "OFFSET(Dropdowns!$G$2,0,0,COUNTA(Dropdowns!$G$2:$G$100),1)"),
+    list(col = 23, formula = "OFFSET(Dropdowns!$H$2,0,0,COUNTA(Dropdowns!$H$2:$H$100),1)"),
     list(col = 25, formula = "cases!$A$2:$A$1001"),
-    list(col = 26, formula = '"Yes,No,Unknown"'),
-    list(col = 29, formula = "OFFSET(Lookups!$A$2,0,0,COUNTA(Lookups!$A$2:$A$100),1)"),
-    list(col = 31, formula = '"Open,Closed"')
+    list(col = 26, formula = "OFFSET(Dropdowns!$I$2,0,0,COUNTA(Dropdowns!$I$2:$I$100),1)"),
+    list(col = 29, formula = "OFFSET(Dropdowns!$A$2,0,0,COUNTA(Dropdowns!$A$2:$A$100),1)"),
+    list(col = 31, formula = "OFFSET(Dropdowns!$J$2,0,0,COUNTA(Dropdowns!$J$2:$J$100),1)")
   ),
   validations = list(
     list(col = 5,  type = "date", operator = "between",
@@ -699,10 +752,21 @@ inf_formulas <- paste0(
 )
 writeFormula(wb, "cases", inf_formulas, startRow = 2, startCol = 16)
 
-# contexts (col AD): NOT pre-populated — openxlsx cannot reliably write complex
-# cross-sheet formulas to OOXML. Column is styled and locked ready to receive
-# the formula. Instructions and the formula text are in the README tab.
-# The user pastes the formula into AD2 and copies down once after setup.
+# contexts (col AD, 30): semi-colon list of the context names linked to each
+# case, resolved through the case_contexts bridging table. Written as a per-cell
+# array (Ctrl+Shift+Enter) formula — the Excel 2019-compatible TEXTJOIN/MATCH
+# form. openxlsx has historically been unreliable writing array formulas, so
+# confirm AD fills correctly when the file is opened in Excel; if it does not,
+# fall back to the manual paste (the formula text is retained in the README).
+contexts_formulas <- paste0(
+  'IF(A', 2:1001, '="","",IFERROR(TEXTJOIN("; ",TRUE,IF(ISNUMBER(MATCH(A', 2:1001,
+  '&contexts!$A$2:$A$1001,case_contexts!$A$2:$A$2001&case_contexts!$B$2:$B$2001,0)),',
+  'contexts!$B$2:$B$1001,"")),""))'
+)
+for (i in seq_along(contexts_formulas)) {
+  writeFormula(wb, "cases", contexts_formulas[i],
+               startRow = 1 + i, startCol = 30, array = TRUE)
+}
 
 # Locked (blue): auto-generated / formula columns — never edited
 # case_id (1), age (6), age_group (7), exposure_window (15), infectious_period (16), contexts (30)
@@ -731,14 +795,19 @@ conditionalFormatting(wb, "cases",
                       rule  = "AND(LEN($Y2)>0,$Y2=$A2)",
                       style = self_ref_style)
 
+# Protection: formula columns stay locked and row-deletion stays blocked (IDs
+# are row-position based), but row heights and column widths remain resizable
+# (lockFormattingRows/Columns = FALSE) so users can size the linelist freely.
 protectWorksheet(wb, "cases", protect = TRUE,
                  lockSelectingLockedCells = FALSE,
-                 lockInsertingRows        = FALSE)
+                 lockInsertingRows        = FALSE,
+                 lockFormattingRows       = FALSE,
+                 lockFormattingColumns    = FALSE)
 
 
 # ---- contexts ---------------------------------------------------------------
 # context_id (col 1) auto-generated. context_type validated against ContextTypes
-# named range in the Lookups tab.
+# named range in the Dropdowns tab.
 
 add_sheet(
   wb, "contexts",
@@ -748,7 +817,7 @@ add_sheet(
   nrows       = 1000,
   has_example = FALSE,
   dropdowns   = list(
-    list(col = 3, formula = "OFFSET(Lookups!$A$2,0,0,COUNTA(Lookups!$A$2:$A$100),1)")
+    list(col = 3, formula = "OFFSET(Dropdowns!$A$2,0,0,COUNTA(Dropdowns!$A$2:$A$100),1)")
   )
 )
 writeData(wb, "contexts", contexts_d[-1, ], startRow = 3, startCol = 1, colNames = FALSE)
@@ -808,18 +877,36 @@ writeData(wb, "visit_dates", visit_dates_d[-1, ], startRow = 3, startCol = 1, co
 
 
 
+# ---- Instructions links -----------------------------------------------------
+# A locked "Instructions" hyperlink on each data sheet, placed one column past
+# the last column, jumping to that sheet's section on the README tab. It sits
+# outside the data table, so the app (which reads columns by name) ignores it.
+instr_link <- function(sheet, col, readme_row) {
+  writeFormula(wb, sheet,
+               makeHyperlinkString(sheet = "README", row = readme_row, col = 1,
+                                   text = "Instructions"),
+               startRow = 1, startCol = col)
+  addStyle(wb, sheet, hdr_style, rows = 1, cols = col)
+  setColWidths(wb, sheet, cols = col, widths = 14)
+}
+instr_link("cases",         33, readme_row_cases)
+instr_link("contexts",       4, readme_row_contexts)
+instr_link("case_contexts",  4, readme_row_casecontexts)
+instr_link("visit_dates",    4, readme_row_visitdates)
+
+
 # ---- Named ranges -----------------------------------------------------------
 # All main tables are already named Excel Tables (accessible as cases[col], etc.).
 # These additional named regions register the data extents in the Name Manager
 # for reference in formulas outside the tables.
 # ContextTypes is the key operational named range — used by the contexts
-# sheet to validate context_type entries against the Lookups tab.
+# sheet to validate context_type entries against the Dropdowns tab.
 
 createNamedRegion(wb, sheet = "cases",         rows = 1:1001, cols = 1:32, name = "CasesRange")
 createNamedRegion(wb, sheet = "contexts",      rows = 1:1001, cols = 1:3,  name = "ContextsRange")
 createNamedRegion(wb, sheet = "case_contexts", rows = 1:2001, cols = 1:3,  name = "CaseContextsRange")
 createNamedRegion(wb, sheet = "visit_dates",   rows = 1:2001, cols = 1:3,  name = "VisitDatesRange")
-createNamedRegion(wb, sheet = "Lookups",       rows = 2:100,  cols = 1,    name = "ContextTypes")
+createNamedRegion(wb, sheet = "Dropdowns",     rows = 2:100,  cols = 1,    name = "ContextTypes")
 
 
 # ---- Save -------------------------------------------------------------------
