@@ -20,7 +20,7 @@ Every categorical field takes its dropdown options from a column on the **Dropdo
 | `forename` | character | — | No | No | Case forename. |
 | `surname` | character | — | No | No | Case surname. |
 | `date_of_birth` | date | — | No | No | Date of birth. Used to calculate age at onset. Format: DD/MM/YYYY in template. |
-| `age` | integer | — | No | No | *(derived)* Age in whole years at onset date. Auto-calculated from `date_of_birth` and `onset_date` in template. Do not type manually. |
+| `age` | integer | — | No | No | *(derived)* Age in whole years at onset. Auto-calculated in template from `date_of_birth` and `onset_date`; when `onset_date` is blank it falls back to `report_date` (which is always known), so age still computes for cases without a recorded onset. Do not type manually. |
 | `age_group` | character | — | No | Yes | *(derived)* UKHSA age band from `age`: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+ years`. Auto-calculated in template. |
 | `gender` | character | — | No | Yes | Values: `Male`, `Female`, `Other`, `Unknown`. |
 | `ethnicity` | character | — | No | No | ONS 2021 census category. Dropdown sourced from the Ethnicity list on the Dropdowns tab. |

@@ -256,7 +256,8 @@ readme_rows <- list(
 
   list(style = section_style, text = "CALCULATED FIELDS (filled in automatically — do not type in these)"),
   list(style = note_style,    text = "Some columns are worked out for you and are locked with light-blue shading:"),
-  list(style = note_style,    text = "•  age / age_group: worked out from date_of_birth and onset_date."),
+  list(style = note_style,    text = "•  age / age_group: worked out from date_of_birth and onset_date (or report_date if"),
+  list(style = note_style,    text = "   there is no onset date)."),
   list(style = note_style,    text = "•  exposure_window: 21 to 7 days before onset_date (measles incubation default)."),
   list(style = note_style,    text = "•  infectious_period: 4 days before to 4 days after onset_date (measles default)."),
   list(style = note_style,    text = "•  contexts: the context names linked to each case (from case_contexts), semi-colon"),
@@ -643,7 +644,7 @@ cases_d <- cases_d[, cases_col_order]
 #   C  forename                — free text
 #   D  surname                 — free text
 #   E  date_of_birth           — date; drives age
-#   F  age                     — formula DATEDIF(DOB, onset_date), locked
+#   F  age                     — formula DATEDIF(DOB, onset_date | report_date), locked
 #   G  age_group               — MAROON, formula (UKHSA bands), locked
 #   H  gender                  — MAROON, dropdown
 #   I  ethnicity               — dropdown (ONS list on the Dropdowns tab)
@@ -720,10 +721,12 @@ addStyle(wb, "cases", maroon_hdr_style,
 # and uniqueness are flagged by conditional formatting (openxlsx has no custom
 # data validation); a row is greyed out until its ID is entered (see below).
 
-# age (F): whole years between date_of_birth (E) and onset_date (M)
+# age (F): whole years from date_of_birth (E) to onset_date (M); when onset is
+# blank it falls back to report_date (L), which is always known. Needs dob plus
+# at least one of onset/report.
 age_formulas <- paste0(
-  'IF(AND(E', 2:1001, '<>"",M', 2:1001, '<>""),',
-  'IFERROR(DATEDIF(E', 2:1001, ',M', 2:1001, ',"Y"),"err"),"")'
+  'IF(AND(E', 2:1001, '<>"",OR(M', 2:1001, '<>"",L', 2:1001, '<>"")),',
+  'IFERROR(DATEDIF(E', 2:1001, ',IF(M', 2:1001, '<>"",M', 2:1001, ',L', 2:1001, '),"Y"),"err"),"")'
 )
 writeFormula(wb, "cases", age_formulas, startRow = 2, startCol = 6)
 
