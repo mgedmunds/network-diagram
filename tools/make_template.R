@@ -264,9 +264,9 @@ readme_rows <- list(
   list(style = note_style,    text = "   separated, filled in automatically."),
   list(style = note_style,    text = "exposure_window and infectious_period use fixed measles defaults; they do not follow the"),
   list(style = note_style,    text = "editable parameters inside the network tool."),
-  list(style = note_style,    text = "If the 'contexts' column is ever empty, refill it: click AD2, paste the formula below"),
-  list(style = note_style,    text = "into the formula bar, press Ctrl+Shift+Enter, then copy AD2 down over AD3:AD1001."),
-  list(style = note_style,    text = '   IF(A2="","",IFERROR(TEXTJOIN("; ",TRUE,IF(ISNUMBER(MATCH(A2&contexts!$A$2:$A$1001,case_contexts!$A$2:$A$2001&case_contexts!$B$2:$B$2001,0)),contexts!$B$2:$B$1001,"")),""))'),
+  list(style = note_style,    text = "It shows up to 10 contexts per case. If the column is ever empty, click a cell that"),
+  list(style = note_style,    text = "still has the formula, copy it, and paste down over the blank cells (plain paste — no"),
+  list(style = note_style,    text = "Ctrl+Shift+Enter needed)."),
   list(style = note_style,    text = ""),
 
   list(style = section_style, text = "DROPDOWN LISTS — how to edit the options (Dropdowns tab)"),
@@ -756,20 +756,28 @@ inf_formulas <- paste0(
 writeFormula(wb, "cases", inf_formulas, startRow = 2, startCol = 16)
 
 # contexts (col AD, 30): semi-colon list of the context names linked to each
-# case, resolved through the case_contexts bridging table. Written as a per-cell
-# array (Ctrl+Shift+Enter) formula — the Excel 2019-compatible TEXTJOIN/MATCH
-# form. openxlsx has historically been unreliable writing array formulas, so
-# confirm AD fills correctly when the file is opened in Excel; if it does not,
-# fall back to the manual paste (the formula text is retained in the README).
-contexts_formulas <- paste0(
-  'IF(A', 2:1001, '="","",IFERROR(TEXTJOIN("; ",TRUE,IF(ISNUMBER(MATCH(A', 2:1001,
-  '&contexts!$A$2:$A$1001,case_contexts!$A$2:$A$2001&case_contexts!$B$2:$B$2001,0)),',
-  'contexts!$B$2:$B$1001,"")),""))'
-)
-for (i in seq_along(contexts_formulas)) {
-  writeFormula(wb, "cases", contexts_formulas[i],
-               startRow = 1 + i, startCol = 30, array = TRUE)
-}
+# case, resolved through the case_contexts bridging table.
+#
+# This is an ORDINARY formula (no Ctrl+Shift+Enter) — earlier array/TEXTJOIN(IF)
+# versions needed CSE, which openxlsx writes unreliably, so the column came out
+# blank. AGGREGATE(15, 6, …) evaluates its array argument natively without CSE,
+# so openxlsx can write it as a plain formula that just works in Excel 2019.
+#
+# For each of the first N linked contexts (k = 1..N), AGGREGATE returns the k-th
+# case_contexts row where case_id matches (dividing row positions by the match
+# turns non-matches into #DIV/0!, which option 6 ignores); INDEX/MATCH turn that
+# row's context_id into its name; IFERROR blanks the unused slots; TEXTJOIN joins
+# the up-to-N names. The leading IF(A="") keeps blank rows cheap.
+MAX_CONTEXTS <- 10L
+ctx_rows <- 2:1001
+ctx_terms <- vapply(seq_len(MAX_CONTEXTS), function(k) paste0(
+  'IFERROR(INDEX(contexts!$B$2:$B$1001,MATCH(INDEX(case_contexts!$B$2:$B$2001,',
+  'AGGREGATE(15,6,(ROW(case_contexts!$A$2:$A$2001)-1)/(case_contexts!$A$2:$A$2001=A',
+  ctx_rows, '),', k, ')),contexts!$A$2:$A$1001,0)),"")'
+), character(length(ctx_rows)))
+ctx_body <- apply(ctx_terms, 1, paste, collapse = ",")
+contexts_formulas <- paste0('IF(A', ctx_rows, '="","",TEXTJOIN("; ",TRUE,', ctx_body, '))')
+writeFormula(wb, "cases", contexts_formulas, startRow = 2, startCol = 30)
 
 # Locked (blue): formula columns — never edited
 # age (6), age_group (7), exposure_window (15), infectious_period (16), contexts (30)

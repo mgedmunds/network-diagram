@@ -22,9 +22,10 @@ through the "Ready to action" list. Plain English, no special format needed.
 - [ ] **Batch 2 (B2.1–B2.9)** — implemented and committed on `amendments-batch-2`
   (2026-08-22), not yet tested in RStudio/Excel. Verify: template regenerates; Dropdowns
   tab lists + maroon headers; cases dropdowns work; row/column resizing; and **especially
-  B2.5** — that the `contexts` column (AD) fills correctly in Excel rather than showing
-  blank/0 (openxlsx array-formula write is the known risk). If B2.5 fails, fall back to the
-  README recovery-formula note. Then run the app and confirm category ordering follows the
+  B2.5** — that the `contexts` column (AD) fills correctly in Excel. NOTE: the first array
+  version came out blank (openxlsx doesn't write the array flag reliably); it was reworked
+  to an ordinary `AGGREGATE`-based formula (no Ctrl+Shift+Enter, shows up to 10 contexts).
+  Re-verify AD now populates. Then run the app and confirm category ordering follows the
   Dropdowns lists.
 
 - [ ] **Batch 3** — implemented and committed on `amendments-batch-2` (2026-08-22), not yet
