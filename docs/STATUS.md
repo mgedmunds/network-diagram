@@ -13,6 +13,8 @@ Claude updates this at the end of every session. Read this first at the start of
 
 **Session 11 (2026-07-18):** Dev-tooling addition (not Phase 4 work) — added an automated pre-commit static check for `app.R`. `tools/check_app.py` flags unbalanced brackets / unterminated strings; `tools/precommit_hook.py` runs it as a Claude Code `PreToolUse` hook (in the gitignored `.claude/settings.local.json`) that blocks any Claude Code commit while `app.R` is broken. Proven live. See decision register and the `CLAUDE.md` "Pre-commit static check" note.
 
+**Session 11 (2026-07-18):** Dev-tooling addition (not Phase 4 work) — added an automated pre-commit static check for `app.R`. `tools/check_app.py` flags unbalanced brackets / unterminated strings; `tools/precommit_hook.py` runs it as a Claude Code `PreToolUse` hook (in the gitignored `.claude/settings.local.json`) that blocks any Claude Code commit while `app.R` is broken. Proven live. See decision register and the `CLAUDE.md` "Pre-commit static check" note.
+
 ---
 
 ## Development areas
