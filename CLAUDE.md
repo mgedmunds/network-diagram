@@ -49,7 +49,9 @@ navigation overhead during rapid prototyping.
 
 ## Data model
 
-Four sheets (from `.xlsx` upload or demo data). Full field-level definitions are in `docs/data-dictionary.md`; ERD is in `docs/erd.svg`.
+Four data sheets (from `.xlsx` upload or demo data). Full field-level definitions are in `docs/data-dictionary.md`; ERD is in `docs/erd.svg`.
+
+The template also carries a **Dropdowns** tab (one editable list per categorical field; renamed from `Lookups`). The app optionally reads it (`raw()`): the `Setting Types` and `Case confidence` columns set the display order of `context_type` and `case_status` in the filters. It is read by header name and is optional — absent (or on non-template uploads) the app falls back to first-appearance order.
 
 ### cases — one row per case
 | Field | Type | Required | Notes |

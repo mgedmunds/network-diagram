@@ -11,6 +11,8 @@ One row per case. The two required fields are `case_id` and `onset_date`; all ot
 
 The `cases` sheet doubles as a working linelist. Columns are listed below in template order. **Tool?** = Yes means the network tool reads the field (maroon header in the template); No means it is collected for the linelist but not used by the tool (dark blue header).
 
+Every categorical field takes its dropdown options from a column on the **Dropdowns** tab (one editable list per field), so the allowed values can be edited per outbreak. Two of those lists — `Setting Types` (→ `context_type` / `primary_context_type`) and `Case confidence` (→ `case_status`) — are also read by the tool: the order of their values sets the display order of those categories in the app, and are marked with maroon headers on the Dropdowns tab.
+
 | Field | Type | Key | Required | Tool? | Description |
 |---|---|---|---|---|---|
 | `case_id` | character | PK | Yes | Yes | Unique case identifier. Auto-generated in template as C-001, C-002 … based on row position. Join key across all tables. |
@@ -21,7 +23,7 @@ The `cases` sheet doubles as a working linelist. Columns are listed below in tem
 | `age` | integer | — | No | No | *(derived)* Age in whole years at onset date. Auto-calculated from `date_of_birth` and `onset_date` in template. Do not type manually. |
 | `age_group` | character | — | No | Yes | *(derived)* UKHSA age band from `age`: `<1 year`, `1–4 years`, `5–17 years`, `18–29 years`, `30–49 years`, `50+ years`. Auto-calculated in template. |
 | `gender` | character | — | No | Yes | Values: `Male`, `Female`, `Other`, `Unknown`. |
-| `ethnicity` | character | — | No | No | ONS 2021 census category. Dropdown sourced from the Ethnicity list on the Lookups tab. |
+| `ethnicity` | character | — | No | No | ONS 2021 census category. Dropdown sourced from the Ethnicity list on the Dropdowns tab. |
 | `postcode` | character | — | No | No | UK postcode. Free text; no format enforcement. |
 | `utla` | character | — | No | No | Upper-tier local authority. Free text. |
 | `report_date` | date | — | No | No | Date the case was reported/notified. Format: DD/MM/YYYY. |
@@ -41,9 +43,9 @@ The `cases` sheet doubles as a working linelist. Columns are listed below in tem
 | `probable_epi_link` | character | — | No | No | Whether a probable epidemiological link to another case is known. Values: `Yes`, `No`, `Unknown`. |
 | `total_contacts` | integer | — | No | No | Number of contacts identified for the case. Whole number ≥ 0. |
 | `vulnerable_contacts` | integer | — | No | No | Number of those contacts who are clinically vulnerable. Whole number ≥ 0. |
-| `primary_context_type` | character | — | No | Yes | The context type most associated with the case (e.g. `School`, `Household`). Dropdown from the Lookups Setting Types. Read from the workbook and stored on `cases`, but not yet used by any view ("store only"). |
-| `contexts` | character | — | No | No | *(derived)* Semi-colon list of context names linked to the case in `case_contexts`. Populated by a one-time array formula in the template (see the README tab). |
-| `status` | character | — | No | No | Case management status. Values: `Open`, `Closed`. |
+| `primary_context_type` | character | — | No | Yes | The context type most associated with the case (e.g. `School`, `Household`). Dropdown from the Dropdowns tab (Setting Types list). Read from the workbook and stored on `cases`, but not yet used by any view ("store only"). |
+| `contexts` | character | — | No | No | *(derived)* Semi-colon list of context names linked to the case in `case_contexts`. Auto-filled by an array formula written into the template at generation; a recovery formula is retained in the README tab. |
+| `status` | character | — | No | No | Case management status. Values: `Open`, `Closed`, `Discarded`. Set to `Discarded` instead of deleting a ruled-out case (deleting a row renumbers position-based IDs). External-only — not read by the tool. |
 | `date_closed` | date | — | No | No | Date the case was closed. Format: DD/MM/YYYY. |
 
 ---
