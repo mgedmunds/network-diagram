@@ -27,6 +27,14 @@ through the "Ready to action" list. Plain English, no special format needed.
   README recovery-formula note. Then run the app and confirm category ordering follows the
   Dropdowns lists.
 
+- [ ] **Batch 3** — implemented and committed on `amendments-batch-2` (2026-08-22), not yet
+  tested. B3.1 filter + B3.2 sort enabled on cases/contexts; header + `case_id` column
+  frozen on cases. B3.3 = ADR-007: `case_id`/`context_id` now manual UIDs. Verify in Excel:
+  typing a duplicate or wrong-format ID is rejected; a pasted duplicate turns red; the rest
+  of a row greys out until its ID is entered; sort + filter work; and the ID dropdowns on
+  case_contexts/visit_dates list only the real cases/contexts (not 1,000 blanks). Confirm
+  the demo data (with real C-### / Ctxt-### IDs) still uploads and the app reads it.
+
 ---
 
 ## Parked (needs decision or not urgent)
