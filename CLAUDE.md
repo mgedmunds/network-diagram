@@ -135,6 +135,8 @@ relevance category.
 | `plotly` / `ggplot2` | Epidemic curve |
 | `DT` | Interactive data tables |
 | `dplyr`, `tidyr`, `purrr`, `tibble` | Data wrangling |
+| `magrittr` | Provides the `%>%` pipe (team standard; not the base `|>`) |
+| `stringr` | Tidyverse string functions |
 | `readxl` | Excel file import |
 | `lubridate` | Date handling |
 | `jsonlite` | Dev panel / action tracker JSON persistence |
@@ -143,6 +145,17 @@ relevance category.
 
 ## Conventions — always follow these
 
+- **R coding standards (tidyverse-first — team standard).** Mirrors the global profile and
+  applies to all R in this repo:
+  - Use a **tidyverse-first** approach; prefer `dplyr`, `tidyr`, `ggplot2`, `stringr`,
+    `lubridate` (and `janitor` where helpful) over base-R equivalents.
+  - **Always use the magrittr pipe `%>%`, never the base pipe `|>`.** Enforced by
+    `tools/check_app.py` (the pre-commit hook blocks any `|>` in `app.R` code).
+  - Prefer tidyverse-style data manipulation (`left_join`/`inner_join` over `merge`,
+    `if_else` over `ifelse`, `str_*` over base string fns).
+  - One documented exception currently stands: a single base `ifelse()` in the edge-tooltip
+    code (app.R ~L460) is kept because it relies on `ifelse()`'s NA passthrough, which
+    `if_else()` rejects. Any new such exception needs a code comment explaining why.
 - **UI components:** use `bslib` cards (`card()`, `card_header()`, `card_body()`),
   `layout_columns()`, and `layout_sidebar()`. Do not use raw Bootstrap divs for
   layout unless bslib has no equivalent.
@@ -185,8 +198,10 @@ relevance category.
 Commits made through Claude Code run an automated static check on `app.R` before
 the commit completes (a `PreToolUse` hook in `.claude/settings.local.json`, wired to
 `tools/precommit_hook.py` → `tools/check_app.py`). It blocks the commit, with a
-line number, if `app.R` has unbalanced `()[]{}` or an unterminated string (the shape
-an unescaped apostrophe in a single-quoted R string produces). This partially
+line number, if `app.R` has unbalanced `()[]{}`, an unterminated string (the shape
+an unescaped apostrophe in a single-quoted R string produces), or a base R pipe
+`|>` in code (team standard is the magrittr `%>%`; mentions in comments/strings are
+ignored). This partially
 automates the manual pre-push static checks — it is a heuristic, **not** a full R
 parser, so RStudio's `runApp()` / `parse()` remains the gold-standard final check.
 Run it by hand any time with `python3 tools/check_app.py`. The hook fires only on
