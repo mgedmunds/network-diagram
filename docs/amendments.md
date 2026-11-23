@@ -33,11 +33,17 @@ through the "Ready to action" list. Plain English, no special format needed.
   `ContextsRange` named region (cols 1:3 -> 1:4). App reads contexts by column name so the
   extra column is safe (no app change needed). Add the field to `docs/data-dictionary.md`.
 
-- [ ] Upload confirmation box: add a succinct, reassuring privacy statement to the green success alert shown after a file is uploaded (`output$upload_summary`). It should make clear the data stayed on the user's device / in their browser and was not sent outside the organisation's IT infrastructure. Proposed wording (confirm against deployment before using): "Your file was read directly in your web browser on this device — it is not sent to any server and does not leave your organisation's IT environment." *(IMPORTANT — factual accuracy depends on deployment: TRUE for the Shinylive/GitHub Pages browser-only build (WebR); NOT true if the app is ever hosted on a Shiny server, where uploads go to that server. Word it to match the actual deployment model before release.)* *(requested: 2026-06-20)*
-
 ---
 
 ## Awaiting verification
+
+- [ ] **Upload privacy statement** — implemented on branch `amendments-privacy-statement`
+  (2026-08-22). `app.R` now shows "your file was read directly in your web browser … does
+  not leave your organisation's IT environment" in the upload-success box ONLY when running
+  under WebR (`IS_BROWSER_ONLY`, detected via `R.version$os == "emscripten"`). Fail-safe:
+  silent on normal R. NOTE: in **local RStudio it will NOT appear** (that is correct — it is
+  not the browser build); to actually see it, check the **deployed Shinylive build**. Verify:
+  (1) local RStudio — app runs, upload works, no privacy line; (2) Shinylive — line appears.
 
 - [ ] **Batch 2 (B2.1–B2.9)** — implemented and committed on `amendments-batch-2`
   (2026-08-22), not yet tested in RStudio/Excel. Verify: template regenerates; Dropdowns

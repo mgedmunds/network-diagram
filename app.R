@@ -65,6 +65,14 @@ colour_map <- function(types) {
   setNames(CONTEXT_PALETTE[(seq_along(types) - 1L) %% length(CONTEXT_PALETTE) + 1L], types)
 }
 
+# Browser-only build detection. When the app runs under WebR (the Shinylive /
+# GitHub Pages build), R reports itself as the Emscripten / WebAssembly platform.
+# We only show the "your data never leaves this device" privacy statement when
+# this is TRUE — fail-safe: it is silent on normal R (local RStudio OR a hosted
+# Shiny server, where the claim could be false).
+IS_BROWSER_ONLY <- identical(R.version$os, "emscripten") ||
+                   identical(R.version$arch, "wasm32")
+
 # Default epidemiological parameters (measles, approximate). All editable in-app.
 DEF_INC_MIN   <- 7   # incubation, exposure -> onset, minimum (days)
 DEF_INC_MAX   <- 21  # incubation, exposure -> onset, maximum (days)
@@ -1625,11 +1633,19 @@ server <- function(input, output, session) {
   output$upload_summary <- renderUI({
     if (is.null(input$file)) return(NULL)
     d <- raw()
+    # Privacy reassurance only in the browser-only (WebR) build, where it is
+    # true that the file is read in-browser and not sent anywhere. Silent on
+    # normal R (see IS_BROWSER_ONLY).
+    privacy <- if (IS_BROWSER_ONLY)
+      div(class = "mt-2 mb-0", style = "font-size:0.85em; color:#1e7e34;",
+          "Your file was read directly in your web browser on this device — ",
+          "it is not uploaded to any server and does not leave your organisation's IT environment.")
     div(class = "alert alert-success mt-2 mb-0", role = "status",
         tags$strong("File loaded. "),
         sprintf("%d cases, %d contexts and %d visit dates read in. ",
                 nrow(d$cases), nrow(d$contexts), nrow(d$visit_dates)),
-        "See the ", tags$strong("Source data"), " tab to view all imported data.")
+        "See the ", tags$strong("Source data"), " tab to view all imported data.",
+        privacy)
   })
 
   output$src_cases         <- renderDT({ src_dt(raw()$cases) })
