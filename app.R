@@ -33,8 +33,10 @@ library(bslib)
 # Interactive network diagram renderer (wraps the vis.js JavaScript library)
 library(visNetwork)
 # Data wrangling
+library(magrittr)    # Provides the %>% pipe (team standard — not the base R pipe)
 library(dplyr)
 library(tidyr)
+library(stringr)     # Tidyverse string functions (str_remove, str_trim, …)
 library(readxl)      # Reading .xlsx files uploaded by the user
 library(lubridate)   # Date arithmetic (floor_date for weekly epi curve)
 # Network analysis: calculates degree and betweenness metrics from the graph
@@ -165,8 +167,8 @@ make_demo_data <- function() {
   # Split contexts into community (where primary exposure happens) and healthcare
   # (where cases are seen after onset). comm_w gives unequal sampling weights
   # so schools are over-represented, matching typical measles outbreak patterns.
-  community  <- all_contexts |> filter(context_type != "Healthcare")
-  healthcare <- all_contexts |> filter(context_type == "Healthcare")
+  community  <- all_contexts %>% filter(context_type != "Healthcare")
+  healthcare <- all_contexts %>% filter(context_type == "Healthcare")
   comm_w     <- c(.24, .20, .16, .14, .13, .13)
   n <- 15
   # Generate the cases table: 15 cases with random onset dates over an 8-week period
@@ -180,7 +182,7 @@ make_demo_data <- function() {
     vaccination_status = sample(c("Unvaccinated","1 dose","2 doses","Unknown"),
                                 n, TRUE, c(.5,.2,.2,.1)),
     case_status        = sample(c("Confirmed","Probable","Possible"),
-                                n, TRUE, c(.6,.3,.1))) |> arrange(onset_date)
+                                n, TRUE, c(.6,.3,.1))) %>% arrange(onset_date)
 
   # Assign each case a primary community context (weighted towards schools)
   prim <- sample(seq_len(nrow(community)), n, replace = TRUE, prob = comm_w)
@@ -230,46 +232,46 @@ make_demo_data <- function() {
                           context_id = s_hist$context_id,
                           visit_date = onset - sample(22:30, 1))) }
     rows
-  }) |> arrange(case_id, visit_date)
+  }) %>% arrange(case_id, visit_date)
 
   # Derive the three relational tables from the visit rows
-  visit_dates   <- visit_rows |> distinct(case_id, context_id, visit_date)
+  visit_dates   <- visit_rows %>% distinct(case_id, context_id, visit_date)
   # Compute exposure_relevance for demo data using the default epi windows,
   # mirroring the practitioner judgement that real users would enter in the workbook.
-  er <- visit_dates |>
-    left_join(cases |> select(case_id, onset_date), by = "case_id") |>
+  er <- visit_dates %>%
+    left_join(cases %>% select(case_id, onset_date), by = "case_id") %>%
     mutate(
       in_infectious = visit_date >= onset_date - DEF_INF_BEFORE & visit_date <= onset_date + DEF_INF_AFTER,
       in_exposure   = visit_date >= onset_date - DEF_INC_MAX    & visit_date <= onset_date - DEF_INC_MIN
-    ) |>
-    group_by(case_id, context_id) |>
+    ) %>%
+    group_by(case_id, context_id) %>%
     summarise(any_infectious = any(in_infectious, na.rm = TRUE),
               any_exposure   = any(in_exposure,   na.rm = TRUE),
-              .groups = "drop") |>
+              .groups = "drop") %>%
     mutate(exposure_relevance = dplyr::case_when(
       any_infectious & any_exposure ~ "Both",
       any_infectious                ~ "Infectious period",
       any_exposure                  ~ "Exposure window",
-      TRUE                          ~ "Neither")) |>
+      TRUE                          ~ "Neither")) %>%
     select(case_id, context_id, exposure_relevance)
-  case_contexts <- visit_rows |> distinct(case_id, context_id) |>
-    left_join(er, by = c("case_id", "context_id")) |>
+  case_contexts <- visit_rows %>% distinct(case_id, context_id) %>%
+    left_join(er, by = c("case_id", "context_id")) %>%
     mutate(exposure_relevance = coalesce(exposure_relevance, "Neither"))
   # Keep only contexts that at least one case actually visited
-  contexts <- all_contexts |> semi_join(case_contexts, by = "context_id")
+  contexts <- all_contexts %>% semi_join(case_contexts, by = "context_id")
 
   # Assign likely_index_case for each case (except the first).
   # Cases sharing a primary context are 5x more likely to be linked.
   prim_id <- community$context_id[prim]
   index_cases <- c(NA_character_, purrr::map_chr(seq_len(n)[-1], function(i) {
     cand <- cases[seq_len(i - 1), ]
-    w    <- ifelse(prim_id[seq_len(i - 1)] == prim_id[i], 5, 1)
+    w    <- if_else(prim_id[seq_len(i - 1)] == prim_id[i], 5, 1)
     j    <- sample(seq_len(nrow(cand)), 1, prob = w)
     cand$case_id[j]
   }))
   # primary_context_type: the type of each case's primary community context.
   # Stored on cases for the linelist; not yet used by any view.
-  cases <- cases |> mutate(likely_index_case    = index_cases,
+  cases <- cases %>% mutate(likely_index_case    = index_cases,
                            primary_context_type = community$context_type[prim])
 
   list(cases = cases, contexts = contexts, case_contexts = case_contexts,
@@ -280,14 +282,14 @@ make_demo_data <- function() {
 # This denormalised view is what the network view builders consume — one row
 # per case × context × visit_date combination, with context name and type included.
 flat_visits <- function(d) {
-  result <- d$case_contexts |>
-    left_join(d$contexts, by = "context_id") |>
+  result <- d$case_contexts %>%
+    left_join(d$contexts, by = "context_id") %>%
     left_join(d$visit_dates, by = c("case_id", "context_id"))
   # exposure_relevance should be present in case_contexts (either from the
   # uploaded workbook or from make_demo_data). Guard against templates that
   # omit it so the bipartite view doesn't crash.
   if (!"exposure_relevance" %in% names(result))
-    result <- result |> mutate(exposure_relevance = "Neither")
+    result <- result %>% mutate(exposure_relevance = "Neither")
   result
 }
 
@@ -304,21 +306,21 @@ build_context_projection <- function(visits, ll, colours) {
   if (nrow(visits) == 0)
     return(list(nodes = tibble(id = character(), label = character()),
                 edges = tibble(from = character(), to = character())))
-  nodes <- visits |> distinct(case_id, context_name, context_type) |>
-    count(context_name, context_type, name = "cases") |>
+  nodes <- visits %>% distinct(case_id, context_name, context_type) %>%
+    count(context_name, context_type, name = "cases") %>%
     transmute(id = context_name, label = context_name, group = context_type,
               value = cases, color = unname(colours[context_type]), shape = "dot",
               title = paste0("<b>", context_name, "</b><br>", context_type,
                              "<br>Cases linked here: ", cases))
   # For each case that visited multiple contexts, generate all pairwise context combinations.
   # These become the edges (one edge per shared-case pair, then counted for weight).
-  per_case <- visits |> distinct(case_id, context_name) |> group_by(case_id) |>
-    summarise(s = list(sort(unique(context_name))), .groups = "drop") |>
+  per_case <- visits %>% distinct(case_id, context_name) %>% group_by(case_id) %>%
+    summarise(s = list(sort(unique(context_name))), .groups = "drop") %>%
     filter(lengths(s) >= 2)
   edges <- purrr::map_dfr(per_case$s, function(s) {
     m <- t(combn(s, 2)); tibble::tibble(from = m[, 1], to = m[, 2]) })
   if (nrow(edges)) {
-    edges <- edges |> count(from, to, name = "weight") |>
+    edges <- edges %>% count(from, to, name = "weight") %>%
       transmute(from, to, value = weight,
                 title = paste0(weight, " shared case(s) connect these contexts"))
   } else edges <- tibble::tibble(from = character(), to = character(),
@@ -338,18 +340,18 @@ build_bipartite <- function(visits, ll, colours) {
   has_dates <- "visit_date" %in% names(visits) && any(!is.na(visits$visit_date))
 
   # Context nodes use "ctx::" prefix on their IDs to avoid collisions with case IDs
-  context_nodes <- visits |> distinct(context_name, context_type, case_id) |>
-    count(context_name, context_type, name = "cases") |>
+  context_nodes <- visits %>% distinct(context_name, context_type, case_id) %>%
+    count(context_name, context_type, name = "cases") %>%
     transmute(id = paste0("ctx::", context_name), label = context_name,
               group = context_type, kind = "Context",
               color = unname(colours[context_type]), shape = "square",
               size  = 14 + 4 * sqrt(cases),
               title = paste0("<b>", context_name, "</b><br>", context_type,
                              "<br>Distinct cases: ", cases))
-  nset <- visits |> distinct(case_id, context_name) |> count(case_id, name = "ns")
-  case_nodes <- visits |> distinct(case_id) |>
-    left_join(ll |> select(case_id, onset_date), by = "case_id") |>
-    left_join(nset, by = "case_id") |>
+  nset <- visits %>% distinct(case_id, context_name) %>% count(case_id, name = "ns")
+  case_nodes <- visits %>% distinct(case_id) %>%
+    left_join(ll %>% select(case_id, onset_date), by = "case_id") %>%
+    left_join(nset, by = "case_id") %>%
     transmute(id = case_id, label = "", group = "Case", kind = "Case",
               color = CASE_COLOUR, shape = "dot", size = 8,
               title = paste0("<b>", case_id, "</b><br>Onset: ", onset_date,
@@ -358,8 +360,8 @@ build_bipartite <- function(visits, ll, colours) {
   # Collapse multiple visit dates per case-context pair into a single label
   # for the edge tooltip. If only one date, show it directly; multiple dates
   # are listed as "Dates: 01 Apr, 03 Apr, …"
-  edges_agg <- visits |>
-    group_by(case_id, context_name, context_type, exposure_relevance) |>
+  edges_agg <- visits %>%
+    group_by(case_id, context_name, context_type, exposure_relevance) %>%
     summarise(
       date_label = {
         ds <- sort(unique(visit_date[!is.na(visit_date)]))
@@ -375,7 +377,7 @@ build_bipartite <- function(visits, ll, colours) {
   #   Exposure window   → blue arrow pointing FROM the context (case caught it here)
   #   Both              → purple bidirectional arrow
   #   Neither           → grey dashed line (present but not relevant)
-  edges <- edges_agg |>
+  edges <- edges_agg %>%
     transmute(
       from               = case_id,
       to                 = paste0("ctx::", context_name),
@@ -411,26 +413,26 @@ build_bipartite <- function(visits, ll, colours) {
 # Node colour reflects the case's primary context type.
 build_transmission_network <- function(ll, visits, colours) {
   if (!("likely_index_case" %in% names(ll)))
-    ll <- ll |> mutate(likely_index_case = NA_character_)
+    ll <- ll %>% mutate(likely_index_case = NA_character_)
 
-  edges_raw <- ll |>
-    filter(!is.na(likely_index_case) & nchar(likely_index_case) > 0) |>
+  edges_raw <- ll %>%
+    filter(!is.na(likely_index_case) & nchar(likely_index_case) > 0) %>%
     select(from = likely_index_case, to = case_id)
 
   primary <- if (nrow(visits) > 0)
-    visits |> arrange(visit_date) |> group_by(case_id) |> slice(1) |> ungroup() |>
+    visits %>% arrange(visit_date) %>% group_by(case_id) %>% slice(1) %>% ungroup() %>%
       select(case_id, context_type)
   else tibble(case_id = character(), context_type = character())
 
-  n_contexts   <- visits |> distinct(case_id, context_name) |> count(case_id, name = "n_contexts")
-  ctx_tbl      <- visits |> distinct(case_id, context_name, context_type)
+  n_contexts   <- visits %>% distinct(case_id, context_name) %>% count(case_id, name = "n_contexts")
+  ctx_tbl      <- visits %>% distinct(case_id, context_name, context_type)
   onset        <- setNames(ll$onset_date, ll$case_id)
 
-  nodes <- ll |>
-    left_join(primary,    by = "case_id") |>
-    left_join(n_contexts, by = "case_id") |>
+  nodes <- ll %>%
+    left_join(primary,    by = "case_id") %>%
+    left_join(n_contexts, by = "case_id") %>%
     mutate(context_type = coalesce(context_type, "Other"),
-           n_contexts   = coalesce(n_contexts, 0L)) |>
+           n_contexts   = coalesce(n_contexts, 0L)) %>%
     transmute(id = case_id, label = case_id, group = context_type,
               color = coalesce(unname(colours[context_type]), "#7f7f7f"),
               title = paste0("<b>", htmltools::htmlEscape(case_id), "</b><br>Onset: ", onset_date,
@@ -439,7 +441,7 @@ build_transmission_network <- function(ll, visits, colours) {
   if (nrow(edges_raw) == 0)
     return(list(nodes = nodes, edges = tibble(from = character(), to = character())))
 
-  edges <- edges_raw |> filter(from %in% nodes$id, to %in% nodes$id) |>
+  edges <- edges_raw %>% filter(from %in% nodes$id, to %in% nodes$id) %>%
     mutate(
       gap = purrr::map2_int(from, to, function(f, t) {
         d1 <- onset[[f]]; d2 <- onset[[t]]
@@ -453,9 +455,11 @@ build_transmission_network <- function(ll, visits, colours) {
       }),
       title = paste0(
         "<b>", htmltools::htmlEscape(from), "</b> → <b>", htmltools::htmlEscape(to), "</b>",
+        # Base ifelse() kept intentionally: the inner condition gap == 1 is NA when
+        # gap is NA, which if_else() rejects; ifelse()'s NA-passthrough is relied on here.
         ifelse(!is.na(gap), paste0("<br>Onset gap: ", gap, ifelse(gap == 1, " day", " days")), ""),
         "<br>Shared contexts: ", common_text)
-    ) |>
+    ) %>%
     transmute(from, to, title)
 
   list(nodes = nodes, edges = edges)
@@ -726,7 +730,7 @@ nrow_timeline <- function(sel, f, view = "bipartite") {
   }
   if (sel %in% f$cases$case_id)
     return(length(unique(f$visit_dates$context_id[f$visit_dates$case_id == sel])))
-  clean  <- sub("^ctx::", "", sel)
+  clean  <- str_remove(sel, "^ctx::")
   ctx_r  <- f$contexts[f$contexts$context_name == clean, ]
   if (nrow(ctx_r) == 0) return(0L)
   ctx_id <- ctx_r$context_id[1]
@@ -746,7 +750,7 @@ nrow_timeline <- function(sel, f, view = "bipartite") {
 build_timeline_plot <- function(sel, f, p, view = "bipartite") {
   cases_df <- f$cases; ctx_df <- f$contexts; vd <- f$visit_dates
   is_case  <- sel %in% cases_df$case_id
-  clean    <- sub("^ctx::", "", sel)
+  clean    <- str_remove(sel, "^ctx::")
   is_ctx   <- !is_case && clean %in% ctx_df$context_name
   if (!is_case && !is_ctx) return(plotly_empty())
 
@@ -810,7 +814,7 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
         name = "Onset date", legendgroup = "onset", showlegend = TRUE)
 
     n_rows <- length(y_order)
-    return(fig |> layout(
+    return(fig %>% layout(
       shapes = list(highlight),
       yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
       xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
@@ -826,9 +830,12 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
     # Visit dates for this case, joined to context names
     cv <- vd[vd$case_id == sel, ]
     if (nrow(cv) == 0) return(plotly_empty())
-    cv <- merge(cv, ctx_df[, c("context_id", "context_name")], by = "context_id")
-    # as.Date recovers the Date class lost when merge strips it to numeric
-    cv$visit_date <- as.Date(cv$visit_date, origin = "1970-01-01")
+    # left_join keeps cv's rows and preserves the visit_date Date class (unlike
+    # base merge, which coerced it to numeric); arrange(context_id) reproduces
+    # merge's sort-by-key so the context y-axis order is unchanged.
+    cv <- cv %>%
+      left_join(ctx_df %>% select(context_id, context_name), by = "context_id") %>%
+      arrange(context_id)
     ctx_order <- unique(cv$context_name)
 
     # Full-height background rectangles for epi windows; vertical dashed line for onset.
@@ -854,27 +861,27 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
     # the plotly legend automatically. A single-point trace with y = NA registers a
     # legend entry without drawing anything; zero-length traces get dropped from the
     # legend, so a real x with a NA y is used instead.
-    fig <- plot_ly() |>
+    fig <- plot_ly() %>%
       add_trace(type = "scatter", mode = "markers",
         x = onset, y = NA,
         marker = list(color = "rgba(174,199,232,0.85)", size = 14, symbol = "square"),
-        name = "Exposure window", legendgroup = "exp", showlegend = TRUE) |>
+        name = "Exposure window", legendgroup = "exp", showlegend = TRUE) %>%
       add_trace(type = "scatter", mode = "markers",
         x = onset, y = NA,
         marker = list(color = "rgba(252,141,141,0.85)", size = 14, symbol = "square"),
-        name = "Infectious period", legendgroup = "inf", showlegend = TRUE) |>
+        name = "Infectious period", legendgroup = "inf", showlegend = TRUE) %>%
       add_trace(type = "scatter", mode = "markers",
         x = onset, y = NA,
         marker = list(color = "#333", size = 14, symbol = "line-ns-open",
                       line = list(color = "#333", width = 2)),
-        name = "Onset date", legendgroup = "onset", showlegend = TRUE) |>
+        name = "Onset date", legendgroup = "onset", showlegend = TRUE) %>%
       add_markers(data = cv, x = ~visit_date, y = ~context_name,
         marker = list(symbol = "circle", size = 9, color = "#636363",
                       line = list(width = 1, color = "#444")),
         name = "Visit date", legendgroup = "visit", showlegend = TRUE)
 
     n_rows <- length(ctx_order)
-    fig |> layout(
+    fig %>% layout(
       shapes = shapes,
       yaxis  = list(categoryorder = "array", categoryarray = rev(ctx_order), title = ""),
       xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
@@ -949,7 +956,7 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
         name = "Visit date", legendgroup = "visit", showlegend = TRUE)
 
     n_rows <- length(y_order)
-    fig |> layout(
+    fig %>% layout(
       yaxis  = list(categoryorder = "array", categoryarray = rev(y_order), title = ""),
       xaxis  = list(type = "date", title = "", dtick = 7 * 86400000, tickformat = "%d %b", tickangle = -45,
                    minor = list(dtick = 86400000, showgrid = TRUE, gridcolor = "rgba(0,0,0,0.12)")),
@@ -1342,10 +1349,10 @@ server <- function(input, output, session) {
       st$context_id <- paste0("Ctxt-", formatC(seq_len(nrow(st)), width = 3, flag = "0"))
 
     # Remove blank rows written to pre-size Excel tables (no actual data entered)
-    if ("onset_date"    %in% names(cs)) cs  <- cs  |> filter(!is.na(onset_date))
-    if ("context_name"  %in% names(st)) st  <- st  |> filter(!is.na(context_name) & nchar(trimws(coalesce(context_name, ""))) > 0)
-    if ("case_id"       %in% names(cst)) cst <- cst |> filter(!is.na(case_id)    & nchar(trimws(as.character(case_id)))    > 0)
-    if ("visit_date"    %in% names(vd))  vd  <- vd  |> filter(!is.na(visit_date))
+    if ("onset_date"    %in% names(cs)) cs  <- cs  %>% filter(!is.na(onset_date))
+    if ("context_name"  %in% names(st)) st  <- st  %>% filter(!is.na(context_name) & nchar(trimws(coalesce(context_name, ""))) > 0)
+    if ("case_id"       %in% names(cst)) cst <- cst %>% filter(!is.na(case_id)    & nchar(trimws(as.character(case_id)))    > 0)
+    if ("visit_date"    %in% names(vd))  vd  <- vd  %>% filter(!is.na(visit_date))
 
     # Check required columns in each sheet
     miss_cs  <- setdiff(c("case_id", "onset_date"), names(cs))
@@ -1503,13 +1510,13 @@ server <- function(input, output, session) {
     d         <- raw()
     # If types checkbox is empty (race condition on data load), show all context types
     types_sel <- if (length(input$types) == 0) unique(d$contexts$context_type) else input$types
-    cs  <- d$cases |> filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
+    cs  <- d$cases %>% filter(onset_date >= input$asof[1], onset_date <= input$asof[2])
     if ("case_status" %in% names(cs))
-      cs <- cs |> filter(is.na(case_status) | case_status %in% input$case_status_filter)
-    st  <- d$contexts |> filter(context_type %in% types_sel)
-    cst <- d$case_contexts |> filter(case_id %in% cs$case_id, context_id %in% st$context_id)
-    st  <- st |> filter(context_id %in% cst$context_id)
-    vd  <- d$visit_dates |> filter(case_id %in% cs$case_id, context_id %in% cst$context_id)
+      cs <- cs %>% filter(is.na(case_status) | case_status %in% input$case_status_filter)
+    st  <- d$contexts %>% filter(context_type %in% types_sel)
+    cst <- d$case_contexts %>% filter(case_id %in% cs$case_id, context_id %in% st$context_id)
+    st  <- st %>% filter(context_id %in% cst$context_id)
+    vd  <- d$visit_dates %>% filter(case_id %in% cs$case_id, context_id %in% cst$context_id)
     list(cases = cs, contexts = st, case_contexts = cst, visit_dates = vd)
   })
 
@@ -1534,11 +1541,11 @@ server <- function(input, output, session) {
   output$net <- renderVisNetwork({
     nd <- netdata(); v <- input$view
     vis_edges <- if ("exposure_relevance" %in% names(nd$edges))
-      nd$edges |> select(-exposure_relevance) else nd$edges
-    vn <- visNetwork(nd$nodes, vis_edges) |>
-      visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE)) |>
+      nd$edges %>% select(-exposure_relevance) else nd$edges
+    vn <- visNetwork(nd$nodes, vis_edges) %>%
+      visOptions(highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE)) %>%
       visPhysics(stabilization = TRUE,
-                 barnesHut = list(gravitationalConstant = -3500, springLength = 130)) |>
+                 barnesHut = list(gravitationalConstant = -3500, springLength = 130)) %>%
       visEvents(click = "function(params) {
         var node = params.nodes.length > 0 ? String(params.nodes[0]) : '';
         Shiny.setInputValue('net_node_clicked', {node: node, ts: new Date().getTime()}, {priority: 'event'});
@@ -1558,7 +1565,7 @@ server <- function(input, output, session) {
   observe({
     nd  <- netdata()
     lbl <- if ("label" %in% names(nd$nodes))
-      ifelse(nd$nodes$label == "" | is.na(nd$nodes$label), nd$nodes$id, nd$nodes$label)
+      if_else(nd$nodes$label == "" | is.na(nd$nodes$label), nd$nodes$id, nd$nodes$label)
     else nd$nodes$id
     choices <- c("-- Select node --" = "", setNames(nd$nodes$id, lbl))
     updateSelectInput(session, "node_selector", choices = choices, selected = "")
@@ -1573,7 +1580,7 @@ server <- function(input, output, session) {
   observeEvent(input$node_selector, {
     sel <- input$node_selector
     if (!is.null(sel) && nchar(trimws(sel)) > 0)
-      visNetworkProxy("net") |> visSelectNodes(id = list(sel))
+      visNetworkProxy("net") %>% visSelectNodes(id = list(sel))
   }, ignoreInit = TRUE)
 
   # Combined legend overlay: context type colours (all views) plus bipartite
@@ -1666,7 +1673,7 @@ server <- function(input, output, session) {
     if (n_rows == 0)
       return(div(style = "padding:20px; color:#888;", "No timeline data available for this node."))
     is_case <- sel %in% f$cases$case_id
-    clean   <- sub("^ctx::", "", sel)
+    clean   <- str_remove(sel, "^ctx::")
     heading <- if (view == "contacts" && is_case)
       paste0("Cases linked to ", sel)
     else if (is_case)
