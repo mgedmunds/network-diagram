@@ -13,6 +13,26 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
+### Batch 4 — template tweaks (requested 2026-08-22, not started)
+
+- [ ] **B4.1 Add "Unknown" to `exposure_relevance`** (case_contexts sheet). Dropdown is
+  currently hardcoded `"Infectious period,Exposure window,Both,Neither"` in
+  `make_template.R`; add `Unknown`. CHECK the app's edge-categorisation/colour logic in
+  `app.R` handles an unrecognised value gracefully (likely treat `Unknown` like `Neither` /
+  no transmission-relevant edge) and update it if needed, plus the data-dictionary
+  `exposure_relevance` values.
+
+- [ ] **B4.2 Remove the "Instructions" link** to the right of each data sheet (added as B2.8
+  last session). Remove the `instr_link()` helper + its four calls in `make_template.R`
+  (and the now-unused `readme_row_*` lookups if nothing else uses them). The README section
+  headings can stay. (User reversed the B2.8 decision.)
+
+- [ ] **B4.3 Add a `context_notes` column** to the contexts sheet (free text). Update
+  `make_template.R`: headers `c("context_id","context_name","context_type","context_notes")`,
+  col_widths, demo data, unlocked styling, the blank-row grey-out range, and the
+  `ContextsRange` named region (cols 1:3 -> 1:4). App reads contexts by column name so the
+  extra column is safe (no app change needed). Add the field to `docs/data-dictionary.md`.
+
 - [ ] Upload confirmation box: add a succinct, reassuring privacy statement to the green success alert shown after a file is uploaded (`output$upload_summary`). It should make clear the data stayed on the user's device / in their browser and was not sent outside the organisation's IT infrastructure. Proposed wording (confirm against deployment before using): "Your file was read directly in your web browser on this device — it is not sent to any server and does not leave your organisation's IT environment." *(IMPORTANT — factual accuracy depends on deployment: TRUE for the Shinylive/GitHub Pages browser-only build (WebR); NOT true if the app is ever hosted on a Shiny server, where uploads go to that server. Word it to match the actual deployment model before release.)* *(requested: 2026-06-20)*
 
 ---
