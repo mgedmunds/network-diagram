@@ -260,13 +260,22 @@ readme_rows <- list(
   list(style = note_style,    text = "   there is no onset date)."),
   list(style = note_style,    text = "•  exposure_window: 21 to 7 days before onset_date (measles incubation default)."),
   list(style = note_style,    text = "•  infectious_period: 4 days before to 4 days after onset_date (measles default)."),
-  list(style = note_style,    text = "•  contexts: the context names linked to each case (from case_contexts), semi-colon"),
-  list(style = note_style,    text = "   separated, filled in automatically."),
-  list(style = note_style,    text = "exposure_window and infectious_period use fixed measles defaults; they do not follow the"),
-  list(style = note_style,    text = "editable parameters inside the network tool."),
-  list(style = note_style,    text = "It shows up to 10 contexts per case. If the column is ever empty, click a cell that"),
-  list(style = note_style,    text = "still has the formula, copy it, and paste down over the blank cells (plain paste — no"),
-  list(style = note_style,    text = "Ctrl+Shift+Enter needed)."),
+  list(style = note_style,    text = "•  age / age_group only: exposure_window and infectious_period use fixed measles"),
+  list(style = note_style,    text = "   defaults; they do not follow the editable parameters inside the network tool."),
+  list(style = note_style,    text = "The 'contexts' column is set up separately — see the next section."),
+  list(style = note_style,    text = ""),
+
+  list(style = section_style, text = "CONTEXTS COLUMN — one-off setup (column AD on the cases sheet)"),
+  list(style = note_style,    text = "This column lists each case's linked context names (pulled from the case_contexts and"),
+  list(style = note_style,    text = "contexts sheets). It starts blank; set it up once after entering your data:"),
+  list(style = note_style,    text = "1.  Click cell AD2 on the cases sheet."),
+  list(style = note_style,    text = "2.  Paste the formula below into the formula bar."),
+  list(style = note_style,    text = "3.  Press Ctrl+Shift+Enter together (NOT just Enter). Excel shows it wrapped in { }."),
+  list(style = note_style,    text = "4.  Click AD2 again, copy it, select AD3 down to the last case, and paste."),
+  list(style = note_style,    text = ""),
+  list(style = note_style,    text = '=IF(A2="","",IFERROR(TEXTJOIN("; ",TRUE,IF(ISNUMBER(MATCH(A2&contexts!$A$2:$A$1001,case_contexts!$A$2:$A$2001&case_contexts!$B$2:$B$2001,0)),contexts!$B$2:$B$1001,"")),""))'),
+  list(style = note_style,    text = ""),
+  list(style = note_style,    text = "If you add more cases later, copy AD2 down over the new rows the same way."),
   list(style = note_style,    text = ""),
 
   list(style = section_style, text = "DROPDOWN LISTS — how to edit the options (Dropdowns tab)"),
@@ -689,7 +698,7 @@ add_sheet(
     list(col = 20, formula = "OFFSET(Dropdowns!$F$2,0,0,COUNTA(Dropdowns!$F$2:$F$100),1)"),
     list(col = 21, formula = "OFFSET(Dropdowns!$G$2,0,0,COUNTA(Dropdowns!$G$2:$G$100),1)"),
     list(col = 23, formula = "OFFSET(Dropdowns!$H$2,0,0,COUNTA(Dropdowns!$H$2:$H$100),1)"),
-    list(col = 25, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$A$2:$A$1001),1)"),
+    list(col = 25, formula = 'OFFSET(cases!$A$2,0,0,COUNTIF(cases!$A$2:$A$1001,"?*"),1)'),
     list(col = 26, formula = "OFFSET(Dropdowns!$I$2,0,0,COUNTA(Dropdowns!$I$2:$I$100),1)"),
     list(col = 29, formula = "OFFSET(Dropdowns!$A$2,0,0,COUNTA(Dropdowns!$A$2:$A$100),1)"),
     list(col = 31, formula = "OFFSET(Dropdowns!$J$2,0,0,COUNTA(Dropdowns!$J$2:$J$100),1)")
@@ -758,26 +767,14 @@ writeFormula(wb, "cases", inf_formulas, startRow = 2, startCol = 16)
 # contexts (col AD, 30): semi-colon list of the context names linked to each
 # case, resolved through the case_contexts bridging table.
 #
-# This is an ORDINARY formula (no Ctrl+Shift+Enter) — earlier array/TEXTJOIN(IF)
-# versions needed CSE, which openxlsx writes unreliably, so the column came out
-# blank. AGGREGATE(15, 6, …) evaluates its array argument natively without CSE,
-# so openxlsx can write it as a plain formula that just works in Excel 2019.
-#
-# For each of the first N linked contexts (k = 1..N), AGGREGATE returns the k-th
-# case_contexts row where case_id matches (dividing row positions by the match
-# turns non-matches into #DIV/0!, which option 6 ignores); INDEX/MATCH turn that
-# row's context_id into its name; IFERROR blanks the unused slots; TEXTJOIN joins
-# the up-to-N names. The leading IF(A="") keeps blank rows cheap.
-MAX_CONTEXTS <- 10L
-ctx_rows <- 2:1001
-ctx_terms <- vapply(seq_len(MAX_CONTEXTS), function(k) paste0(
-  'IFERROR(INDEX(contexts!$B$2:$B$1001,MATCH(INDEX(case_contexts!$B$2:$B$2001,',
-  'AGGREGATE(15,6,(ROW(case_contexts!$A$2:$A$2001)-1)/(case_contexts!$A$2:$A$2001=A',
-  ctx_rows, '),', k, ')),contexts!$A$2:$A$1001,0)),"")'
-), character(length(ctx_rows)))
-ctx_body <- apply(ctx_terms, 1, paste, collapse = ",")
-contexts_formulas <- paste0('IF(A', ctx_rows, '="","",TEXTJOIN("; ",TRUE,', ctx_body, '))')
-writeFormula(wb, "cases", contexts_formulas, startRow = 2, startCol = 30)
+# NOT written here. Two auto-fill attempts failed in the generated file: the
+# array TEXTJOIN(IF) version needs Ctrl+Shift+Enter and openxlsx does not write
+# the array flag reliably (came out blank), and an AGGREGATE rewrite also came
+# out blank. The reliable route is manual: the user pastes the CSE formula into
+# AD2 with Ctrl+Shift+Enter and copies it down (confirmed working). The formula
+# and steps are in the README tab. Column AD is left blank, locked and blue.
+# The app does not depend on this column (it derives context links from the
+# case_contexts sheet directly), so a blank AD does not affect the network tool.
 
 # Locked (blue): formula columns — never edited
 # age (6), age_group (7), exposure_window (15), infectious_period (16), contexts (30)
@@ -902,8 +899,8 @@ add_sheet(
   col_widths  = c(12, 14, 20),
   has_example = FALSE,
   dropdowns   = list(
-    list(col = 1, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$A$2:$A$1001),1)"),
-    list(col = 2, formula = "OFFSET(contexts!$A$2,0,0,COUNTA(contexts!$A$2:$A$1001),1)"),
+    list(col = 1, formula = 'OFFSET(cases!$A$2,0,0,COUNTIF(cases!$A$2:$A$1001,"?*"),1)'),
+    list(col = 2, formula = 'OFFSET(contexts!$A$2,0,0,COUNTIF(contexts!$A$2:$A$1001,"?*"),1)'),
     list(col = 3, formula = '"Infectious period,Exposure window,Both,Neither"')
   )
 )
@@ -921,8 +918,8 @@ add_sheet(
   has_example = FALSE,
   date_cols   = 3,
   dropdowns   = list(
-    list(col = 1, formula = "OFFSET(cases!$A$2,0,0,COUNTA(cases!$A$2:$A$1001),1)"),
-    list(col = 2, formula = "OFFSET(contexts!$A$2,0,0,COUNTA(contexts!$A$2:$A$1001),1)")
+    list(col = 1, formula = 'OFFSET(cases!$A$2,0,0,COUNTIF(cases!$A$2:$A$1001,"?*"),1)'),
+    list(col = 2, formula = 'OFFSET(contexts!$A$2,0,0,COUNTIF(contexts!$A$2:$A$1001,"?*"),1)')
   ),
   validations = list(
     list(col = 3, type = "date", operator = "between",

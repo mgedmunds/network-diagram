@@ -13,18 +13,6 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
-- [ ] **Contexts column — switch to manual paste instead of auto-fill (user preference).**
-  Alternative to the current auto-populated `AGGREGATE` formula (B2.5 / commit 09c3f90):
-  leave column AD blank in the generated template and instead put the contexts array
-  formula in the README with step-by-step paste instructions — user pastes it into AD2,
-  presses **Ctrl+Shift+Enter** (array entry — note: NOT Ctrl+Alt+Enter), then copies AD2
-  down. Rationale (user): simpler to understand, matches a previous version.
-  **DECISION FIRST:** test the auto `AGGREGATE` version — it should fill AD with no user
-  action at all (no paste, no CSE), which is simpler for end users, so this may be
-  unnecessary. If the manual approach is still preferred, implement by: removing the
-  generated AD formula from `make_template.R`, and restoring a README paste section with the
-  CSE `TEXTJOIN`/`MATCH` formula. *(requested: 2026-08-22)*
-
 - [ ] Upload confirmation box: add a succinct, reassuring privacy statement to the green success alert shown after a file is uploaded (`output$upload_summary`). It should make clear the data stayed on the user's device / in their browser and was not sent outside the organisation's IT infrastructure. Proposed wording (confirm against deployment before using): "Your file was read directly in your web browser on this device — it is not sent to any server and does not leave your organisation's IT environment." *(IMPORTANT — factual accuracy depends on deployment: TRUE for the Shinylive/GitHub Pages browser-only build (WebR); NOT true if the app is ever hosted on a Shiny server, where uploads go to that server. Word it to match the actual deployment model before release.)* *(requested: 2026-06-20)*
 
 ---
@@ -34,19 +22,22 @@ through the "Ready to action" list. Plain English, no special format needed.
 - [ ] **Batch 2 (B2.1–B2.9)** — implemented and committed on `amendments-batch-2`
   (2026-08-22), not yet tested in RStudio/Excel. Verify: template regenerates; Dropdowns
   tab lists + maroon headers; cases dropdowns work; row/column resizing; and **especially
-  B2.5** — that the `contexts` column (AD) fills correctly in Excel. NOTE: the first array
-  version came out blank (openxlsx doesn't write the array flag reliably); it was reworked
-  to an ordinary `AGGREGATE`-based formula (no Ctrl+Shift+Enter, shows up to 10 contexts).
-  Re-verify AD now populates. Then run the app and confirm category ordering follows the
-  Dropdowns lists.
+  B2.5** — contexts column. RESOLVED 2026-08-22: auto-fill abandoned (both array and
+  AGGREGATE versions came out blank — openxlsx can't reliably write array formulas). AD is
+  now left blank; the README has a one-off manual paste (CSE `TEXTJOIN`/`MATCH`, confirmed
+  working by the user). Verify the README steps read clearly. Then run the app and confirm
+  category ordering follows the Dropdowns lists.
 
 - [ ] **Batch 3** — implemented and committed on `amendments-batch-2` (2026-08-22), not yet
   tested. B3.1 filter + B3.2 sort enabled on cases/contexts; header + `case_id` column
   frozen on cases. B3.3 = ADR-007: `case_id`/`context_id` now manual UIDs. Verify in Excel:
   a duplicate or wrong-format ID turns red (flagged, not rejected — openxlsx has no custom
   validation); the rest of a row greys out until its ID is entered; sort + filter work; and the ID dropdowns on
-  case_contexts/visit_dates list only the real cases/contexts (not 1,000 blanks). Confirm
-  the demo data (with real C-### / Ctxt-### IDs) still uploads and the app reads it.
+  case_contexts/visit_dates list only the real cases/contexts. FIXED 2026-08-22: the ID
+  dropdowns listed ~1,000 blank rows because their `OFFSET` used `COUNTA` (which counts the
+  pre-sized empty-string cells); switched to `COUNTIF(range,"?*")`, which counts only cells
+  with real text. Re-verify the pickers now show only entered IDs. Confirm the demo data
+  (with real C-### / Ctxt-### IDs) still uploads and the app reads it.
 
 ---
 

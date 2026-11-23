@@ -44,7 +44,7 @@ Every categorical field takes its dropdown options from a column on the **Dropdo
 | `total_contacts` | integer | — | No | No | Number of contacts identified for the case. Whole number ≥ 0. |
 | `vulnerable_contacts` | integer | — | No | No | Number of those contacts who are clinically vulnerable. Whole number ≥ 0. |
 | `primary_context_type` | character | — | No | Yes | The context type most associated with the case (e.g. `School`, `Household`). Dropdown from the Dropdowns tab (Setting Types list). Read from the workbook and stored on `cases`, but not yet used by any view ("store only"). |
-| `contexts` | character | — | No | No | *(derived)* Semi-colon list of context names linked to the case in `case_contexts`. Auto-filled by an ordinary (non-array) `AGGREGATE`-based formula in the template — works in Excel 2019 without Ctrl+Shift+Enter. Shows up to 10 contexts per case. |
+| `contexts` | character | — | No | No | *(derived)* Semi-colon list of context names linked to the case in `case_contexts`. Column AD starts blank; the user pastes a CSE (`Ctrl+Shift+Enter`) `TEXTJOIN`/`MATCH` formula into AD2 once and copies down (steps + formula on the README tab). Auto-fill was abandoned — openxlsx cannot reliably write array formulas. Not used by the app (it derives links from `case_contexts` directly). |
 | `status` | character | — | No | No | Case management status. Values: `Open`, `Closed`, `Discarded`. Set to `Discarded` instead of deleting a ruled-out case (deleting a row renumbers position-based IDs). External-only — not read by the tool. |
 | `date_closed` | date | — | No | No | Date the case was closed. Format: DD/MM/YYYY. |
 
