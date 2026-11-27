@@ -13,6 +13,13 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
+- [ ] **Sort out the case-selected timeline** (requested 2026-11-27). The timeline when a
+  **case** is selected needs reviewing/refining. Specifics not yet captured — describe the
+  exact issue (layout, ordering, what should show, the window/onset/visit-dot behaviour)
+  at the next app review before actioning. Related recent change: the no-visit-dates
+  fallback now shows one row per linked context with windows + onset, no dots (commit
+  `97894b5`).
+
 *(Batch 4 — B4.1–B4.4 — implemented 2026-11-27 on branch `amendments-batch-4`; now in "Awaiting verification" below.)*
 
 ---
