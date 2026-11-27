@@ -604,14 +604,25 @@ nrow_timeline <- function(sel, f, view = "bipartite") {
     associated  <- unique(c(sel, linked_from, linked_to))
     return(length(associated[associated %in% ll$case_id]))
   }
-  if (sel %in% f$cases$case_id)
-    return(length(unique(f$visit_dates$context_id[f$visit_dates$case_id == sel])))
+  if (sel %in% f$cases$case_id) {
+    # Rows = contexts with visit dates; fall back to the case's linked contexts
+    # (case_contexts) so the onset + epi windows still show with no visit dates.
+    n <- length(unique(f$visit_dates$context_id[f$visit_dates$case_id == sel]))
+    if (n == 0)
+      n <- length(unique(f$case_contexts$context_id[f$case_contexts$case_id == sel]))
+    return(if (n == 0) 1L else n)
+  }
   clean  <- str_remove(sel, "^ctx::")
   ctx_r  <- f$contexts[f$contexts$context_name == clean, ]
   if (nrow(ctx_r) == 0) return(0L)
   ctx_id <- ctx_r$context_id[1]
   linked <- unique(f$visit_dates$case_id[f$visit_dates$context_id == ctx_id])
-  length(linked[linked %in% f$cases$case_id])
+  linked <- linked[linked %in% f$cases$case_id]
+  if (length(linked) == 0) {
+    linked <- unique(f$case_contexts$case_id[f$case_contexts$context_id == ctx_id])
+    linked <- linked[linked %in% f$cases$case_id]
+  }
+  length(linked)
 }
 
 # Builds the plotly timeline chart for the selected node.
@@ -703,16 +714,25 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
     cr    <- cases_df[cases_df$case_id == sel, ]
     onset <- cr$onset_date[1]
 
-    # Visit dates for this case, joined to context names
-    cv <- vd[vd$case_id == sel, ]
-    if (nrow(cv) == 0) return(plotly_empty())
-    # left_join keeps cv's rows and preserves the visit_date Date class (unlike
-    # base merge, which coerced it to numeric); arrange(context_id) reproduces
-    # merge's sort-by-key so the context y-axis order is unchanged.
-    cv <- cv %>%
+    # Visit dates for this case, joined to context names. left_join preserves the
+    # visit_date Date class (unlike base merge); arrange(context_id) fixes the
+    # context y-axis order.
+    cv <- vd[vd$case_id == sel, ] %>%
       left_join(ctx_df %>% select(context_id, context_name), by = "context_id") %>%
       arrange(context_id)
-    ctx_order <- unique(cv$context_name)
+    # Rows = contexts with visit dates if any; otherwise the case's linked
+    # contexts (from case_contexts), so the onset and epi windows still display
+    # when no visit dates have been entered. Visit dots are added below only
+    # when visit dates exist.
+    if (nrow(cv) > 0) {
+      ctx_order <- unique(cv$context_name)
+    } else {
+      links <- f$case_contexts[f$case_contexts$case_id == sel, ] %>%
+        left_join(ctx_df %>% select(context_id, context_name), by = "context_id") %>%
+        arrange(context_id)
+      ctx_order <- unique(links$context_name)
+      if (length(ctx_order) == 0) ctx_order <- sel
+    }
 
     # Full-height background rectangles for epi windows; vertical dashed line for onset.
     # format() converts Date to ISO string required by plotly shape x coordinates.
@@ -750,8 +770,12 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
         x = onset, y = NA,
         marker = list(color = "#333", size = 14, symbol = "line-ns-open",
                       line = list(color = "#333", width = 2)),
-        name = "Onset date", legendgroup = "onset", showlegend = TRUE) %>%
-      add_markers(data = cv, x = ~visit_date, y = ~context_name,
+        name = "Onset date", legendgroup = "onset", showlegend = TRUE)
+
+    # Visit dots only where visit dates exist (absent when the fallback above
+    # used the case's linked contexts).
+    if (nrow(cv) > 0)
+      fig <- fig %>% add_markers(data = cv, x = ~visit_date, y = ~context_name,
         marker = list(symbol = "circle", size = 9, color = "#636363",
                       line = list(width = 1, color = "#444")),
         name = "Visit date", legendgroup = "visit", showlegend = TRUE)
@@ -771,6 +795,13 @@ build_timeline_plot <- function(sel, f, p, view = "bipartite") {
     ctx_id <- ctx_r$context_id[1]
     linked <- unique(vd$case_id[vd$context_id == ctx_id])
     linked <- linked[linked %in% cases_df$case_id]
+    # Fall back to case_contexts links when no visit dates are recorded, so each
+    # linked case's onset and epi windows still display (visit dots are added
+    # per case below only where dates exist).
+    if (length(linked) == 0) {
+      linked <- unique(f$case_contexts$case_id[f$case_contexts$context_id == ctx_id])
+      linked <- linked[linked %in% cases_df$case_id]
+    }
     # Sort by onset date so the chart reads chronologically top to bottom
     linked <- linked[order(cases_df$onset_date[match(linked, cases_df$case_id)])]
     if (length(linked) == 0) return(plotly_empty())
