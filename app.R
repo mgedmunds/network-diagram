@@ -147,137 +147,6 @@ DICT_TABLES <- list(
   )
 )
 
-# ---- Demo data --------------------------------------------------------------
-# Generates a realistic synthetic outbreak dataset used when no file is uploaded.
-# Produces four tables (cases, contexts, case_contexts, visit_dates) with
-# plausible visit patterns. likely_index_case is populated directly on cases.
-make_demo_data <- function() {
-  # Fixed seed so the demo is reproducible each time the app starts
-  set.seed(42)
-  all_contexts <- tibble::tribble(
-    ~context_id, ~context_name,              ~context_type,
-    1L,          "Oakfield Primary",         "School",
-    2L,          "St Mary's Secondary",      "School",
-    3L,          "Hillside Nursery",         "Community",
-    4L,          "Faith Community Centre",   "Community",
-    5L,          "Maple Street Household",   "Household",
-    6L,          "Birch Close Household",    "Household",
-    7L,          "Riverside GP Surgery",     "Healthcare",
-    8L,          "Central Hospital ED",      "Healthcare")
-  # Split contexts into community (where primary exposure happens) and healthcare
-  # (where cases are seen after onset). comm_w gives unequal sampling weights
-  # so schools are over-represented, matching typical measles outbreak patterns.
-  community  <- all_contexts %>% filter(context_type != "Healthcare")
-  healthcare <- all_contexts %>% filter(context_type == "Healthcare")
-  comm_w     <- c(.24, .20, .16, .14, .13, .13)
-  n <- 15
-  # Generate the cases table: 15 cases with random onset dates over an 8-week period
-  cases <- tibble::tibble(
-    case_id            = sprintf("C%03d", seq_len(n)),
-    onset_date         = as.Date("2026-04-01") + sample(0:56, n, replace = TRUE),
-    age_group          = sample(c("<1 year","1–4 years","5–17 years","18–29 years","30–49 years","50+ years"),
-                                n, TRUE, c(.10,.20,.30,.20,.12,.08)),
-    gender             = sample(c("Male","Female","Other","Unknown"),
-                                n, TRUE, c(.47,.47,.03,.03)),
-    vaccination_status = sample(c("Unvaccinated","1 dose","2 doses","Unknown"),
-                                n, TRUE, c(.5,.2,.2,.1)),
-    case_status        = sample(c("Confirmed","Probable","Possible"),
-                                n, TRUE, c(.6,.3,.1))) %>% arrange(onset_date)
-
-  # Assign each case a primary community context (weighted towards schools)
-  prim <- sample(seq_len(nrow(community)), n, replace = TRUE, prob = comm_w)
-
-  # Helper: pick n_dates distinct dates from a window vector
-  pick_dates <- function(window, n_dates) sort(sample(window, min(n_dates, length(window))))
-
-  # Build visit_dates rows for each case.
-  # Each case gets visits to their primary context, and with some probability
-  # also visits to a healthcare setting and a secondary exposure context.
-  visit_rows <- purrr::map_dfr(seq_len(n), function(i) {
-    onset     <- cases$onset_date[i]
-    inf_win   <- seq(onset - DEF_INF_BEFORE, onset + DEF_INF_AFTER)
-    exp_win   <- seq(onset - DEF_INC_MAX,    onset - DEF_INC_MIN)
-
-    prim_ctype <- community$context_type[prim[i]]
-    # Households: case is resident, so record dates spanning both the exposure and infectious windows.
-    # Other contexts: 1–3 visits during the infectious period only.
-    prim_dates <- if (prim_ctype == "Household")
-                    c(pick_dates(exp_win, sample(2:4, 1)),
-                      pick_dates(inf_win, sample(2:4, 1)))
-                  else pick_dates(inf_win, sample(1:3, 1, prob = c(.4, .4, .2)))
-    rows <- tibble::tibble(case_id    = cases$case_id[i],
-                           context_id = community$context_id[prim[i]],
-                           visit_date = prim_dates)
-
-    # 70% chance the case visited a healthcare setting shortly after onset
-    if (runif(1) < 0.70) {
-      h <- healthcare[sample(nrow(healthcare), 1), ]
-      rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
-                          context_id = h$context_id,
-                          visit_date = onset + sample(1:3, 1))) }
-
-    # 65% chance the case also attended a second community context during their exposure window
-    if (runif(1) < 0.65) {
-      s_exp      <- community[sample(seq_len(nrow(community))[-prim[i]], 1), ]
-      exp_dates  <- if (s_exp$context_type == "Household") onset - sample(DEF_INC_MIN:DEF_INC_MAX, 1)
-                    else pick_dates(exp_win, sample(1:2, 1))
-      rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
-                          context_id = s_exp$context_id,
-                          visit_date = exp_dates)) }
-
-    # 35% chance of a historically recorded visit well outside the epi windows (noise)
-    if (runif(1) < 0.35) {
-      s_hist <- community[sample(seq_len(nrow(community)), 1), ]
-      rows <- bind_rows(rows, tibble::tibble(case_id    = cases$case_id[i],
-                          context_id = s_hist$context_id,
-                          visit_date = onset - sample(22:30, 1))) }
-    rows
-  }) %>% arrange(case_id, visit_date)
-
-  # Derive the three relational tables from the visit rows
-  visit_dates   <- visit_rows %>% distinct(case_id, context_id, visit_date)
-  # Compute exposure_relevance for demo data using the default epi windows,
-  # mirroring the practitioner judgement that real users would enter in the workbook.
-  er <- visit_dates %>%
-    left_join(cases %>% select(case_id, onset_date), by = "case_id") %>%
-    mutate(
-      in_infectious = visit_date >= onset_date - DEF_INF_BEFORE & visit_date <= onset_date + DEF_INF_AFTER,
-      in_exposure   = visit_date >= onset_date - DEF_INC_MAX    & visit_date <= onset_date - DEF_INC_MIN
-    ) %>%
-    group_by(case_id, context_id) %>%
-    summarise(any_infectious = any(in_infectious, na.rm = TRUE),
-              any_exposure   = any(in_exposure,   na.rm = TRUE),
-              .groups = "drop") %>%
-    mutate(exposure_relevance = dplyr::case_when(
-      any_infectious & any_exposure ~ "Both",
-      any_infectious                ~ "Infectious period",
-      any_exposure                  ~ "Exposure window",
-      TRUE                          ~ "Neither")) %>%
-    select(case_id, context_id, exposure_relevance)
-  case_contexts <- visit_rows %>% distinct(case_id, context_id) %>%
-    left_join(er, by = c("case_id", "context_id")) %>%
-    mutate(exposure_relevance = coalesce(exposure_relevance, "Neither"))
-  # Keep only contexts that at least one case actually visited
-  contexts <- all_contexts %>% semi_join(case_contexts, by = "context_id")
-
-  # Assign likely_index_case for each case (except the first).
-  # Cases sharing a primary context are 5x more likely to be linked.
-  prim_id <- community$context_id[prim]
-  index_cases <- c(NA_character_, purrr::map_chr(seq_len(n)[-1], function(i) {
-    cand <- cases[seq_len(i - 1), ]
-    w    <- if_else(prim_id[seq_len(i - 1)] == prim_id[i], 5, 1)
-    j    <- sample(seq_len(nrow(cand)), 1, prob = w)
-    cand$case_id[j]
-  }))
-  # primary_context_type: the type of each case's primary community context.
-  # Stored on cases for the linelist; not yet used by any view.
-  cases <- cases %>% mutate(likely_index_case    = index_cases,
-                           primary_context_type = community$context_type[prim])
-
-  list(cases = cases, contexts = contexts, case_contexts = case_contexts,
-       visit_dates = visit_dates)
-}
-
 # Joins case_contexts, contexts, and visit_dates into a single flat table.
 # This denormalised view is what the network view builders consume — one row
 # per case × context × visit_date combination, with context name and type included.
@@ -285,9 +154,9 @@ flat_visits <- function(d) {
   result <- d$case_contexts %>%
     left_join(d$contexts, by = "context_id") %>%
     left_join(d$visit_dates, by = c("case_id", "context_id"))
-  # exposure_relevance should be present in case_contexts (either from the
-  # uploaded workbook or from make_demo_data). Guard against templates that
-  # omit it so the bipartite view doesn't crash.
+  # exposure_relevance should be present in case_contexts (from the uploaded
+  # workbook). Guard against templates that omit it so the bipartite view
+  # doesn't crash.
   if (!"exposure_relevance" %in% names(result))
     result <- result %>% mutate(exposure_relevance = "Neither")
   result
@@ -1138,7 +1007,7 @@ ui <- page_navbar(
         card_header(h4(paste0("Network explorer v", APP_VERSION, " - Prototype"), class = "mb-0")),
         card_body(
           p("This tool visualises a measles outbreak as an interactive network, showing how cases and places (contexts — such as schools, households, and healthcare settings) are connected. Use it to identify hub contexts, bridge cases, and potential transmission routes."),
-          p("Upload your outbreak data below, then navigate to the ", tags$strong("Network model"), " tab to explore the network. If no file is uploaded, the tool runs on built-in demo data so you can explore the features straight away."),
+          p("Upload your outbreak data below, then navigate to the ", tags$strong("Network model"), " tab to explore the network. A worked example dataset is included in the Excel template (available from the team) if you want to try the tool before entering your own data."),
           div(class = "alert alert-warning d-flex gap-2", role = "alert",
             tags$strong("Important:"),
             "Do not upload files containing personal identifiable information (PII). Use anonymised or pseudonymised data only — case IDs must not include names, dates of birth, addresses, or NHS numbers."),
@@ -1156,7 +1025,7 @@ ui <- page_navbar(
           info("Pick a case or context to highlight it in the network and show its timeline below. Also updates when you click a node in the diagram.")),
         selectInput("node_selector", NULL, choices = c("-- Select node --" = ""), width = "100%"),
         hr(),
-        helpText("Upload data on the ", tags$strong("Home"), " tab. Demo data is used if no file is loaded."),
+        helpText("Upload data on the ", tags$strong("Home"), " tab to begin."),
         tags$label(class = "form-label mb-0",
           "Filter by onset date",
           info("Filters to cases whose symptom onset falls within this date range. Visit dates are filtered to the same window.")),
@@ -1306,16 +1175,20 @@ server <- function(input, output, session) {
 
   # ---- Reactive data chain --------------------------------------------------
   # Data flows through three chained reactives:
-  #   raw()      — loads once from file or demo data; invalidates only when a new file is uploaded
+  #   raw()      — loads from the uploaded file; invalidates only when a new file is uploaded
   #   filtered() — applies the sidebar filters (date range, context types, case status)
   #   netdata()  — builds the nodes/edges for the currently selected network view
   # Keeping these separate means parameter changes (inc_min etc.) only re-run
   # netdata(), not the file read or filtering.
 
-  # raw(): reads and validates the uploaded Excel file, or returns demo data.
-  # validate() stops execution and shows a user-facing error message if checks fail.
+  # raw(): reads and validates the uploaded Excel file.
+  # validate() stops execution and shows a user-facing message if checks fail.
+  # Before a file is uploaded there is no data, so every data-driven output
+  # (network, timeline, source tables) shows this prompt rather than rendering.
   raw <- reactive({
-    if (is.null(input$file)) return(make_demo_data())
+    shiny::validate(
+      need(!is.null(input$file),
+           "Upload your outbreak data on the Home tab to begin."))
 
     sheets <- readxl::excel_sheets(input$file$datapath)
 
@@ -1645,7 +1518,7 @@ server <- function(input, output, session) {
     options = list(pageLength = 15, scrollX = TRUE, dom = "lftip"))
 
   # After a file is uploaded, summarise how many records were read in and point
-  # the user to the Source data tab. Hidden when running on demo data.
+  # the user to the Source data tab. Hidden until a file is loaded.
   output$upload_summary <- renderUI({
     if (is.null(input$file)) return(NULL)
     d <- raw()

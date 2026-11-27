@@ -13,26 +13,24 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Ready to action
 
-### Batch 4 — template tweaks (requested 2026-08-22, not started)
-
-- [ ] **B4.4 Remove the in-app generated demo/dummy dataset** (requested 2026-11-27). The app
-  can rely on file upload only. Remove `make_demo_data()` and the code path that loads it (the
-  demo-data button/landing behaviour), so the app starts with no data until a file is
-  uploaded. PRECONDITION — CHECK FIRST: confirm the Excel template still ships a worked demo
-  dataset (so users have something to explore/upload). VERIFIED 2026-11-27: `make_template.R`
-  generates a fictional 20-case outbreak written into the template (demo data L624–L918; the
-  README note at L198 tells users "The workbook opens with example data for a fictional 20-case
-  outbreak"). The template demo is independent of `make_demo_data()`, so removing the app's
-  version does not affect it. SCOPE FLAG: this is an `app.R` change, not a template tweak, and
-  it unwinds a documented convention (CLAUDE.md "Demo data: `make_demo_data()` must always
-  return valid data"). CHECK before coding: (a) what the app shows with no data loaded
-  (empty-state messaging on Home + each view, so it doesn't error on empty reactives);
-  (b) whether the Dev Panel or any test relies on demo data; (c) update CLAUDE.md to drop the
-  demo-data convention. Confirm approach before implementing.
+*(Batch 4 — B4.1–B4.4 — implemented 2026-11-27 on branch `amendments-batch-4`; now in "Awaiting verification" below.)*
 
 ---
 
 ## Awaiting verification
+
+- [ ] **Batch 4 (B4.1–B4.4)** — implemented and committed on `amendments-batch-4`
+  (2026-11-27, based on `coding-standards-tidyverse`), not yet tested in RStudio/Excel.
+  Verify: (B4.2) the per-sheet "Instructions" links are gone from the template and the
+  README reads cleanly; (B4.3) the contexts sheet has a 4th `context_notes` free-text
+  column that greys out with the rest of the row until `context_id` is entered;
+  (B4.1) the `case_contexts` `exposure_relevance` dropdown now offers `Unknown`, and in
+  the app's *Who visited where* view **Neither = solid black** and **Unknown = grey
+  dashed**, with both in the floating legend; (B4.4) with **no file uploaded** the
+  Network model / Source data / timeline show "Upload your outbreak data on the Home tab
+  to begin." instead of rendering (no errors), and uploading the template still works.
+  Run `tools/make_template.R` in RStudio first (confirm it regenerates clean), then
+  `shiny::runApp()`.
 
 - [ ] **Upload privacy statement** — implemented on branch `amendments-privacy-statement`
   (2026-08-22). `app.R` now shows "your file was read directly in your web browser … does

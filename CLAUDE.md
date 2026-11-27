@@ -165,8 +165,11 @@ relevance category.
 - **Reactive pattern:** keep data loading in `raw()`, filtering in `filtered()`,
   network building in `netdata()`. Do not add new top-level reactives for data
   that fits this chain.
-- **Demo data:** the `make_demo_data()` function must always return valid data
-  matching the current schema. Update it whenever the schema changes.
+- **No in-app demo data:** the app has no built-in dataset — it runs on uploaded
+  files only. Before a file is loaded, `raw()` short-circuits with a `validate()`
+  prompt so data-driven outputs show "Upload your outbreak data…" instead of
+  rendering. A worked example lives in the Excel template (`tools/make_template.R`),
+  not in `app.R`. (The former `make_demo_data()` was removed 2026-11-27.)
 - **Single file:** all code stays in `app.R` until explicitly asked to split.
 - **Dev panel code:** clearly marked with `# ---- Dev panel` and
   `# ---- Action tracker` section comments. Do not interleave with main app logic.
