@@ -19,6 +19,15 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Awaiting verification
 
+- [ ] **Empty visit_dates crash fix** (2026-11-27, on `amendments-batch-4`, commit
+  `57612a7`). An uploaded file with an **empty visit_dates sheet** crashed the app silently
+  (readxl typed the 0-row sheet's `case_id`/`context_id` as logical → the `flat_visits()`
+  `left_join` failed on incompatible key types inside an observer → session teardown). Fix:
+  coerce all four tables' join keys to character after reading; plus an upload-summary note
+  when no visit dates are present. Verify: upload a file with cases + contexts +
+  case_contexts populated but **visit_dates empty** → app loads, network draws, amber "no
+  visit dates yet" note shows; then add visit dates → full behaviour returns.
+
 - [ ] **Batch 4 (B4.1–B4.4)** — implemented and committed on `amendments-batch-4`
   (2026-11-27, based on `coding-standards-tidyverse`), not yet tested in RStudio/Excel.
   Verify: (B4.2) the per-sheet "Instructions" links are gone from the template and the
