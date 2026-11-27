@@ -205,9 +205,6 @@ readme_rows <- list(
   list(style = note_style,    text = "4.  visit_dates — one row per date a case visited a context."),
   list(style = note_style,    text = "5.  Save as .xlsx and upload it with the Upload button in the network tool."),
   list(style = note_style,    text = ""),
-  list(style = note_style,    text = "Each data sheet has an 'Instructions' link (to the right of its columns) that jumps"),
-  list(style = note_style,    text = "back to its section below."),
-  list(style = note_style,    text = ""),
 
   list(style = section_style, text = "CASES SHEET"),
   list(style = note_style,    text = "One row per case. This is your main linelist and can hold everything you need for"),
@@ -317,14 +314,6 @@ for (i in seq_along(readme_rows)) {
   writeData(wb, "README", readme_rows[[i]]$text, startRow = i, colNames = FALSE)
   addStyle(wb, "README", readme_rows[[i]]$style, rows = i, cols = 1)
 }
-
-# README section rows — targets for the per-sheet Instructions links (B2.8).
-readme_texts <- vapply(readme_rows, function(r) r$text, character(1))
-find_readme_row <- function(txt) which(readme_texts == txt)[1]
-readme_row_cases        <- find_readme_row("CASES SHEET")
-readme_row_contexts     <- find_readme_row("CONTEXTS SHEET")
-readme_row_casecontexts <- find_readme_row("CASE_CONTEXTS SHEET")
-readme_row_visitdates   <- find_readme_row("VISIT_DATES SHEET")
 
 
 # ---- Dropdowns --------------------------------------------------------------
@@ -928,24 +917,6 @@ add_sheet(
 )
 writeData(wb, "visit_dates", visit_dates_d[-1, ], startRow = 3, startCol = 1, colNames = FALSE)
 
-
-
-# ---- Instructions links -----------------------------------------------------
-# A locked "Instructions" hyperlink on each data sheet, placed one column past
-# the last column, jumping to that sheet's section on the README tab. It sits
-# outside the data table, so the app (which reads columns by name) ignores it.
-instr_link <- function(sheet, col, readme_row) {
-  writeFormula(wb, sheet,
-               makeHyperlinkString(sheet = "README", row = readme_row, col = 1,
-                                   text = "Instructions"),
-               startRow = 1, startCol = col)
-  addStyle(wb, sheet, hdr_style, rows = 1, cols = col)
-  setColWidths(wb, sheet, cols = col, widths = 14)
-}
-instr_link("cases",         33, readme_row_cases)
-instr_link("contexts",       4, readme_row_contexts)
-instr_link("case_contexts",  4, readme_row_casecontexts)
-instr_link("visit_dates",    4, readme_row_visitdates)
 
 
 # ---- Named ranges -----------------------------------------------------------

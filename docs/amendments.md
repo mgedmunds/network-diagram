@@ -22,16 +22,26 @@ through the "Ready to action" list. Plain English, no special format needed.
   no transmission-relevant edge) and update it if needed, plus the data-dictionary
   `exposure_relevance` values.
 
-- [ ] **B4.2 Remove the "Instructions" link** to the right of each data sheet (added as B2.8
-  last session). Remove the `instr_link()` helper + its four calls in `make_template.R`
-  (and the now-unused `readme_row_*` lookups if nothing else uses them). The README section
-  headings can stay. (User reversed the B2.8 decision.)
-
 - [ ] **B4.3 Add a `context_notes` column** to the contexts sheet (free text). Update
   `make_template.R`: headers `c("context_id","context_name","context_type","context_notes")`,
   col_widths, demo data, unlocked styling, the blank-row grey-out range, and the
   `ContextsRange` named region (cols 1:3 -> 1:4). App reads contexts by column name so the
   extra column is safe (no app change needed). Add the field to `docs/data-dictionary.md`.
+
+- [ ] **B4.4 Remove the in-app generated demo/dummy dataset** (requested 2026-11-27). The app
+  can rely on file upload only. Remove `make_demo_data()` and the code path that loads it (the
+  demo-data button/landing behaviour), so the app starts with no data until a file is
+  uploaded. PRECONDITION — CHECK FIRST: confirm the Excel template still ships a worked demo
+  dataset (so users have something to explore/upload). VERIFIED 2026-11-27: `make_template.R`
+  generates a fictional 20-case outbreak written into the template (demo data L624–L918; the
+  README note at L198 tells users "The workbook opens with example data for a fictional 20-case
+  outbreak"). The template demo is independent of `make_demo_data()`, so removing the app's
+  version does not affect it. SCOPE FLAG: this is an `app.R` change, not a template tweak, and
+  it unwinds a documented convention (CLAUDE.md "Demo data: `make_demo_data()` must always
+  return valid data"). CHECK before coding: (a) what the app shows with no data loaded
+  (empty-state messaging on Home + each view, so it doesn't error on empty reactives);
+  (b) whether the Dev Panel or any test relies on demo data; (c) update CLAUDE.md to drop the
+  demo-data convention. Confirm approach before implementing.
 
 ---
 
