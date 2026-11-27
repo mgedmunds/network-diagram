@@ -226,6 +226,7 @@ readme_rows <- list(
   list(style = note_style,    text = "•  context_id is an essential unique ID you enter, in the form Ctxt-001, Ctxt-002 …"),
   list(style = note_style,    text = "   (unique, enforced the same way as case_id; the row greys out until it is filled)."),
   list(style = note_style,    text = "•  context_type is chosen from a dropdown (the Setting Types list on the Dropdowns tab)."),
+  list(style = note_style,    text = "•  context_notes is optional free text for any notes about the place (ignored by the network tool)."),
   list(style = note_style,    text = ""),
 
   list(style = section_style, text = "CASE_CONTEXTS SHEET"),
@@ -507,6 +508,20 @@ contexts_d <- data.frame(
     "Household","Household","Household","Household","Household",
     "Community","Place of worship","Healthcare","Healthcare",
     "Workplace","Community","Transport","School"
+  ),
+  context_notes = c(
+    "Reception class affected; head teacher is the contact.",
+    "Two rooms share staff.",
+    "Index case household.",
+    "", "", "Multi-generational household.", "",
+    "Weekly toddler group on Tuesdays.",
+    "Large Sunday service.",
+    "Paediatric ward; IPC team notified.",
+    "",
+    "Open-plan office.",
+    "Busy Saturday market.",
+    "Commuter hub.",
+    ""
   ),
   stringsAsFactors = FALSE
 )
@@ -834,9 +849,10 @@ freezePane(wb, "cases", firstActiveRow = 2, firstActiveCol = 2)
 
 add_sheet(
   wb, "contexts",
-  headers     = c("context_id", "context_name", "context_type"),
-  example     = list(contexts_d$context_id[1], contexts_d$context_name[1], contexts_d$context_type[1]),
-  col_widths  = c(12, 35, 20),
+  headers     = c("context_id", "context_name", "context_type", "context_notes"),
+  example     = list(contexts_d$context_id[1], contexts_d$context_name[1],
+                     contexts_d$context_type[1], contexts_d$context_notes[1]),
+  col_widths  = c(12, 35, 20, 45),
   nrows       = 1000,
   has_example = FALSE,
   dropdowns   = list(
@@ -845,13 +861,13 @@ add_sheet(
 )
 writeData(wb, "contexts", contexts_d[-1, ], startRow = 3, startCol = 1, colNames = FALSE)
 
-# context_id is manual — no formula; all three columns editable.
+# context_id is manual — no formula; all four columns editable.
 addStyle(wb, "contexts", unlocked_style,
-         rows = 2:1001, cols = 1:3, gridExpand = TRUE, stack = TRUE)
+         rows = 2:1001, cols = 1:4, gridExpand = TRUE, stack = TRUE)
 
 # Grey the rest of a row until its context_id is entered.
 conditionalFormatting(wb, "contexts",
-                      cols  = 2:3,
+                      cols  = 2:4,
                       rows  = 2:1001,
                       type  = "expression",
                       rule  = '$A2=""',
@@ -927,7 +943,7 @@ writeData(wb, "visit_dates", visit_dates_d[-1, ], startRow = 3, startCol = 1, co
 # sheet to validate context_type entries against the Dropdowns tab.
 
 createNamedRegion(wb, sheet = "cases",         rows = 1:1001, cols = 1:32, name = "CasesRange")
-createNamedRegion(wb, sheet = "contexts",      rows = 1:1001, cols = 1:3,  name = "ContextsRange")
+createNamedRegion(wb, sheet = "contexts",      rows = 1:1001, cols = 1:4,  name = "ContextsRange")
 createNamedRegion(wb, sheet = "case_contexts", rows = 1:2001, cols = 1:3,  name = "CaseContextsRange")
 createNamedRegion(wb, sheet = "visit_dates",   rows = 1:2001, cols = 1:3,  name = "VisitDatesRange")
 createNamedRegion(wb, sheet = "Dropdowns",     rows = 2:100,  cols = 1,    name = "ContextTypes")

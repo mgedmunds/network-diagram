@@ -59,6 +59,7 @@ One row per unique context. Provided as a dedicated `contexts` sheet in the xlsx
 | `context_id` | character | PK | Yes | Yes | Primary key, **manually entered** (ADR-007), pattern `Ctxt-001`, `Ctxt-002` … Duplicate or wrong-format IDs are flagged red by conditional formatting. Join key in `case_contexts` and `visit_dates`. |
 | `context_name` | character | — | No | Yes | Human-readable name for the context. Free text; should be unique within the dataset. |
 | `context_type` | character | — | Yes | Yes | User-defined categorical label describing the type of context (e.g. `School`, `Household`, `Healthcare`). Not pre-coded — values are determined by the data entered. Drives node colour in the network and the context-type filter. |
+| `context_notes` | character | — | No | No | Optional free-text notes about the context. Collected in the workbook for the user's own reference; **not read by the network tool.** |
 
 ---
 

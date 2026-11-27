@@ -22,12 +22,6 @@ through the "Ready to action" list. Plain English, no special format needed.
   no transmission-relevant edge) and update it if needed, plus the data-dictionary
   `exposure_relevance` values.
 
-- [ ] **B4.3 Add a `context_notes` column** to the contexts sheet (free text). Update
-  `make_template.R`: headers `c("context_id","context_name","context_type","context_notes")`,
-  col_widths, demo data, unlocked styling, the blank-row grey-out range, and the
-  `ContextsRange` named region (cols 1:3 -> 1:4). App reads contexts by column name so the
-  extra column is safe (no app change needed). Add the field to `docs/data-dictionary.md`.
-
 - [ ] **B4.4 Remove the in-app generated demo/dummy dataset** (requested 2026-11-27). The app
   can rely on file upload only. Remove `make_demo_data()` and the code path that loads it (the
   demo-data button/landing behaviour), so the app starts with no data until a file is
