@@ -1218,6 +1218,17 @@ server <- function(input, output, session) {
     cs$onset_date <- as.Date(cs$onset_date)
     vd$visit_date <- as.Date(vd$visit_date)
 
+    # Join keys must be character even when a sheet is empty: readxl types every
+    # column of a 0-row sheet as logical, which makes the left_join()s in
+    # flat_visits() fail on incompatible key types (character vs logical) and
+    # silently tears down the session. Coerce defensively.
+    cs$case_id     <- as.character(cs$case_id)
+    st$context_id  <- as.character(st$context_id)
+    cst$case_id    <- as.character(cst$case_id)
+    cst$context_id <- as.character(cst$context_id)
+    vd$case_id     <- as.character(vd$case_id)
+    vd$context_id  <- as.character(vd$context_id)
+
     # The template uses Excel row-position formulas for case_id and context_id.
     # readxl reads these as NA when the file hasn't been opened in Excel first
     # (openxlsx doesn't store cached formula values). Derive the IDs from row
@@ -1529,11 +1540,18 @@ server <- function(input, output, session) {
       div(class = "mt-2 mb-0", style = "font-size:0.85em; color:#1e7e34;",
           "Your file was read directly in your web browser on this device — ",
           "it is not uploaded to any server and does not leave your organisation's IT environment.")
+    # Flag when no visit dates have been entered: the network still draws from
+    # case_contexts, but the timeline and visit-timing details stay limited.
+    no_visits <- if (nrow(d$visit_dates) == 0)
+      div(class = "mt-2 mb-0", style = "font-size:0.85em; color:#8a6d3b;",
+          "No visit dates have been entered yet — the network will still draw, ",
+          "but the timeline and visit-timing details stay limited until you add them.")
     div(class = "alert alert-success mt-2 mb-0", role = "status",
         tags$strong("File loaded. "),
         sprintf("%d cases, %d contexts and %d visit dates read in. ",
                 nrow(d$cases), nrow(d$contexts), nrow(d$visit_dates)),
         "See the ", tags$strong("Source data"), " tab to view all imported data.",
+        no_visits,
         privacy)
   })
 
