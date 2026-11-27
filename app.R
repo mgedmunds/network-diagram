@@ -137,7 +137,7 @@ DICT_TABLES <- list(
     ~Field,             ~Type,       ~Key,        ~Required, ~Description,
     "case_id",          "character", "PK + FK",   "Yes",     "Composite primary key. FK to cases.case_id.",
     "context_id",       "integer",   "PK + FK",   "Yes",     "Composite primary key. FK to contexts.context_id.",
-    "exposure_relevance", "character", "—",       "No",      "Practitioner judgement on the epi relevance of this case-context link. Values: <b>Infectious period</b> (case may have spread infection here), <b>Exposure window</b> (case may have acquired infection here), <b>Both</b> (relevant to both windows, e.g. household resident), <b>Neither</b> (link recorded but not considered transmission-relevant). Stored in the workbook; not derived from visit dates."
+    "exposure_relevance", "character", "—",       "No",      "Practitioner judgement on the epi relevance of this case-context link. Values: <b>Infectious period</b> (case may have spread infection here), <b>Exposure window</b> (case may have acquired infection here), <b>Both</b> (relevant to both windows, e.g. household resident), <b>Neither</b> (link recorded but not considered transmission-relevant), <b>Unknown</b> (relevance not yet assessed). Stored in the workbook; not derived from visit dates."
   ),
   visit_dates = tibble::tribble(
     ~Field,           ~Type,       ~Key,        ~Required, ~Description,
@@ -376,13 +376,16 @@ build_bipartite <- function(visits, ll, colours) {
   #   Infectious period → red arrow pointing TO the context (case spread here)
   #   Exposure window   → blue arrow pointing FROM the context (case caught it here)
   #   Both              → purple bidirectional arrow
-  #   Neither           → grey dashed line (present but not relevant)
+  #   Neither           → solid black line (present but judged not relevant)
+  #   Unknown / other   → grey dashed line (relevance not yet assessed)
+  known_rel <- c("Infectious period", "Exposure window", "Both", "Neither")
   edges <- edges_agg %>%
     transmute(
       from               = case_id,
       to                 = paste0("ctx::", context_name),
       exposure_relevance = exposure_relevance,
-      dashes             = exposure_relevance == "Neither",
+      # Dashed = Unknown or any unrecognised value; the four known categories are solid.
+      dashes             = !(exposure_relevance %in% known_rel),
       arrows             = dplyr::case_when(
                              exposure_relevance == "Infectious period" ~ "to",
                              exposure_relevance == "Exposure window"   ~ "from",
@@ -392,6 +395,7 @@ build_bipartite <- function(visits, ll, colours) {
                              exposure_relevance == "Infectious period" ~ "#d62728",
                              exposure_relevance == "Exposure window"   ~ "#1f77b4",
                              exposure_relevance == "Both"              ~ "#9467bd",
+                             exposure_relevance == "Neither"           ~ "#1a1a1a",
                              TRUE                                      ~ "#9aa0a6"),
       title              = paste0(
                              "<b>", htmltools::htmlEscape(case_id), "</b> visited <b>",
@@ -404,8 +408,10 @@ build_bipartite <- function(visits, ll, colours) {
                                  "<br>Present — during infectious period<br><i>Case may have transmitted infection here</i>",
                                exposure_relevance == "Exposure window"   ~
                                  "<br>Present — during exposure window<br><i>Case may have acquired infection here</i>",
+                               exposure_relevance == "Neither"           ~
+                                 "<br>Present — outside both windows<br><i>Not considered relevant to transmission</i>",
                                TRUE ~
-                                 "<br>Present — outside both windows<br><i>Not considered relevant to transmission</i>")))
+                                 "<br>Relevance not yet assessed<br><i>Awaiting practitioner judgement</i>")))
   list(nodes = bind_rows(context_nodes, case_nodes), edges = edges)
 }
 
@@ -529,7 +535,7 @@ recorded, are listed against the link and shown on the timeline.
 
 For each visit, the investigator records **why that visit matters** for
 transmission. This is a judgement made when completing the line list — the tool
-does not work it out from the dates. There are four categories, shown by the
+does not work it out from the dates. There are five categories, shown by the
 colour and arrow of each line in the Who visited where view:
 
 - **Infectious period** — the case was present while they could spread infection
@@ -539,7 +545,8 @@ colour and arrow of each line in the Who visited where view:
 - **Both** — the visit falls in both windows, for example a household resident
   (purple, two-way arrow).
 - **Neither** — the visit is recorded but is not considered relevant to
-  transmission (grey dashed line).
+  transmission (solid black line).
+- **Unknown** — the relevance has not yet been assessed (grey dashed line).
 
 ---
 
@@ -617,8 +624,8 @@ Colour = context type (see the legend). Size = number of linked cases. Hover any
 dot or line for details, drag to rearrange, and click a node to highlight its
 connections. In the Who visited where view, the line colour and arrow show the
 recorded relevance of each visit: **red arrow → context** = infectious period;
-**blue arrow → case** = exposure window; **purple ↔** = both; **grey dashed** =
-neither.
+**blue arrow → case** = exposure window; **purple ↔** = both; **solid black** =
+neither; **grey dashed** = unknown.
 
 ## Time slider, timeline and network measures
 
@@ -1610,8 +1617,10 @@ server <- function(input, output, session) {
         tags$span("Exposure window",  style = "font-size:0.78em;")), tags$br(),
       tags$span(leg_arrow("#9467bd", "both"),
         tags$span("Both windows",     style = "font-size:0.78em;")), tags$br(),
+      tags$span(leg_arrow("#1a1a1a"),
+        tags$span("Neither (not relevant)", style = "font-size:0.78em;")), tags$br(),
       tags$span(leg_arrow("#9aa0a6", dashed = TRUE),
-        tags$span("Outside both",     style = "font-size:0.78em;"))
+        tags$span("Unknown",          style = "font-size:0.78em;"))
     ) else NULL
 
     div(style = paste0(

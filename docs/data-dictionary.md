@@ -96,8 +96,9 @@ Not stored. Computed at runtime for each `visit_date` by comparing against `onse
 | `Infectious period` | `onset − inf_before ≤ visit_date ≤ onset + inf_after` | Case may have infected others at this context on this date |
 | `Both` | Case has at least one date in the exposure window AND at least one date in the infectious period at this context | Context is relevant in both directions (e.g. household resident present across both windows) |
 | `Neither` | Date falls outside all windows | Visit is recorded but not considered transmission-relevant |
+| `Unknown` | — | Relevance has not yet been assessed by the investigator |
 
-**Edge aggregation rule:** Where a case × context pair has multiple visit dates, the network edge takes the highest-priority category across all dates: Both > Infectious > Exposure > Neither.
+**Edge aggregation rule:** Where a case × context pair has multiple visit dates, the network edge takes the highest-priority category across all dates: Both > Infectious > Exposure > Neither. (`Unknown` is a practitioner-entered value, not derived, so it does not participate in this ordering.)
 
 **Default parameter values (measles):**
 

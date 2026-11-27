@@ -234,7 +234,7 @@ readme_rows <- list(
   list(style = note_style,    text = "connected to which places, and drives the 'contexts' column back on the cases sheet."),
   list(style = note_style,    text = "•  case_id and context_id are chosen from dropdowns (only IDs already entered appear)."),
   list(style = note_style,    text = "•  exposure_relevance records your judgement of the link: Infectious period, Exposure"),
-  list(style = note_style,    text = "   window, Both, or Neither."),
+  list(style = note_style,    text = "   window, Both, Neither, or Unknown (use Unknown where the relevance has not yet been assessed)."),
   list(style = note_style,    text = ""),
 
   list(style = section_style, text = "VISIT_DATES SHEET"),
@@ -906,7 +906,7 @@ add_sheet(
   dropdowns   = list(
     list(col = 1, formula = 'OFFSET(cases!$A$2,0,0,COUNTIF(cases!$A$2:$A$1001,"?*"),1)'),
     list(col = 2, formula = 'OFFSET(contexts!$A$2,0,0,COUNTIF(contexts!$A$2:$A$1001,"?*"),1)'),
-    list(col = 3, formula = '"Infectious period,Exposure window,Both,Neither"')
+    list(col = 3, formula = '"Infectious period,Exposure window,Both,Neither,Unknown"')
   )
 )
 writeData(wb, "case_contexts", case_contexts_d[-1, ], startRow = 3, startCol = 1, colNames = FALSE)

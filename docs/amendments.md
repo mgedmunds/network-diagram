@@ -15,13 +15,6 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ### Batch 4 — template tweaks (requested 2026-08-22, not started)
 
-- [ ] **B4.1 Add "Unknown" to `exposure_relevance`** (case_contexts sheet). Dropdown is
-  currently hardcoded `"Infectious period,Exposure window,Both,Neither"` in
-  `make_template.R`; add `Unknown`. CHECK the app's edge-categorisation/colour logic in
-  `app.R` handles an unrecognised value gracefully (likely treat `Unknown` like `Neither` /
-  no transmission-relevant edge) and update it if needed, plus the data-dictionary
-  `exposure_relevance` values.
-
 - [ ] **B4.4 Remove the in-app generated demo/dummy dataset** (requested 2026-11-27). The app
   can rely on file upload only. Remove `make_demo_data()` and the code path that loads it (the
   demo-data button/landing behaviour), so the app starts with no data until a file is
