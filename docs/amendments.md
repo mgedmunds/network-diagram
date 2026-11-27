@@ -19,6 +19,15 @@ through the "Ready to action" list. Plain English, no special format needed.
 
 ## Awaiting verification
 
+- [ ] **Timeline shows epi windows without visit dates** (2026-11-27, on
+  `amendments-batch-4`, commit `97894b5`). The timeline no longer blanks when a node has no
+  visit dates — it falls back to `case_contexts` links to draw the onset date and the
+  exposure/infectious windows (derived from onset + the epi parameters), omitting the visit
+  dots. Verify: with the no-visit-dates file, select a **case** → timeline shows one row per
+  linked context with the coloured windows + dashed onset line, no grey dots; select a
+  **context** → one row per linked case with windows + onset. Then load a file *with* visit
+  dates and confirm the dots and layout are unchanged.
+
 - [ ] **Empty visit_dates crash fix** (2026-11-27, on `amendments-batch-4`, commit
   `57612a7`). An uploaded file with an **empty visit_dates sheet** crashed the app silently
   (readxl typed the 0-row sheet's `case_id`/`context_id` as logical → the `flat_visits()`
