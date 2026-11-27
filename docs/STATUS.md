@@ -3,11 +3,13 @@
 Single source of truth for current project state.
 Claude updates this at the end of every session. Read this first at the start of each session.
 
-**Last updated:** 2026-08-22 (session 12)
+**Last updated:** 2026-11-27 (session 14)
 
 ---
 
 ## Current focus
+
+**Batch 4 implemented (2026-11-27, session 14) on branch `amendments-batch-4` (based on `coding-standards-tidyverse`, NOT main — that branch holds the unmerged tidyverse app.R rewrite B4.1/B4.4 build on). Four items, one commit each, not yet RStudio/Excel tested: B4.2 removed the per-sheet "Instructions" links from the template; B4.3 added a free-text `context_notes` column to the contexts sheet; B4.1 added an `Unknown` value to `exposure_relevance` and, in the Who-visited-where view, recoloured Neither → solid black and Unknown → grey dashed (ADR-002 addendum written; empty duplicate ADR-002 stub deleted); B4.4 removed the in-app `make_demo_data()` so the app is upload-only — `raw()` now `validate()`s a file is present and data-driven outputs show "Upload your outbreak data on the Home tab to begin." The worked example now lives only in the Excel template. NEXT: (1) verify Batch 4 in RStudio/Excel (regenerate template; run app with no file then with the template); (2) decide whether to merge `coding-standards-tidyverse` → main, then Batch 4 on top; (3) still-open items below — the epi-window anchor decision, the data-dictionary drift reconciliation, and the earlier awaiting-verification batches (privacy statement, batches 2 & 3).**
 
 **Batches 2 & 3 verified and MERGED into `main` (2026-08-22, session 13) — fast-forward from `amendments-batch-2`, pushed. Includes the Dropdowns tab + editable lists, Discarded status, manual UIDs (ADR-007), sort/filter + frozen panes, the contexts manual-paste setup, and the COUNTIF dropdown fix. Branch `amendments-batch-2` is now fully merged (can be deleted). Next up: Batch 4 (queued in amendments.md — Unknown exposure_relevance, remove Instructions links, add context_notes), the upload privacy statement, and the open epi-window-anchor decision. The user also wants to work on the network analysis tool (app.R) itself.**
 
@@ -269,6 +271,7 @@ Matt reviews and clears entries at the start of the next session.
 | 2026-07-18 | Tooling | Added an automated pre-commit static check for `app.R` (`tools/check_app.py` + `tools/precommit_hook.py`, wired as a Claude Code `PreToolUse` hook in `.claude/settings.local.json`). Blocks Claude Code commits on unbalanced brackets / unterminated strings. Heuristic only — RStudio `parse()`/`runApp()` stays the gold check. Hook config is local/gitignored; the `tools/` scripts are committed. | Yes — session 11 |
 | 2026-06-23 | Schema | Data-dictionary drift NOT yet reconciled: (1) `cases` schema in CLAUDE.md predates the demographic fields (CIMS_id, forename, surname, date_of_birth, age, postcode) now in data-dictionary.md and the template; (2) the case-context relevance field is named variously `visit_relevance` (CLAUDE.md), `epi_category` (data-dictionary.md) and `exposure_relevance` (app.R), and is documented as *derived* but is actually *stored/manually entered*. Needs one reconciliation pass + decision on the canonical name. | No |
 | 2026-08-22 | Schema | `case_id` and `context_id` switched from auto-generated row-position formulas to manually-entered unique IDs (pattern + uniqueness validated). See ADR-007. | Yes — session 12 |
+| 2026-11-27 | Views (B4.1) | Added a fifth `exposure_relevance` value `Unknown` (relevance not yet assessed, distinct from `Neither`). Who-visited-where edge styling changed: `Neither` now solid black (was grey dashed), `Unknown` grey dashed. Recorded as an addendum to ADR-002 (original four categories/meanings unchanged). | Yes — session 14 |
 | 2026-08-22 | Epi | Should `exposure_window` / `infectious_period` be anchored on rash onset (`date_of_rash`) rather than symptom onset (`onset_date`)? Measles guidance typically uses rash onset for the infectious period. Affects template formulas + app epi-window logic. To confirm vs UKHSA guidance; likely an ADR. See amendments.md (Parked). | No |
 
 ---
